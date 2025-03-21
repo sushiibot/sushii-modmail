@@ -3,9 +3,9 @@ import type CommandRouter from "./CommandRouter";
 import parentLogger from "./utils/logger";
 import type { DB } from "./database/db";
 import { ThreadRepository } from "repositories/thread.repository";
-import { ThreadService } from "services/threadService";
+import { ThreadService } from "services/ThreadService";
 import { MessageRelayService } from "services/MessageRelayService";
-import { DMController } from "controllers/modmailController";
+import { DMController } from "controllers/DMController";
 
 const logger = parentLogger.child({ module: "events" });
 

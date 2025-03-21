@@ -1,14 +1,27 @@
-import { EmbedBuilder, User, type MessageCreateOptions } from "discord.js";
+import {
+  EmbedBuilder,
+  User,
+  type GuildForumThreadCreateOptions,
+  type MessageCreateOptions,
+} from "discord.js";
 import { Thread } from "../models/thread.model";
+import type { StaffMessageOptions } from "services/MessageRelayService";
 
-export class ThreadView {
+export class StaffThreadView {
   /**
    * Generates the initial message for a new modmail thread
    */
-  static newThreadMessage(userId: string): MessageCreateOptions {
+  static initialThreadMessage(userId: string): MessageCreateOptions {
+    // TODO: Should include
+    // - Display name, username
+    // - Mention
+    // - Mutual servers as bots
+    // - Account / Member age
+    // - Roles
+    // - Previous threads
+
     return {
       content: `New ModMail from <@${userId}>`,
-      // You could add embeds, components, etc. here
     };
   }
 
@@ -18,10 +31,7 @@ export class ThreadView {
   static newThreadMetadata(
     userId: string,
     username: string
-  ): {
-    name: string;
-    reason: string;
-  } {
+  ): Omit<GuildForumThreadCreateOptions, "message"> {
     return {
       name: `${username}`,
       reason: `New ModMail from ${userId}`,
@@ -42,9 +52,12 @@ export class ThreadView {
     const threadLinks = threads
       .map((thread) => {
         const timestamp = `<t:${thread.createdAt.getUTCMilliseconds()}:D>`;
+        const closer = thread.closedBy
+          ? ` - Closed by <@${thread.closedBy}>`
+          : "";
         const url = `https://discord.com/channels/${thread.guildId}/${thread.channelId}`;
 
-        return `${timestamp} - ${url}`;
+        return `${timestamp} - ${closer} - ${url}`;
       })
       .join("\n");
 
@@ -62,10 +75,7 @@ export class ThreadView {
   static staffReplyEmbed(
     staffUser: User,
     content: string,
-    options: {
-      anonymous?: boolean;
-      plainText?: boolean;
-    } = {}
+    options: StaffMessageOptions = {}
   ): EmbedBuilder {
     const embed = new EmbedBuilder();
 

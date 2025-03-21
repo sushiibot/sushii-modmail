@@ -13,16 +13,19 @@ export class ThreadRepository {
     channelId: string
   ): Promise<Thread> {
     const createdAt = new Date();
-    await this.db.insert(threads).values({
-      guildId,
-      threadId: channelId,
-      recipientId: userId,
-      createdAt,
-      closedAt: null,
-      title: null,
-    });
+    const inserted = await this.db
+      .insert(threads)
+      .values({
+        guildId,
+        threadId: channelId,
+        recipientId: userId,
+        createdAt,
+        closedAt: null,
+        title: null,
+      })
+      .returning();
 
-    return new Thread(guildId, channelId, userId, createdAt);
+    return Thread.fromDatabaseRow(inserted[0]);
   }
 
   async getOpenThreadByUserID(userId: string): Promise<Thread | null> {
@@ -41,14 +44,7 @@ export class ThreadRepository {
 
     const thread = result[0];
 
-    return new Thread(
-      thread.guildId,
-      thread.threadId,
-      thread.recipientId,
-      thread.createdAt,
-      thread.closedAt,
-      thread.title
-    );
+    return Thread.fromDatabaseRow(thread);
   }
 
   async getThreadByChannelId(channelId: string): Promise<Thread | null> {
@@ -64,20 +60,13 @@ export class ThreadRepository {
 
     const thread = result[0];
 
-    return new Thread(
-      thread.guildId,
-      thread.threadId,
-      thread.recipientId,
-      thread.createdAt,
-      thread.closedAt,
-      thread.title
-    );
+    return Thread.fromDatabaseRow(thread);
   }
 
-  async closeThread(channelId: string): Promise<void> {
+  async closeThread(channelId: string, userId: string): Promise<void> {
     await this.db
       .update(threads)
-      .set({ closedAt: new Date() })
+      .set({ closedAt: new Date(), closedBy: userId })
       .where(eq(threads.threadId, channelId));
   }
 

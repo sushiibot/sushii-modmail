@@ -6,9 +6,10 @@ export class Thread {
     public guildId: string,
     public channelId: string,
     public userId: string,
+    public title: string | null = null,
     public createdAt: Date,
     public closedAt: Date | null = null,
-    public title: string | null = null
+    public closedBy: string | null = null
   ) {}
 
   static fromDatabaseRow(row: typeof threads.$inferSelect): Thread {
@@ -16,9 +17,10 @@ export class Thread {
       row.guildId,
       row.threadId,
       row.recipientId,
+      row.title,
       row.createdAt,
       row.closedAt,
-      row.title
+      row.closedBy
     );
   }
 

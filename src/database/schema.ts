@@ -21,11 +21,14 @@ export const threads = sqliteTable(
 
     createdAt: integer({ mode: "timestamp" }).notNull().default(new Date()),
     closedAt: integer({ mode: "timestamp" }),
+
+    closedBy: text(),
   },
   (table) => [
     // Ensure IDs are numeric
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
     check("thread_id_check", sql`${table.threadId} NOT GLOB '*[^0-9]*'`),
     check("recipient_id_check", sql`${table.recipientId} NOT GLOB '*[^0-9]*'`),
+    check("closedby_id_check", sql`${table.closedBy} NOT GLOB '*[^0-9]*'`),
   ]
 );

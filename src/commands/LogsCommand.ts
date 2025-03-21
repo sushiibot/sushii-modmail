@@ -1,9 +1,9 @@
 import type { Message } from "discord.js";
 import TextCommandHandler from "./CommandHandler";
-import type { ThreadService } from "services/threadService";
+import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
-import { ThreadView } from "../views/ThreadView";
+import { StaffThreadView } from "../views/StaffThreadView";
 
 export abstract class LogsCommand extends TextCommandHandler {
   protected threadService: ThreadService;
@@ -46,7 +46,7 @@ export abstract class LogsCommand extends TextCommandHandler {
     );
 
     // Format and show links to all previous threads
-    const formattedThreads = ThreadView.formatThreadList(threads);
+    const formattedThreads = StaffThreadView.formatThreadList(threads);
     await msg.channel.send(formattedThreads);
   }
 }

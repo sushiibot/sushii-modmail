@@ -1,5 +1,10 @@
-import { Client, Message, User } from "discord.js";
+import { Client, Guild, Message, User } from "discord.js";
 import { getLogger } from "utils/logger";
+import {
+  UserThreadView,
+  type UserThreadViewGuild,
+  type UserThreadViewUser,
+} from "views/UserThreadView";
 
 export interface StaffMessageOptions {
   anonymous?: boolean;
@@ -46,7 +51,8 @@ export class MessageRelayService {
   async relayStaffMessageToUser(
     client: Client,
     userId: string,
-    staffUser: User,
+    guild: UserThreadViewGuild,
+    staffUser: UserThreadViewUser,
     content: string,
     options: StaffMessageOptions = {}
   ): Promise<void> {
@@ -54,7 +60,12 @@ export class MessageRelayService {
     const user = await client.users.fetch(userId);
 
     // Format the message to include staff member information
-    const formattedMessage = `**${staffUser.username}**: ${content}`;
+    const formattedMessage = UserThreadView.staffMessage(
+      guild,
+      staffUser,
+      content,
+      options
+    );
 
     // Send the DM
     await user.send(formattedMessage);

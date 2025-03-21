@@ -1,5 +1,5 @@
 import type { Message } from "discord.js";
-import type { ThreadService } from "services/threadService";
+import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
 import { BaseReplyCommand } from "./BaseReplyCommand";

@@ -32,7 +32,15 @@ describe("ThreadRepository", () => {
 
       const result = await threadRepository.getThreadByChannelId(channelId);
       expect(result).toEqual(
-        new Thread(guildId, channelId, userId, expect.any(Date), null, null)
+        new Thread(
+          guildId,
+          channelId,
+          userId,
+          null,
+          expect.any(Date),
+          null,
+          null
+        )
       );
     });
   });
@@ -48,7 +56,15 @@ describe("ThreadRepository", () => {
       const result = await threadRepository.getThreadByChannelId(channelId);
 
       expect(result).toEqual(
-        new Thread(guildId, channelId, userId, expect.any(Date), null, null)
+        new Thread(
+          guildId,
+          channelId,
+          userId,
+          null,
+          expect.any(Date),
+          null,
+          null
+        )
       );
     });
   });
@@ -59,8 +75,10 @@ describe("ThreadRepository", () => {
       const userId = "456";
       const channelId = "789";
 
+      const closerUserID = "987";
+
       await threadRepository.createThread(guildId, userId, channelId);
-      await threadRepository.closeThread(channelId);
+      await threadRepository.closeThread(channelId, closerUserID);
 
       const result = await threadRepository.getThreadByChannelId(channelId);
 
@@ -71,7 +89,9 @@ describe("ThreadRepository", () => {
 
     it("should be noop if the thread does not exist", async () => {
       const channelId = "nonexistent";
-      await threadRepository.closeThread(channelId);
+      const closerUserID = "987";
+
+      await threadRepository.closeThread(channelId, closerUserID);
     });
   });
 
@@ -86,7 +106,15 @@ describe("ThreadRepository", () => {
       const result = await threadRepository.getOpenThreadByUserID(userId);
 
       expect(result).toEqual(
-        new Thread(guildId, channelId, userId, expect.any(Date), null, null)
+        new Thread(
+          guildId,
+          channelId,
+          userId,
+          null,
+          expect.any(Date),
+          null,
+          null
+        )
       );
     });
 
@@ -103,8 +131,10 @@ describe("ThreadRepository", () => {
       const userId = "456";
       const channelId = "789";
 
+      const closerUserID = "987";
+
       await threadRepository.createThread(guildId, userId, channelId);
-      await threadRepository.closeThread(channelId);
+      await threadRepository.closeThread(channelId, closerUserID);
 
       const result = await threadRepository.getOpenThreadByUserID(userId);
 

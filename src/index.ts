@@ -7,7 +7,7 @@ import { registerEventHandlers } from "./events";
 import { getDb, type DB } from "database/db";
 import { ReplyCommand } from "commands/ReplyCommand";
 import { MessageRelayService } from "services/MessageRelayService";
-import { ThreadService } from "services/threadService";
+import { ThreadService } from "services/ThreadService";
 import { ThreadRepository } from "repositories/thread.repository";
 import { AnonymousReplyCommand } from "commands/AnonymousReplyCommand";
 

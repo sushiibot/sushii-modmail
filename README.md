@@ -10,7 +10,6 @@ threads entirely on Discord.
 
 - **Built-in Organization** - ModMail threads are Forum channel threads.
 - **Snippets** - Re-usable messages.
-- **Default Anonymous** - 
 
 ## Commands
 
@@ -38,7 +37,7 @@ bun install
 To run:
 
 ```bash
-bun run index.ts
+bun run ./src/index.ts
 ```
 
 ## Attributions

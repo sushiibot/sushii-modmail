@@ -1,12 +1,12 @@
 import type { Message } from "discord.js";
 import TextCommandHandler from "./CommandHandler";
-import type { ThreadService } from "services/threadService";
+import type { ThreadService } from "services/ThreadService";
 import type {
   MessageRelayService,
   StaffMessageOptions,
 } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
-import { ThreadView } from "views/ThreadView";
+import { StaffThreadView } from "views/StaffThreadView";
 
 export abstract class BaseReplyCommand extends TextCommandHandler {
   protected threadService: ThreadService;
@@ -57,6 +57,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       await this.messageService.relayStaffMessageToUser(
         msg.client,
         thread.userId,
+        msg.guild,
         msg.author,
         replyContent,
         this.replyOptions
@@ -66,7 +67,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       await msg.delete();
 
       // Re-send as embed to show the message was sent and how it looks
-      const embed = ThreadView.staffReplyEmbed(
+      const embed = StaffThreadView.staffReplyEmbed(
         msg.author,
         replyContent,
         this.replyOptions

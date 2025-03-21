@@ -1,5 +1,5 @@
 import { ChannelType, Client, Message } from "discord.js";
-import { ThreadService } from "../services/threadService";
+import { ThreadService } from "../services/ThreadService";
 import { MessageRelayService } from "../services/MessageRelayService";
 import { getLogger } from "../utils/logger";
 

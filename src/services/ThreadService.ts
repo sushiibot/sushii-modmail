@@ -1,7 +1,7 @@
 import { ChannelType, Client } from "discord.js";
 import { ThreadRepository } from "../repositories/thread.repository";
 import { Thread } from "../models/thread.model";
-import { ThreadView } from "../views/ThreadView";
+import { StaffThreadView } from "../views/StaffThreadView";
 import { getLogger } from "utils/logger";
 
 export class ThreadService {
@@ -47,21 +47,25 @@ export class ThreadService {
       );
     }
 
-    const threadMetadata = ThreadView.newThreadMetadata(userId, username);
-    const created = await modmailForumChannel.threads.create({
+    const threadMetadata = StaffThreadView.newThreadMetadata(userId, username);
+    const newThread = await modmailForumChannel.threads.create({
       name: threadMetadata.name,
       reason: threadMetadata.reason,
-      message: ThreadView.newThreadMessage(userId),
+      message: StaffThreadView.initialThreadMessage(userId),
     });
 
     return this.threadRepository.createThread(
-      created.guildId,
+      newThread.guildId,
       userId,
-      created.id
+      newThread.id
     );
   }
 
-  async closeThread(client: Client, thread: Thread): Promise<void> {
+  async closeThread(
+    client: Client,
+    thread: Thread,
+    userId: string
+  ): Promise<void> {
     const threadChannel = await client.channels.fetch(thread.channelId);
     if (!threadChannel) {
       throw new Error(`Thread channel not found: ${thread.channelId}`);
@@ -78,7 +82,7 @@ export class ThreadService {
     await threadChannel.setLocked(true);
 
     // Mark as closed in db
-    await this.threadRepository.closeThread(thread.channelId);
+    await this.threadRepository.closeThread(thread.channelId, userId);
   }
 
   /**
