@@ -25,7 +25,7 @@ Responding to a thread
 - `delete` - Delete a previous thread message.
 
 User information
-- `history` - Links to previous threads by the same user.
+- `logs` - Links to previous threads by the same user.
 
 ## Development
 

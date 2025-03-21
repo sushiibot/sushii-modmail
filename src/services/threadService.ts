@@ -1,9 +1,12 @@
 import { ChannelType, Client } from "discord.js";
-import { ThreadRepository } from "../models/thread.model";
+import { ThreadRepository } from "../repositories/thread.repository";
 import { Thread } from "../models/thread.model";
+import { ThreadView } from "../views/ThreadView";
+import { getLogger } from "utils/logger";
 
 export class ThreadService {
   private threadRepository: ThreadRepository;
+  private logger = getLogger("ThreadService");
 
   constructor(threadRepository: ThreadRepository) {
     this.threadRepository = threadRepository;
@@ -44,12 +47,11 @@ export class ThreadService {
       );
     }
 
+    const threadMetadata = ThreadView.newThreadMetadata(userId, username);
     const created = await modmailForumChannel.threads.create({
-      name: `${username}`,
-      reason: `New ModMail from ${userId}`,
-      message: {
-        content: `New ModMail from <@${userId}>`,
-      },
+      name: threadMetadata.name,
+      reason: threadMetadata.reason,
+      message: ThreadView.newThreadMessage(userId),
     });
 
     return this.threadRepository.createThread(
@@ -57,5 +59,43 @@ export class ThreadService {
       userId,
       created.id
     );
+  }
+
+  async closeThread(client: Client, thread: Thread): Promise<void> {
+    const threadChannel = await client.channels.fetch(thread.channelId);
+    if (!threadChannel) {
+      throw new Error(`Thread channel not found: ${thread.channelId}`);
+    }
+
+    if (!threadChannel.isThread()) {
+      throw new Error(`Not thread: ${thread.channelId}`);
+    }
+
+    // Send closed message
+    await threadChannel.send("Thread closed.");
+
+    // Lock the forum thread as completed
+    await threadChannel.setLocked(true);
+
+    // Mark as closed in db
+    await this.threadRepository.closeThread(thread.channelId);
+  }
+
+  /**
+   * Get a thread by its Discord channel ID
+   * @param channelId The Discord channel ID of the thread
+   * @returns The thread information or null if not found
+   */
+  async getThreadByChannelId(channelId: string): Promise<Thread | null> {
+    return this.threadRepository.getThreadByChannelId(channelId);
+  }
+
+  /**
+   * Get all threads created by a specific user
+   * @param userId The Discord user ID
+   * @returns Array of threads created by the user
+   */
+  async getAllThreadsByUserId(userId: string): Promise<Thread[]> {
+    return this.threadRepository.getAllThreadsByUserId(userId);
   }
 }

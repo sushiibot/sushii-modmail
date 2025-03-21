@@ -7,8 +7,18 @@ const logger = parentLogger.child({ module: "CommandRouter" });
 export default class CommandRouter {
   commands: Map<string, TextCommandHandler>;
 
-  constructor(commands: TextCommandHandler[]) {
-    this.commands = new Map(commands.map((c) => [c.name, c]));
+  constructor(commands?: TextCommandHandler[]) {
+    this.commands = new Map();
+
+    if (commands) {
+      this.addCommands(...commands);
+    }
+  }
+
+  addCommands(...commands: TextCommandHandler[]) {
+    commands.forEach((c) => {
+      this.commands.set(c.name, c);
+    });
   }
 
   async getPrefix(msg: Message): Promise<string> {

@@ -1,14 +1,18 @@
 import { ChannelType, Client, Message } from "discord.js";
 import { ThreadService } from "../services/threadService";
-import { MessageService } from "../services/messageService";
+import { MessageRelayService } from "../services/MessageRelayService";
 import { getLogger } from "../utils/logger";
 
 export class ModmailController {
   private threadService: ThreadService;
-  private messageService: MessageService;
+  private messageService: MessageRelayService;
+
   private logger = getLogger("ModmailController");
 
-  constructor(threadService: ThreadService, messageService: MessageService) {
+  constructor(
+    threadService: ThreadService,
+    messageService: MessageRelayService
+  ) {
     this.threadService = threadService;
     this.messageService = messageService;
   }
@@ -30,11 +34,16 @@ export class ModmailController {
         message.author.username
       );
 
-      await this.messageService.relayUserMessageToStaff(
+      const success = await this.messageService.relayUserMessageToStaff(
         client,
         thread.channelId,
         message
       );
+
+      if (success) {
+        // React to the user's message to indicate that it was received
+        await message.react("✅");
+      }
     } catch (error) {
       this.logger.error(`Error handling DM: ${error}`);
     }

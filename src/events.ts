@@ -6,7 +6,11 @@ import type { DB } from "./database/db";
 
 const logger = parentLogger.child({ module: "events" });
 
-export function registerEventHandlers(client: Client, db: DB) {
+export function registerEventHandlers(
+  client: Client,
+  db: DB,
+  commandRouter: CommandRouter
+) {
   client.once("ready", () => {
     logger.info(`Bot is online! ${client.user?.tag}`);
     // https://discord.com/oauth2/authorize?client_id=1111130119566790758&permissions=563362270660672&integration_type=0&scope=applications.commands+bot

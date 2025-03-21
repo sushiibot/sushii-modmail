@@ -4,10 +4,33 @@ import logger from "./utils/logger";
 import CommandRouter from "./CommandRouter";
 import dotenv from "dotenv";
 import { registerEventHandlers } from "./events";
-import { getDb } from "database/db";
+import { getDb, type DB } from "database/db";
+import { ReplyCommand } from "commands/ReplyCommand";
+import { MessageRelayService } from "services/MessageRelayService";
+import { ThreadService } from "services/threadService";
+import { ThreadRepository } from "repositories/thread.repository";
+import { AnonymousReplyCommand } from "commands/AnonymousReplyCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
+
+function buildCommandRouter(db: DB): CommandRouter {
+  const threadRepository = new ThreadRepository(db);
+  const threadService = new ThreadService(threadRepository);
+  const messageService = new MessageRelayService();
+
+  // Commands
+  const replyCommand = new ReplyCommand(threadService, messageService);
+  const areplyCommand = new AnonymousReplyCommand(
+    threadService,
+    messageService
+  );
+
+  const router = new CommandRouter();
+  router.addCommands(replyCommand, areplyCommand);
+
+  return router;
+}
 
 async function main() {
   const config = getConfigFromEnv();
@@ -26,8 +49,10 @@ async function main() {
       GatewayIntentBits.DirectMessages,
   });
 
+  const router = buildCommandRouter(db);
+
   // Event handlers
-  registerEventHandlers(client, db);
+  registerEventHandlers(client, db, router);
 
   logger.info("Starting Discord client...");
 
