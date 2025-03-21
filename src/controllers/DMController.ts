@@ -3,7 +3,7 @@ import { ThreadService } from "../services/threadService";
 import { MessageRelayService } from "../services/MessageRelayService";
 import { getLogger } from "../utils/logger";
 
-export class ModmailController {
+export class DMController {
   private threadService: ThreadService;
   private messageService: MessageRelayService;
 

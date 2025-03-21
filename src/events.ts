@@ -1,10 +1,21 @@
 import type { Client } from "discord.js";
 import type CommandRouter from "./CommandRouter";
 import parentLogger from "./utils/logger";
-import { getDMHandler } from "handlers/dmHandler";
 import type { DB } from "./database/db";
+import { ThreadRepository } from "repositories/thread.repository";
+import { ThreadService } from "services/threadService";
+import { MessageRelayService } from "services/MessageRelayService";
+import { DMController } from "controllers/modmailController";
 
 const logger = parentLogger.child({ module: "events" });
+
+function getDMHandler(db: DB): DMController {
+  const threadRepository = new ThreadRepository(db);
+  const threadService = new ThreadService(threadRepository);
+  const messageService = new MessageRelayService();
+
+  return new DMController(threadService, messageService);
+}
 
 export function registerEventHandlers(
   client: Client,
@@ -23,7 +34,7 @@ export function registerEventHandlers(
     logger.info(`Joined server: ${guild.name}`);
   });
 
-  const dmHandler = getDMHandler(db);
+  const dmController = getDMHandler(db);
 
   client.on("messageCreate", async (message) => {
     if (message.author.bot) {
@@ -34,6 +45,9 @@ export function registerEventHandlers(
       message.reply("pong");
     }
 
-    await dmHandler(message.client, message);
+    await Promise.allSettled([
+      commandRouter.handleMessage(message),
+      dmController.handleUserDM(message.client, message),
+    ]);
   });
 }

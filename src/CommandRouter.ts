@@ -43,7 +43,7 @@ export default class CommandRouter {
     return [commandName, args];
   }
 
-  async handleInteraction(msg: Message) {
+  async handleMessage(msg: Message) {
     if (!(await this.isCommand(msg))) {
       return;
     }
