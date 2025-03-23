@@ -10,9 +10,10 @@ export class ReplyCommand extends BaseReplyCommand {
   protected replyOptions = {};
 
   constructor(
+    forumChannelId: string,
     threadService: ThreadService,
     messageService: MessageRelayService
   ) {
-    super(threadService, messageService);
+    super(forumChannelId, threadService, messageService);
   }
 }

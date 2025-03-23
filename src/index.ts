@@ -14,10 +14,19 @@ import { AnonymousReplyCommand } from "commands/AnonymousReplyCommand";
 // Load environment variables from .env file, mostly for development
 dotenv.config();
 
-function buildCommandRouter(db: DB): CommandRouter {
+function buildCommandRouter(
+  config: ConfigType,
+  client: Client,
+  db: DB
+): CommandRouter {
   const threadRepository = new ThreadRepository(db);
-  const threadService = new ThreadService(threadRepository);
-  const messageService = new MessageRelayService();
+  const threadService = new ThreadService(
+    config.MAIL_GUILD_ID,
+    config.FORUM_CHANNEL_ID,
+    client,
+    threadRepository
+  );
+  const messageService = new MessageRelayService(client);
 
   // Commands
   const replyCommand = new ReplyCommand(threadService, messageService);
@@ -49,10 +58,10 @@ async function main() {
       GatewayIntentBits.DirectMessages,
   });
 
-  const router = buildCommandRouter(db);
+  const router = buildCommandRouter(config, client, db);
 
   // Event handlers
-  registerEventHandlers(client, db, router);
+  registerEventHandlers(config, client, db, router);
 
   logger.info("Starting Discord client...");
 

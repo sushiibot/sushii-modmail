@@ -9,17 +9,22 @@ import { getLogger } from "utils/logger";
 import { StaffThreadView } from "views/StaffThreadView";
 
 export abstract class BaseReplyCommand extends TextCommandHandler {
+  protected forumChannelId: string;
   protected threadService: ThreadService;
   protected messageService: MessageRelayService;
+
   protected abstract replyOptions: StaffMessageOptions;
 
   protected logger = getLogger(this.constructor.name);
 
   constructor(
+    forumChannelId: string,
     threadService: ThreadService,
     messageService: MessageRelayService
   ) {
     super();
+
+    this.forumChannelId = forumChannelId;
     this.threadService = threadService;
     this.messageService = messageService;
   }
@@ -30,7 +35,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
     }
 
     // Check if the message is in a modmail thread
-    if (msg.channel.parentId !== process.env.MODMAIL_FORUM_ID) {
+    if (msg.channel.parentId !== this.forumChannelId) {
       return;
     }
 
@@ -55,7 +60,6 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
     try {
       // Send the reply to the user
       await this.messageService.relayStaffMessageToUser(
-        msg.client,
         thread.userId,
         msg.guild,
         msg.author,

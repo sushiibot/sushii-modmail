@@ -5,7 +5,11 @@ import { Thread } from "../models/thread.model";
 
 // ThreadRepository (data access)
 export class ThreadRepository {
-  constructor(private db: DB) {}
+  private db: DB;
+
+  constructor(db: DB) {
+    this.db = db;
+  }
 
   async createThread(
     guildId: string,

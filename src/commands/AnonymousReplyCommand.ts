@@ -8,9 +8,10 @@ export class AnonymousReplyCommand extends BaseReplyCommand {
   protected replyOptions = { anonymous: true };
 
   constructor(
+    forumChannelId: string,
     threadService: ThreadService,
     messageService: MessageRelayService
   ) {
-    super(threadService, messageService);
+    super(forumChannelId, threadService, messageService);
   }
 }

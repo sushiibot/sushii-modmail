@@ -10,9 +10,10 @@ export class PlainReplyCommand extends BaseReplyCommand {
   protected replyOptions = { plainText: true };
 
   constructor(
+    forumChannelId: string,
     threadService: ThreadService,
     messageService: MessageRelayService
   ) {
-    super(threadService, messageService);
+    super(forumChannelId, threadService, messageService);
   }
 }

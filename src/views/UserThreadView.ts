@@ -1,12 +1,10 @@
 import {
   EmbedBuilder,
-  Guild,
-  User,
   type ImageURLOptions,
   type MessageCreateOptions,
 } from "discord.js";
-import { Thread } from "../models/thread.model";
 import type { StaffMessageOptions } from "services/MessageRelayService";
+import { Color } from "./colors";
 
 export interface UserThreadViewGuild {
   name: string;
@@ -48,7 +46,7 @@ export class UserThreadView {
     // Set the content
     embed.setDescription(content);
 
-    embed.setColor("#2F3136");
+    embed.setColor(Color.Blue);
 
     // Set timestamp
     embed.setTimestamp();

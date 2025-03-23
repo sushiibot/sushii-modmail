@@ -1,4 +1,5 @@
 import {
+  Collection,
   EmbedBuilder,
   User,
   type GuildForumThreadCreateOptions,
@@ -6,12 +7,38 @@ import {
 } from "discord.js";
 import { Thread } from "../models/thread.model";
 import type { StaffMessageOptions } from "services/MessageRelayService";
+import { formatUserIdentity } from "./user";
+
+interface MemberRole {
+  id: string;
+  rawPosition: number;
+}
+
+interface UserThreadInfo {
+  user: {
+    id: string;
+    displayName: string;
+    username: string;
+    createdAt: Date;
+    avatarURL(): string | null;
+  };
+  member: {
+    roles: {
+      cache: Collection<string, MemberRole>;
+    };
+    joinedAt: Date | null;
+    nickname: string | null;
+    avatarURL(): string | null;
+  } | null;
+  mutualGuilds?: { id: string; name: string }[];
+  previousThreads?: Thread[];
+}
 
 export class StaffThreadView {
   /**
    * Generates the initial message for a new modmail thread
    */
-  static initialThreadMessage(userId: string): MessageCreateOptions {
+  static initialThreadMessage(userInfo: UserThreadInfo): MessageCreateOptions {
     // TODO: Should include
     // - Display name, username
     // - Mention
@@ -20,8 +47,41 @@ export class StaffThreadView {
     // - Roles
     // - Previous threads
 
+    const embed = new EmbedBuilder().setAuthor({
+      name: formatUserIdentity(
+        userInfo.user.id,
+        userInfo.user.username,
+        userInfo.member?.nickname
+      ),
+      iconURL:
+        userInfo.member?.avatarURL() || userInfo.user.avatarURL() || undefined,
+    });
+
+    let description = `User created at <t:${userInfo.user.createdAt.getTime()}:R>`;
+    if (userInfo.member) {
+      if (userInfo.member.joinedAt) {
+        description += `\nJoined guild at <t:${userInfo.member.joinedAt.getTime()}:R>`;
+      }
+    }
+
+    embed.setDescription(description);
+
+    // Fields
+    const fields = [];
+    if (userInfo.member) {
+      const roles = Array.from(userInfo.member.roles.cache.values())
+        .sort((a, b) => b.rawPosition - a.rawPosition)
+        .map((role) => `<@&${role.id}>`);
+
+      fields.push({
+        name: "Roles",
+        value: roles.join(", ") || "None",
+      });
+    }
+
     return {
-      content: `New ModMail from <@${userId}>`,
+      content: `@here`,
+      embeds: [embed],
     };
   }
 

@@ -6,18 +6,30 @@ import { ThreadRepository } from "repositories/thread.repository";
 import { ThreadService } from "services/ThreadService";
 import { MessageRelayService } from "services/MessageRelayService";
 import { DMController } from "controllers/DMController";
+import type { ConfigType } from "config/config";
 
 const logger = parentLogger.child({ module: "events" });
 
-function getDMHandler(db: DB): DMController {
+function getDMHandler(
+  guildId: string,
+  forumChannelId: string,
+  client: Client,
+  db: DB
+): DMController {
   const threadRepository = new ThreadRepository(db);
-  const threadService = new ThreadService(threadRepository);
-  const messageService = new MessageRelayService();
+  const threadService = new ThreadService(
+    guildId,
+    forumChannelId,
+    client,
+    threadRepository
+  );
+  const messageService = new MessageRelayService(client);
 
   return new DMController(threadService, messageService);
 }
 
 export function registerEventHandlers(
+  config: ConfigType,
   client: Client,
   db: DB,
   commandRouter: CommandRouter
@@ -34,7 +46,12 @@ export function registerEventHandlers(
     logger.info(`Joined server: ${guild.name}`);
   });
 
-  const dmController = getDMHandler(db);
+  const dmController = getDMHandler(
+    config.MAIL_GUILD_ID,
+    config.FORUM_CHANNEL_ID,
+    client,
+    db
+  );
 
   client.on("messageCreate", async (message) => {
     if (message.author.bot) {

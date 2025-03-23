@@ -1,7 +1,21 @@
 import { ChannelType, Client, Message } from "discord.js";
-import { ThreadService } from "../services/ThreadService";
-import { MessageRelayService } from "../services/MessageRelayService";
 import { getLogger } from "../utils/logger";
+import type { MessageRelayServiceMessage } from "services/MessageRelayService";
+
+export interface MessageRelayService {
+  relayUserMessageToStaff(
+    channelId: string,
+    message: MessageRelayServiceMessage
+  ): Promise<boolean>;
+}
+
+export interface Thread {
+  channelId: string;
+}
+
+export interface ThreadService {
+  getOrCreateThread(userId: string, username: string): Promise<Thread>;
+}
 
 export class DMController {
   private threadService: ThreadService;
@@ -29,13 +43,11 @@ export class DMController {
 
       const userId = message.author.id;
       let thread = await this.threadService.getOrCreateThread(
-        client,
         userId,
         message.author.username
       );
 
       const success = await this.messageService.relayUserMessageToStaff(
-        client,
         thread.channelId,
         message
       );

@@ -1,72 +1,114 @@
-import { ChannelType, Client } from "discord.js";
-import { ThreadRepository } from "../repositories/thread.repository";
+import { ChannelType, Client, GuildMember } from "discord.js";
 import { Thread } from "../models/thread.model";
 import { StaffThreadView } from "../views/StaffThreadView";
 import { getLogger } from "utils/logger";
 
+interface ThreadRepository {
+  getOpenThreadByUserID(userId: string): Promise<Thread | null>;
+  getThreadByChannelId(channelId: string): Promise<Thread | null>;
+  getAllThreadsByUserId(userId: string): Promise<Thread[]>;
+  createThread(
+    guildId: string,
+    userId: string,
+    channelId: string
+  ): Promise<Thread>;
+  closeThread(channelId: string, userId: string): Promise<void>;
+}
+
 export class ThreadService {
+  private guildId: string;
+  private forumChannelId: string;
+  private client: Client;
   private threadRepository: ThreadRepository;
+
   private logger = getLogger("ThreadService");
 
-  constructor(threadRepository: ThreadRepository) {
+  constructor(
+    guildId: string,
+    forumChannelId: string,
+    client: Client,
+    threadRepository: ThreadRepository
+  ) {
+    this.guildId = guildId;
+    this.forumChannelId = forumChannelId;
+    this.client = client;
     this.threadRepository = threadRepository;
   }
 
-  async getOrCreateThread(
-    client: Client,
-    userId: string,
-    username: string
-  ): Promise<Thread> {
+  async getOrCreateThread(userId: string, username: string): Promise<Thread> {
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
 
     if (!thread) {
-      thread = await this.createNewThread(client, userId, username);
+      this.logger.debug(`Creating new thread for user ${userId}`);
+      thread = await this.createNewThread(userId, username);
     }
 
     return thread;
   }
 
   private async createNewThread(
-    client: Client,
     userId: string,
     username: string
   ): Promise<Thread> {
-    const modmailForumChannel = await client.channels.fetch(
-      process.env.MODMAIL_FORUM_ID!
+    const guild = this.client.guilds.cache.get(this.guildId);
+    if (!guild) {
+      throw new Error(`Guild not found: ${this.guildId}`);
+    }
+
+    const modmailForumChannel = await this.client.channels.fetch(
+      this.forumChannelId
     );
 
     if (!modmailForumChannel) {
       throw new Error(
-        `Modmail forum channel not found: ${process.env.MODMAIL_FORUM_ID}`
+        `Modmail forum channel not found: ${this.forumChannelId}`
       );
     }
 
     if (modmailForumChannel.type !== ChannelType.GuildForum) {
-      throw new Error(
-        `Invalid modmail forum channel: ${process.env.MODMAIL_FORUM_ID}`
-      );
+      throw new Error(`Invalid modmail forum channel: ${this.forumChannelId}`);
     }
 
+    // -------------------------------------------------------------------------
+    // Get recipient
+
+    let member: GuildMember | null = null;
+    try {
+      member = await guild.members.fetch(userId);
+    } catch (err) {
+      // Fine if the member is not found
+    }
+    const user = await this.client.users.fetch(userId);
+
+    // -------------------------------------------------------------------------
+    // Create Forum thread
     const threadMetadata = StaffThreadView.newThreadMetadata(userId, username);
+    const threadInitialMsg = StaffThreadView.initialThreadMessage({
+      user: user,
+      member: member,
+    });
+
     const newThread = await modmailForumChannel.threads.create({
       name: threadMetadata.name,
       reason: threadMetadata.reason,
-      message: StaffThreadView.initialThreadMessage(userId),
+      message: threadInitialMsg,
     });
 
-    return this.threadRepository.createThread(
+    // -------------------------------------------------------------------------
+    // Save to database
+    const thread = this.threadRepository.createThread(
       newThread.guildId,
       userId,
       newThread.id
     );
+
+    this.logger.debug(thread, `Created new thread`);
+
+    return thread;
   }
 
-  async closeThread(
-    client: Client,
-    thread: Thread,
-    userId: string
-  ): Promise<void> {
-    const threadChannel = await client.channels.fetch(thread.channelId);
+  async closeThread(thread: Thread, userId: string): Promise<void> {
+    const threadChannel = await this.client.channels.fetch(thread.channelId);
     if (!threadChannel) {
       throw new Error(`Thread channel not found: ${thread.channelId}`);
     }
@@ -74,6 +116,8 @@ export class ThreadService {
     if (!threadChannel.isThread()) {
       throw new Error(`Not thread: ${thread.channelId}`);
     }
+
+    this.logger.debug(`Locking and closing thread: ${thread.channelId}`);
 
     // Send closed message
     await threadChannel.send("Thread closed.");

@@ -1,4 +1,4 @@
-import { Client, Guild, Message, User } from "discord.js";
+import { Client, Collection, type Snowflake } from "discord.js";
 import { getLogger } from "utils/logger";
 import {
   UserThreadView,
@@ -11,15 +11,34 @@ export interface StaffMessageOptions {
   plainText?: boolean;
 }
 
+export interface Attachment {
+  id: Snowflake;
+  name: string;
+  size: number;
+  url: string;
+}
+
+export interface MessageRelayServiceMessage {
+  author: {
+    tag: string;
+  };
+  content: string;
+  attachments: Collection<Snowflake, Attachment>;
+}
+
 export class MessageRelayService {
+  private client: Client;
   private logger = getLogger("MessageRelayService");
 
+  constructor(client: Client) {
+    this.client = client;
+  }
+
   async relayUserMessageToStaff(
-    client: Client,
     channelId: string,
-    message: Message
+    message: MessageRelayServiceMessage
   ): Promise<boolean> {
-    const threadChannel = await client.channels.fetch(channelId);
+    const threadChannel = await this.client.channels.fetch(channelId);
     if (!threadChannel) {
       throw new Error(`Channel not found: ${channelId}`);
     }
@@ -28,7 +47,12 @@ export class MessageRelayService {
       throw new Error(`Cannot send to channel: ${channelId}`);
     }
 
+    this.logger.debug(message, "Relaying user message to staff");
+
     let content = `**${message.author.tag}:** ${message.content}`;
+
+    // TODO: Should be download / re-uploaded to the staff thread
+    // NOT just links
     const attachments = [...message.attachments.values()];
 
     await threadChannel.send({
@@ -49,7 +73,6 @@ export class MessageRelayService {
    * @returns True if the message was sent successfully
    */
   async relayStaffMessageToUser(
-    client: Client,
     userId: string,
     guild: UserThreadViewGuild,
     staffUser: UserThreadViewUser,
@@ -57,19 +80,19 @@ export class MessageRelayService {
     options: StaffMessageOptions = {}
   ): Promise<void> {
     // Fetch the user to DM
-    const user = await client.users.fetch(userId);
+    const user = await this.client.users.fetch(userId);
 
     // Format the message to include staff member information
-    const formattedMessage = UserThreadView.staffMessage(
+    const message = UserThreadView.staffMessage(
       guild,
       staffUser,
       content,
       options
     );
 
-    // Send the DM
-    await user.send(formattedMessage);
-  }
+    this.logger.debug(message, "Relaying staff message to user");
 
-  // Other message service methods would go here
+    // Send the DM
+    await user.send(message);
+  }
 }
