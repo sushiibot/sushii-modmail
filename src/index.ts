@@ -1,6 +1,6 @@
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { getConfigFromEnv, type ConfigType } from "./config/config";
-import logger from "./utils/logger";
+import logger, { initLogger } from "./utils/logger";
 import CommandRouter from "./CommandRouter";
 import dotenv from "dotenv";
 import { registerEventHandlers } from "./events";
@@ -29,8 +29,13 @@ function buildCommandRouter(
   const messageService = new MessageRelayService(client);
 
   // Commands
-  const replyCommand = new ReplyCommand(threadService, messageService);
+  const replyCommand = new ReplyCommand(
+    config.FORUM_CHANNEL_ID,
+    threadService,
+    messageService
+  );
   const areplyCommand = new AnonymousReplyCommand(
+    config.FORUM_CHANNEL_ID,
     threadService,
     messageService
   );
@@ -46,21 +51,27 @@ async function main() {
 
   // Update log level from config
   logger.info(`Setting log level to ${config.LOG_LEVEL}`);
-  logger.level = config.LOG_LEVEL;
+  initLogger(config.LOG_LEVEL);
 
   const db = getDb(config.DATABASE_URI);
 
   const client = new Client({
-    intents:
-      GatewayIntentBits.Guilds |
-      GatewayIntentBits.GuildMembers |
-      GatewayIntentBits.GuildMessages |
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
       GatewayIntentBits.DirectMessages,
+    ],
+    // Required to receive DMs with Events.MessageCreate
+    partials: [Partials.Channel],
   });
 
+  logger.info("Initializing command router...");
   const router = buildCommandRouter(config, client, db);
 
   // Event handlers
+  logger.info("Registering event handlers...");
   registerEventHandlers(config, client, db, router);
 
   logger.info("Starting Discord client...");

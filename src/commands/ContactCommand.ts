@@ -28,7 +28,7 @@ export abstract class ContactCommand extends TextCommandHandler {
     // Creates a new thread as staff to contact specific members
     const userId = args[0];
 
-    const thread = await this.threadService.getOrCreateThread(
+    const { thread, isNew } = await this.threadService.getOrCreateThread(
       userId,
       msg.author.tag
     );

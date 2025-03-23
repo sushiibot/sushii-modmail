@@ -19,14 +19,14 @@ interface UserThreadInfo {
     id: string;
     displayName: string;
     username: string;
-    createdAt: Date;
+    createdTimestamp: number;
     avatarURL(): string | null;
   };
   member: {
     roles: {
       cache: Collection<string, MemberRole>;
     };
-    joinedAt: Date | null;
+    joinedTimestamp: number | null;
     nickname: string | null;
     avatarURL(): string | null;
   } | null;
@@ -57,10 +57,10 @@ export class StaffThreadView {
         userInfo.member?.avatarURL() || userInfo.user.avatarURL() || undefined,
     });
 
-    let description = `User created at <t:${userInfo.user.createdAt.getTime()}:R>`;
+    let description = `User created at <t:${userInfo.user.createdTimestamp}:R>`;
     if (userInfo.member) {
-      if (userInfo.member.joinedAt) {
-        description += `\nJoined guild at <t:${userInfo.member.joinedAt.getTime()}:R>`;
+      if (userInfo.member.joinedTimestamp) {
+        description += `\nJoined guild at <t:${userInfo.member.joinedTimestamp}:R>`;
       }
     }
 
@@ -78,6 +78,25 @@ export class StaffThreadView {
         value: roles.join(", ") || "None",
       });
     }
+
+    if (userInfo.mutualGuilds) {
+      fields.push({
+        name: "Mutual Servers",
+        value: userInfo.mutualGuilds.map((g) => g.name).join(", ") || "None",
+      });
+    }
+
+    if (userInfo.previousThreads) {
+      fields.push({
+        name: "Previous Threads",
+        value:
+          userInfo.previousThreads
+            .map((thread) => thread.toString())
+            .join("\n") || "None",
+      });
+    }
+
+    embed.addFields(fields);
 
     return {
       content: `@here`,
@@ -109,17 +128,7 @@ export class StaffThreadView {
     }
 
     // Format each thread with additional information
-    const threadLinks = threads
-      .map((thread) => {
-        const timestamp = `<t:${thread.createdAt.getUTCMilliseconds()}:D>`;
-        const closer = thread.closedBy
-          ? ` - Closed by <@${thread.closedBy}>`
-          : "";
-        const url = `https://discord.com/channels/${thread.guildId}/${thread.channelId}`;
-
-        return `${timestamp} - ${closer} - ${url}`;
-      })
-      .join("\n");
+    const threadLinks = threads.map((thread) => thread.toString()).join("\n");
 
     // TODO: Embeds
     return { content: `**Previous threads for this user:**\n${threadLinks}` };

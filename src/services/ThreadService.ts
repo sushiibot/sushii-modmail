@@ -35,15 +35,19 @@ export class ThreadService {
     this.threadRepository = threadRepository;
   }
 
-  async getOrCreateThread(userId: string, username: string): Promise<Thread> {
+  async getOrCreateThread(
+    userId: string,
+    username: string
+  ): Promise<{ thread: Thread; isNew: boolean }> {
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
+    const isNew = !thread;
 
     if (!thread) {
       this.logger.debug(`Creating new thread for user ${userId}`);
       thread = await this.createNewThread(userId, username);
     }
 
-    return thread;
+    return { thread, isNew };
   }
 
   private async createNewThread(

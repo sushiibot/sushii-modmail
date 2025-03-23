@@ -1,14 +1,12 @@
-import type { Client } from "discord.js";
+import { Events, type Client } from "discord.js";
 import type CommandRouter from "./CommandRouter";
-import parentLogger from "./utils/logger";
+import parentLogger, { getLogger } from "./utils/logger";
 import type { DB } from "./database/db";
 import { ThreadRepository } from "repositories/thread.repository";
 import { ThreadService } from "services/ThreadService";
 import { MessageRelayService } from "services/MessageRelayService";
 import { DMController } from "controllers/DMController";
 import type { ConfigType } from "config/config";
-
-const logger = parentLogger.child({ module: "events" });
 
 function getDMHandler(
   guildId: string,
@@ -34,7 +32,9 @@ export function registerEventHandlers(
   db: DB,
   commandRouter: CommandRouter
 ) {
-  client.once("ready", () => {
+  const logger = getLogger("events");
+
+  client.once(Events.ClientReady, () => {
     logger.info(`Bot is online! ${client.user?.tag}`);
     // https://discord.com/oauth2/authorize?client_id=1111130119566790758&permissions=563362270660672&integration_type=0&scope=applications.commands+bot
 
@@ -42,7 +42,7 @@ export function registerEventHandlers(
     logger.info(`Invite link: ${inviteLink}`);
   });
 
-  client.on("guildCreate", (guild) => {
+  client.on(Events.GuildCreate, (guild) => {
     logger.info(`Joined server: ${guild.name}`);
   });
 
@@ -53,13 +53,13 @@ export function registerEventHandlers(
     db
   );
 
-  client.on("messageCreate", async (message) => {
+  client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) {
       return;
     }
 
     if (message.content === "ping") {
-      message.reply("pong");
+      await message.reply("pong");
     }
 
     await Promise.allSettled([

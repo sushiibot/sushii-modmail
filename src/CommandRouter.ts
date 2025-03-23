@@ -1,14 +1,15 @@
 import { Message } from "discord.js";
 import type TextCommandHandler from "./commands/CommandHandler";
 import parentLogger from "./utils/logger";
-
-const logger = parentLogger.child({ module: "CommandRouter" });
+import type { Logger } from "pino";
 
 export default class CommandRouter {
   commands: Map<string, TextCommandHandler>;
+  logger: Logger;
 
   constructor(commands?: TextCommandHandler[]) {
     this.commands = new Map();
+    this.logger = parentLogger.child({ module: "CommandRouter" });
 
     if (commands) {
       this.addCommands(...commands);
@@ -54,7 +55,7 @@ export default class CommandRouter {
 
     const command = this.commands.get(commandName);
     if (!command) {
-      logger.warn(
+      this.logger.warn(
         `Command not found: ${commandName}, ignoring. Please register the command with CommandRouter.`
       );
       return;
@@ -63,7 +64,7 @@ export default class CommandRouter {
     try {
       await command.handler(msg, args);
     } catch (error) {
-      logger.error(error, `Error handling command: ${commandName}`);
+      this.logger.error(error, `Error handling command: ${commandName}`);
     }
   }
 }

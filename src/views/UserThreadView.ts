@@ -4,7 +4,7 @@ import {
   type MessageCreateOptions,
 } from "discord.js";
 import type { StaffMessageOptions } from "services/MessageRelayService";
-import { Color } from "./colors";
+import { Color } from "./Color";
 
 export interface UserThreadViewGuild {
   name: string;

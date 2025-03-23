@@ -64,7 +64,7 @@ describe("MessageRelayService", () => {
             "attachment1",
             {
               id: "attachment1",
-              filename: "file1.txt",
+              name: "file1.txt",
               size: 123,
               url: "https://example.com/file1.txt",
             },

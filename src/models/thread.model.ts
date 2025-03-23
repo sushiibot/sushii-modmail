@@ -47,4 +47,13 @@ export class Thread {
   get link(): string {
     return `https://discord.com/channels/${this.guildId}/${this.channelId}`;
   }
+
+  public toString(): string {
+    const timestampS = this.createdAt.getTime() / 1000;
+    const timestamp = `<t:${timestampS}:D>`;
+    const closer = this.closedBy ? ` - Closed by <@${this.closedBy}>` : "";
+    const url = `https://discord.com/channels/${this.guildId}/${this.channelId}`;
+
+    return `${timestamp} - ${closer} - ${url}`;
+  }
 }

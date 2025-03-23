@@ -1,6 +1,7 @@
 import { ChannelType, Client, Message } from "discord.js";
 import { getLogger } from "../utils/logger";
 import type { MessageRelayServiceMessage } from "services/MessageRelayService";
+import type { Logger } from "pino";
 
 export interface MessageRelayService {
   relayUserMessageToStaff(
@@ -14,14 +15,17 @@ export interface Thread {
 }
 
 export interface ThreadService {
-  getOrCreateThread(userId: string, username: string): Promise<Thread>;
+  getOrCreateThread(
+    userId: string,
+    username: string
+  ): Promise<{ thread: Thread; isNew: boolean }>;
 }
 
 export class DMController {
   private threadService: ThreadService;
   private messageService: MessageRelayService;
 
-  private logger = getLogger("ModmailController");
+  private logger: Logger;
 
   constructor(
     threadService: ThreadService,
@@ -29,6 +33,8 @@ export class DMController {
   ) {
     this.threadService = threadService;
     this.messageService = messageService;
+
+    this.logger = getLogger("ModmailController");
   }
 
   async handleUserDM(client: Client, message: Message): Promise<void> {
@@ -37,12 +43,16 @@ export class DMController {
         return;
       }
 
+      this.logger.debug(`Handling DM from ${message.author.tag}`);
+
       if (message.author.bot) {
         return;
       }
 
+      this.logger.debug(`Handling DM from ${message.author.tag}`);
+
       const userId = message.author.id;
-      let thread = await this.threadService.getOrCreateThread(
+      let { thread, isNew } = await this.threadService.getOrCreateThread(
         userId,
         message.author.username
       );

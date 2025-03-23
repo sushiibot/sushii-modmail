@@ -6,6 +6,8 @@ import {
   SnowflakeUtil,
   ForumChannel,
   type ForumThreadChannel,
+  Guild,
+  User,
 } from "discord.js";
 import { ThreadService } from "../../services/ThreadService";
 import { ThreadRepository } from "../../repositories/thread.repository";
@@ -28,17 +30,43 @@ const mockThreadRepository = {
 };
 
 describe("ThreadService", () => {
+  let guildId: string;
+  let forumChannelId: string;
   let client: Client;
   let threadService: ThreadService;
 
+  let guildMock: Guild;
+
   beforeEach(() => {
+    guildId = randomSnowflakeID();
+    forumChannelId = randomSnowflakeID();
+
     client = {
       channels: {
         fetch: mock(),
       },
+      guilds: {
+        cache: {
+          get: mock(),
+        },
+      },
+      users: {
+        fetch: mock(),
+      },
     } as unknown as Client;
 
-    threadService = new ThreadService(client, mockThreadRepository);
+    guildMock = {
+      members: {
+        fetch: mock(() => Promise.resolve(123)),
+      },
+    } as unknown as Guild;
+
+    threadService = new ThreadService(
+      guildId,
+      forumChannelId,
+      client,
+      mockThreadRepository
+    );
   });
 
   describe("getOrCreateThread", () => {
@@ -51,9 +79,13 @@ describe("ThreadService", () => {
         existingThread
       );
 
-      const result = await threadService.getOrCreateThread(userId, username);
+      const { thread, isNew } = await threadService.getOrCreateThread(
+        userId,
+        username
+      );
 
-      expect(result).toBe(existingThread);
+      expect(isNew).toBe(false);
+      expect(thread).toBe(existingThread);
       expect(mockThreadRepository.getOpenThreadByUserID).toHaveBeenCalledWith(
         userId
       );
@@ -69,9 +101,13 @@ describe("ThreadService", () => {
         newThread
       );
 
-      const result = await threadService.getOrCreateThread(userId, username);
+      const { thread, isNew } = await threadService.getOrCreateThread(
+        userId,
+        username
+      );
 
-      expect(result).toBe(newThread);
+      expect(isNew).toBe(true);
+      expect(thread).toBe(newThread);
       expect(mockThreadRepository.getOpenThreadByUserID).toHaveBeenCalledWith(
         userId
       );
@@ -86,22 +122,37 @@ describe("ThreadService", () => {
     it("should throw an error if modmail forum channel is not found", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
       spyOn(client.channels, "fetch").mockResolvedValue(null);
 
       expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(`Modmail forum channel not found: TODO: PLACEHOLDER`);
+      ).rejects.toThrow(`Modmail forum channel not found: ${forumChannelId}`);
+    });
+
+    it("should throw an error if guild is not found", async () => {
+      const userId = randomSnowflakeID();
+      const username = "testuser";
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(undefined);
+
+      expect(
+        threadService["createNewThread"](userId, username)
+      ).rejects.toThrow(`Guild not found: ${guildId}`);
     });
 
     it("should throw an error if modmail forum channel is not a GuildForum", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
       const invalidChannel = { type: ChannelType.GuildText } as TextChannel;
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
       spyOn(client.channels, "fetch").mockResolvedValue(invalidChannel);
 
       expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(`Invalid modmail forum channel: TODO: PLACEHOLDER`);
+      ).rejects.toThrow(`Invalid modmail forum channel: ${forumChannelId}`);
     });
 
     it("should create a new thread and return it", async () => {
@@ -118,7 +169,14 @@ describe("ThreadService", () => {
         },
       } as unknown as ForumChannel;
 
+      const mockUser = {
+        id: "123",
+      } as unknown as User;
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
+
       spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
         name: "threadName",
         reason: "reason",
