@@ -16,7 +16,6 @@ function getDMHandler(
   const threadRepository = new ThreadRepository(db);
 
   const threadService = new ThreadService(config, client, threadRepository);
-
   const messageService = new MessageRelayService(config, client);
 
   return new DMController(threadService, messageService);

@@ -80,9 +80,6 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         this.replyOptions
       );
 
-      // Delete the original message
-      await msg.delete();
-
       // Re-send as embed to show the message was sent and how it looks
       const embed = StaffThreadView.staffReplyEmbed(
         msg.author,
@@ -90,9 +87,13 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         this.replyOptions
       );
 
-      await msg.channel.send({
-        embeds: [embed],
-      });
+      await Promise.allSettled([
+        // Delete the original message
+        msg.delete(),
+        msg.channel.send({
+          embeds: [embed],
+        }),
+      ]);
     } catch (error) {
       this.logger.error(`Error sending reply: ${error}`);
       await msg.channel.send("Failed to send reply. See logs for details.");

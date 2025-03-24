@@ -2,6 +2,7 @@ import {
   AttachmentBuilder,
   Collection,
   EmbedBuilder,
+  MessageFlags,
   type GuildForumThreadCreateOptions,
   type MessageCreateOptions,
 } from "discord.js";
@@ -81,10 +82,15 @@ export class StaffThreadView {
       iconURL: userInfo.member?.avatarURL() || userInfo.user.displayAvatarURL(),
     });
 
-    let description = `User created at <t:${userInfo.user.createdTimestamp}:R>`;
+    const createdTs = Math.floor(userInfo.user.createdTimestamp / 1000);
+    let description = `<@${userInfo.user.id}>`;
+    description += `User created at <t:${createdTs}:R>`;
+
     if (userInfo.member) {
       if (userInfo.member.joinedTimestamp) {
-        description += `\nJoined guild at <t:${userInfo.member.joinedTimestamp}:R>`;
+        const joinedTs = Math.floor(userInfo.member.joinedTimestamp / 1000);
+
+        description += `\nJoined guild at <t:${joinedTs}:R>`;
       }
     }
 
@@ -154,8 +160,14 @@ export class StaffThreadView {
     // Format each thread with additional information
     const threadLinks = threads.map((thread) => thread.toString()).join("\n");
 
-    // TODO: Embeds
-    return { content: `**Previous threads for this user:**\n${threadLinks}` };
+    const embed = new EmbedBuilder()
+      .setTitle("Previous user threads")
+      .setDescription(threadLinks)
+      .setColor(Color.Gray);
+
+    return {
+      embeds: [embed],
+    };
   }
 
   /**
@@ -170,36 +182,25 @@ export class StaffThreadView {
     content: string,
     options: StaffMessageOptions = {}
   ): EmbedBuilder {
-    const embed = new EmbedBuilder();
-
     // Set the author field based on anonymous option
     let authorName = staffUser.username;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
 
-    embed.setAuthor({
-      name: authorName,
-      iconURL: staffUser.displayAvatarURL(),
-    });
-
-    // Set the content
-    embed.setDescription(content);
-
-    // Set color and formatting based on options
-    if (options.anonymous) {
-      embed.setColor("#2F3136"); // Dark color for anonymous messages
-    } else {
-      embed.setColor("#5865F2"); // Discord blurple for regular messages
-    }
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: authorName,
+        iconURL: staffUser.displayAvatarURL(),
+      })
+      .setColor(Color.Lavender)
+      .setDescription(content)
+      .setTimestamp();
 
     // Indicate if message is sent as plain text
     if (options.plainText) {
       embed.setFooter({ text: "Sent as plain text" });
     }
-
-    // Set timestamp
-    embed.setTimestamp();
 
     return embed;
   }
@@ -210,7 +211,7 @@ export class StaffThreadView {
         name: "System (Automated Message)",
       })
       .setDescription(content)
-      .setColor(Color.Blue)
+      .setColor(Color.Gray)
       .setTimestamp();
 
     return {

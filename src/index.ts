@@ -11,6 +11,9 @@ import { ThreadService } from "services/ThreadService";
 import { ThreadRepository } from "repositories/thread.repository";
 import { AnonymousReplyCommand } from "commands/AnonymousReplyCommand";
 import { ConfigModel } from "models/config.model";
+import { CloseCommand } from "commands/CloseCommand";
+import { LogsCommand } from "commands/LogsCommand";
+import { PlainReplyCommand } from "commands/PlainReplyCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -26,19 +29,19 @@ function buildCommandRouter(
   const messageService = new MessageRelayService(config, client);
 
   // Commands
-  const replyCommand = new ReplyCommand(
-    config.forumChannelId,
-    threadService,
-    messageService
-  );
-  const areplyCommand = new AnonymousReplyCommand(
-    config.forumChannelId,
-    threadService,
-    messageService
-  );
-
   const router = new CommandRouter(config);
-  router.addCommands(replyCommand, areplyCommand);
+
+  router.addCommands(
+    new ReplyCommand(config.forumChannelId, threadService, messageService),
+    new AnonymousReplyCommand(
+      config.forumChannelId,
+      threadService,
+      messageService
+    ),
+    new PlainReplyCommand(config.forumChannelId, threadService, messageService),
+    new LogsCommand(config.forumChannelId, threadService, messageService),
+    new CloseCommand(config.forumChannelId, threadService)
+  );
 
   return router;
 }

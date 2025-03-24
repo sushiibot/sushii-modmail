@@ -23,9 +23,31 @@ export default class CommandRouter {
   }
 
   addCommands(...commands: TextCommandHandler[]) {
-    commands.forEach((c) => {
+    for (let i = 0; i < commands.length; i++) {
+      const c = commands[i];
+
+      if (this.commands.has(c.name)) {
+        throw new Error(
+          `Command name attempted to be registered twice: ${c.name}`
+        );
+      }
+
+      // Set base name handler
       this.commands.set(c.name, c);
-    });
+
+      // Set aliases
+      for (let j = 0; j < c.aliases.length; j++) {
+        const alias = c.aliases[j];
+
+        if (this.commands.has(alias)) {
+          throw new Error(
+            `Command alias attempted to be registered twice: ${alias}`
+          );
+        }
+
+        this.commands.set(alias, c);
+      }
+    }
   }
 
   async getPrefix(msg: Message): Promise<string> {

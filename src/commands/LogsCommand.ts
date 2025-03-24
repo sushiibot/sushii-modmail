@@ -5,7 +5,10 @@ import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
 import { StaffThreadView } from "../views/StaffThreadView";
 
-export abstract class LogsCommand extends TextCommandHandler {
+export class LogsCommand extends TextCommandHandler {
+  name = "logs";
+  aliases = [];
+
   protected forumChannelId: string;
   protected threadService: ThreadService;
   protected messageService: MessageRelayService;

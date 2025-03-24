@@ -33,6 +33,13 @@ export abstract class ContactCommand extends TextCommandHandler {
       msg.author.tag
     );
 
+    if (!isNew) {
+      const content = `There's already a thread open with this user: ${thread.link}`;
+      await msg.channel.send(content);
+
+      return;
+    }
+
     // Send a message to the staff to link the thread
     await msg.channel.send(thread.link);
   }

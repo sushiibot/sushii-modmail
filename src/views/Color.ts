@@ -4,6 +4,8 @@
 export const Color = {
   Pink: "#f5c2e7",
   Blue: "#89dceb",
+  Lavender: "#b4befe",
+  Gray: "#313244",
 } as const;
 
 export type ColorKey = keyof typeof Color;

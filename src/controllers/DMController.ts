@@ -84,8 +84,8 @@ export class DMController {
           );
         }
       }
-    } catch (error) {
-      this.logger.error(`Error handling DM: ${error}`);
+    } catch (err) {
+      this.logger.error(err, `Error handling DM: ${error}`);
 
       // Send an error message to the user
       await message.author.send(

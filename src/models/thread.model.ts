@@ -55,9 +55,15 @@ export class Thread {
   public toString(): string {
     const timestampS = this.createdAt.getTime() / 1000;
     const timestamp = `<t:${timestampS}:D>`;
-    const closer = this.closedBy ? ` - Closed by <@${this.closedBy}>` : "";
+
     const url = `https://discord.com/channels/${this.guildId}/${this.channelId}`;
 
-    return `${timestamp} - ${closer} - ${url}`;
+    let s = `${timestamp} - ${url}`;
+
+    if (this.isClosed) {
+      s += ` (Closed by <@${this.closedBy}>)`;
+    }
+
+    return s;
   }
 }
