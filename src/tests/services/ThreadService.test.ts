@@ -19,6 +19,7 @@ import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { getDb } from "database/db";
 import { randomSnowflakeID } from "tests/utils/snowflake";
 import { mockThread } from "tests/models/thread.model.mock.test";
+import type { ConfigModel } from "models/config.model";
 
 // Mock dependencies
 const mockThreadRepository = {
@@ -30,16 +31,17 @@ const mockThreadRepository = {
 };
 
 describe("ThreadService", () => {
-  let guildId: string;
-  let forumChannelId: string;
   let client: Client;
   let threadService: ThreadService;
+  let config: ConfigModel;
 
   let guildMock: Guild;
 
   beforeEach(() => {
-    guildId = randomSnowflakeID();
-    forumChannelId = randomSnowflakeID();
+    config = {
+      guildId: randomSnowflakeID(),
+      forumChannelId: randomSnowflakeID(),
+    } as unknown as ConfigModel;
 
     client = {
       channels: {
@@ -61,12 +63,7 @@ describe("ThreadService", () => {
       },
     } as unknown as Guild;
 
-    threadService = new ThreadService(
-      guildId,
-      forumChannelId,
-      client,
-      mockThreadRepository
-    );
+    threadService = new ThreadService(config, client, mockThreadRepository);
   });
 
   describe("getOrCreateThread", () => {
@@ -128,7 +125,9 @@ describe("ThreadService", () => {
 
       expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(`Modmail forum channel not found: ${forumChannelId}`);
+      ).rejects.toThrow(
+        `Modmail forum channel not found: ${config.forumChannelId}`
+      );
     });
 
     it("should throw an error if guild is not found", async () => {
@@ -139,7 +138,7 @@ describe("ThreadService", () => {
 
       expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(`Guild not found: ${guildId}`);
+      ).rejects.toThrow(`Guild not found: ${config.guildId}`);
     });
 
     it("should throw an error if modmail forum channel is not a GuildForum", async () => {
@@ -152,7 +151,9 @@ describe("ThreadService", () => {
 
       expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(`Invalid modmail forum channel: ${forumChannelId}`);
+      ).rejects.toThrow(
+        `Invalid modmail forum channel: ${config.forumChannelId}`
+      );
     });
 
     it("should create a new thread and return it", async () => {

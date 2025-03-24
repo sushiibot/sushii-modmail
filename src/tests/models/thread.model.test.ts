@@ -13,7 +13,7 @@ describe("Thread", () => {
         new Date(),
         null
       );
-      expect(thread.isOpen()).toBe(true);
+      expect(thread.isOpen).toBe(true);
     });
 
     it("should return false when closedAt is not null", () => {
@@ -25,7 +25,33 @@ describe("Thread", () => {
         new Date(),
         new Date()
       );
-      expect(thread.isOpen()).toBe(false);
+      expect(thread.isOpen).toBe(false);
+    });
+  });
+
+  describe("isClosed", () => {
+    it("should return false when closedAt is null", () => {
+      const thread = new Thread(
+        randomSnowflakeID(),
+        randomSnowflakeID(),
+        randomSnowflakeID(),
+        null,
+        new Date(),
+        null
+      );
+      expect(thread.isClosed).toBe(false);
+    });
+
+    it("should return true when closedAt is not null", () => {
+      const thread = new Thread(
+        randomSnowflakeID(),
+        randomSnowflakeID(),
+        randomSnowflakeID(),
+        null,
+        new Date(),
+        new Date()
+      );
+      expect(thread.isClosed).toBe(true);
     });
   });
 

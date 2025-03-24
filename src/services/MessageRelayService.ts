@@ -1,10 +1,19 @@
 import { Client, Collection, type Snowflake } from "discord.js";
 import { getLogger } from "utils/logger";
 import {
+  StaffThreadView,
+  type StaffViewUserMessage,
+} from "views/StaffThreadView";
+import {
   UserThreadView,
   type UserThreadViewGuild,
   type UserThreadViewUser,
 } from "views/UserThreadView";
+
+interface Config {
+  initialMessage: string;
+  guildId: string;
+}
 
 export interface StaffMessageOptions {
   anonymous?: boolean;
@@ -27,16 +36,19 @@ export interface MessageRelayServiceMessage {
 }
 
 export class MessageRelayService {
+  private config: Config;
   private client: Client;
+
   private logger = getLogger("MessageRelayService");
 
-  constructor(client: Client) {
+  constructor(config: Config, client: Client) {
+    this.config = config;
     this.client = client;
   }
 
   async relayUserMessageToStaff(
     channelId: string,
-    message: MessageRelayServiceMessage
+    message: StaffViewUserMessage
   ): Promise<boolean> {
     const threadChannel = await this.client.channels.fetch(channelId);
     if (!threadChannel) {
@@ -47,18 +59,16 @@ export class MessageRelayService {
       throw new Error(`Cannot send to channel: ${channelId}`);
     }
 
-    this.logger.debug(message, "Relaying user message to staff");
+    this.logger.debug(
+      {
+        user: message.author.username,
+        content: message.content,
+      },
+      "Relaying user message to staff"
+    );
 
-    let content = `**${message.author.tag}:** ${message.content}`;
-
-    // TODO: Should be download / re-uploaded to the staff thread
-    // NOT just links
-    const attachments = [...message.attachments.values()];
-
-    await threadChannel.send({
-      content: content,
-      files: attachments.map((a) => a.url),
-    });
+    const msg = await StaffThreadView.userReplyMessage(message);
+    await threadChannel.send(msg);
 
     // TODO: Blocked return false OR if more than 2 options, return an emoji
     return true;
@@ -94,5 +104,53 @@ export class MessageRelayService {
 
     // Send the DM
     await user.send(message);
+  }
+
+  /**
+   * Sends the initial welcome message to a user when they create a new thread
+   * @param userId The Discord user ID to send the welcome message to
+   * @param channelId The thread channel ID
+   * @returns True if the message was sent successfully
+   */
+  async sendInitialMessageToUser(userId: string): Promise<string> {
+    // Fetch the user
+    const user = await this.client.users.fetch(userId);
+
+    // Fetch the modmail guild
+    const guild = this.client.guilds.cache.get(this.config.guildId);
+    if (!guild) {
+      throw new Error(`Guild not found: ${this.config.guildId}`);
+    }
+
+    const initialMessageContent = this.config.initialMessage;
+
+    // Generate initial message
+    const initialMessage = UserThreadView.initialMessage(
+      guild,
+      initialMessageContent
+    );
+
+    // Send to user
+    await user.send(initialMessage);
+
+    return initialMessageContent;
+  }
+
+  async sendInitialMessageToStaff(
+    channelId: string,
+    content: string
+  ): Promise<void> {
+    const threadChannel = await this.client.channels.fetch(channelId);
+    if (!threadChannel) {
+      throw new Error(`Channel not found: ${channelId}`);
+    }
+
+    if (!threadChannel.isSendable()) {
+      throw new Error(`Cannot send to channel: ${channelId}`);
+    }
+
+    const msg = StaffThreadView.systemMessage(content);
+
+    await threadChannel.send(msg);
   }
 }

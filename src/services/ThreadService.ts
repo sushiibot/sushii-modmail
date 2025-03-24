@@ -3,6 +3,11 @@ import { Thread } from "../models/thread.model";
 import { StaffThreadView } from "../views/StaffThreadView";
 import { getLogger } from "utils/logger";
 
+interface Config {
+  guildId: string;
+  forumChannelId: string;
+}
+
 interface ThreadRepository {
   getOpenThreadByUserID(userId: string): Promise<Thread | null>;
   getThreadByChannelId(channelId: string): Promise<Thread | null>;
@@ -16,21 +21,19 @@ interface ThreadRepository {
 }
 
 export class ThreadService {
-  private guildId: string;
-  private forumChannelId: string;
+  private config: Config;
+
   private client: Client;
   private threadRepository: ThreadRepository;
 
   private logger = getLogger("ThreadService");
 
   constructor(
-    guildId: string,
-    forumChannelId: string,
+    config: Config,
     client: Client,
     threadRepository: ThreadRepository
   ) {
-    this.guildId = guildId;
-    this.forumChannelId = forumChannelId;
+    this.config = config;
     this.client = client;
     this.threadRepository = threadRepository;
   }
@@ -54,23 +57,25 @@ export class ThreadService {
     userId: string,
     username: string
   ): Promise<Thread> {
-    const guild = this.client.guilds.cache.get(this.guildId);
+    const guild = this.client.guilds.cache.get(this.config.guildId);
     if (!guild) {
-      throw new Error(`Guild not found: ${this.guildId}`);
+      throw new Error(`Guild not found: ${this.config.guildId}`);
     }
 
     const modmailForumChannel = await this.client.channels.fetch(
-      this.forumChannelId
+      this.config.forumChannelId
     );
 
     if (!modmailForumChannel) {
       throw new Error(
-        `Modmail forum channel not found: ${this.forumChannelId}`
+        `Modmail forum channel not found: ${this.config.forumChannelId}`
       );
     }
 
     if (modmailForumChannel.type !== ChannelType.GuildForum) {
-      throw new Error(`Invalid modmail forum channel: ${this.forumChannelId}`);
+      throw new Error(
+        `Invalid modmail forum channel: ${this.config.forumChannelId}`
+      );
     }
 
     // -------------------------------------------------------------------------

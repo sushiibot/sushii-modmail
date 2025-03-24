@@ -40,8 +40,12 @@ export class Thread {
     );
   }
 
-  isOpen(): boolean {
+  get isOpen(): boolean {
     return this.closedAt === null;
+  }
+
+  get isClosed(): boolean {
+    return this.closedAt !== null;
   }
 
   get link(): string {

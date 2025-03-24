@@ -1,26 +1,31 @@
 import {
+  AttachmentBuilder,
   Collection,
   EmbedBuilder,
-  User,
   type GuildForumThreadCreateOptions,
   type MessageCreateOptions,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
 import type { StaffMessageOptions } from "services/MessageRelayService";
 import { formatUserIdentity } from "./user";
+import { Color } from "./Color";
+import { fetch, file } from "bun";
 
 interface MemberRole {
   id: string;
   rawPosition: number;
 }
 
+interface User {
+  id: string;
+  displayName: string;
+  username: string;
+  displayAvatarURL(): string;
+}
+
 interface UserThreadInfo {
-  user: {
-    id: string;
-    displayName: string;
-    username: string;
+  user: User & {
     createdTimestamp: number;
-    avatarURL(): string | null;
   };
   member: {
     roles: {
@@ -32,6 +37,26 @@ interface UserThreadInfo {
   } | null;
   mutualGuilds?: { id: string; name: string }[];
   previousThreads?: Thread[];
+}
+
+interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+}
+
+interface Sticker {
+  id: string;
+  name: string;
+  url: string;
+}
+
+export interface StaffViewUserMessage {
+  id: string;
+  author: User;
+  content: string;
+  attachments: Collection<string, Attachment>;
+  stickers: Collection<string, Sticker>;
 }
 
 export class StaffThreadView {
@@ -53,8 +78,7 @@ export class StaffThreadView {
         userInfo.user.username,
         userInfo.member?.nickname
       ),
-      iconURL:
-        userInfo.member?.avatarURL() || userInfo.user.avatarURL() || undefined,
+      iconURL: userInfo.member?.avatarURL() || userInfo.user.displayAvatarURL(),
     });
 
     let description = `User created at <t:${userInfo.user.createdTimestamp}:R>`;
@@ -178,5 +202,86 @@ export class StaffThreadView {
     embed.setTimestamp();
 
     return embed;
+  }
+
+  static systemMessage(content: string): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: "System (Automated Message)",
+      })
+      .setDescription(content)
+      .setColor(Color.Blue)
+      .setTimestamp();
+
+    return {
+      embeds: [embed],
+    };
+  }
+
+  static async userReplyMessage(
+    userMessage: StaffViewUserMessage
+  ): Promise<MessageCreateOptions> {
+    const description = userMessage.content;
+
+    const fields = [];
+
+    if (userMessage.attachments.size > 0) {
+      const attachments = Array.from(userMessage.attachments.values())
+        .map((attachment) => `[${attachment.name}](${attachment.url})`)
+        .join("\n");
+
+      fields.push({
+        name: "Original Attachment URLs",
+        value: attachments,
+      });
+    }
+
+    if (userMessage.stickers.size > 0) {
+      const stickers = Array.from(userMessage.stickers.values())
+        .map((sticker) => `[${sticker.name}](${sticker.url})`)
+        .join("\n");
+
+      fields.push({
+        name: "Stickers",
+        value: stickers,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: formatUserIdentity(
+          userMessage.author.id,
+          userMessage.author.username
+        ),
+        iconURL: userMessage.author.displayAvatarURL() || undefined,
+      })
+      .setDescription(description)
+      .setColor(Color.Blue)
+      .setFooter({
+        text: `Message ID: ${userMessage.id}`,
+      })
+      .setFields(fields)
+      .setTimestamp();
+
+    // Re-upload attachments
+    const fileDownloads = Array.from(userMessage.attachments.values()).map(
+      async (file) => {
+        const res = await fetch(file.url);
+        const arrBuf = await res.arrayBuffer();
+        const attachment = new AttachmentBuilder(Buffer.from(arrBuf)).setName(
+          file.name
+        );
+
+        return attachment;
+      }
+    );
+
+    // Download files in parallel
+    const files = await Promise.all(fileDownloads);
+
+    return {
+      embeds: [embed],
+      files: files,
+    };
   }
 }

@@ -17,6 +17,24 @@ export interface UserThreadViewUser {
 }
 
 export class UserThreadView {
+  static initialMessage(
+    guild: UserThreadViewGuild,
+    message: string
+  ): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: guild.name,
+        iconURL: guild.iconURL() || undefined,
+      })
+      .setDescription(message)
+      .setColor(Color.Blue)
+      .setTimestamp();
+
+    return {
+      embeds: [embed],
+    };
+  }
+
   static staffMessage(
     guild: UserThreadViewGuild,
     staffUser: UserThreadViewUser,

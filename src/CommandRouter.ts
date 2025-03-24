@@ -3,11 +3,17 @@ import type TextCommandHandler from "./commands/CommandHandler";
 import parentLogger from "./utils/logger";
 import type { Logger } from "pino";
 
+interface Config {
+  prefix: string;
+}
+
 export default class CommandRouter {
+  config: Config;
   commands: Map<string, TextCommandHandler>;
   logger: Logger;
 
-  constructor(commands?: TextCommandHandler[]) {
+  constructor(config: Config, commands?: TextCommandHandler[]) {
+    this.config = config;
     this.commands = new Map();
     this.logger = parentLogger.child({ module: "CommandRouter" });
 
@@ -23,7 +29,7 @@ export default class CommandRouter {
   }
 
   async getPrefix(msg: Message): Promise<string> {
-    return "!";
+    return this.config.prefix;
   }
 
   async isCommand(msg: Message): Promise<boolean> {

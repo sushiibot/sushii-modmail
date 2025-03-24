@@ -1,13 +1,15 @@
 import { ChannelType, Client, Message } from "discord.js";
 import { getLogger } from "../utils/logger";
-import type { MessageRelayServiceMessage } from "services/MessageRelayService";
 import type { Logger } from "pino";
+import type { StaffViewUserMessage } from "views/StaffThreadView";
 
 export interface MessageRelayService {
   relayUserMessageToStaff(
     channelId: string,
-    message: MessageRelayServiceMessage
+    message: StaffViewUserMessage
   ): Promise<boolean>;
+  sendInitialMessageToUser(userId: string): Promise<string>;
+  sendInitialMessageToStaff(channelId: string, content: string): Promise<void>;
 }
 
 export interface Thread {
@@ -65,9 +67,30 @@ export class DMController {
       if (success) {
         // React to the user's message to indicate that it was received
         await message.react("✅");
+
+        // If this is a new thread, send the initial message
+        if (isNew) {
+          const content = await this.messageService.sendInitialMessageToUser(
+            userId
+          );
+
+          // Also relay the initial message to the staff -- just for transparency
+          // so staff knows what the user received, otherwise sometimes forget
+          // people get an initial message and less likely to adjust it if needed
+
+          this.messageService.sendInitialMessageToStaff(
+            thread.channelId,
+            content
+          );
+        }
       }
     } catch (error) {
       this.logger.error(`Error handling DM: ${error}`);
+
+      // Send an error message to the user
+      await message.author.send(
+        "An error occurred while processing your message. Please try again later or notify staff in the server."
+      );
     }
   }
 }

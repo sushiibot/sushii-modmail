@@ -57,6 +57,19 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       return;
     }
 
+    if (thread.isClosed) {
+      await msg.channel.send(
+        "This thread is closed and cannot be replied to. Open a new thread to continue."
+      );
+
+      // Re-lock -- should always be a thread from the check above, but need type check
+      if (msg.channel.isThread()) {
+        await msg.channel.setLocked(true);
+      }
+
+      return;
+    }
+
     try {
       // Send the reply to the user
       await this.messageService.relayStaffMessageToUser(
@@ -76,6 +89,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         replyContent,
         this.replyOptions
       );
+
       await msg.channel.send({
         embeds: [embed],
       });

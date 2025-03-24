@@ -1,11 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  check,
-  integer,
-  sqliteTable,
-  text,
-  index,
-} from "drizzle-orm/sqlite-core";
+import { check, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const threads = sqliteTable(
   "threads",

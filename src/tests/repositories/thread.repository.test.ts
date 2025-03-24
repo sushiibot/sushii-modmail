@@ -83,7 +83,7 @@ describe("ThreadRepository", () => {
       const result = await threadRepository.getThreadByChannelId(channelId);
 
       expect(result).not.toBeNull();
-      expect(result!.isOpen()).toBe(false);
+      expect(result!.isOpen).toBe(false);
       expect(result!.closedAt).toEqual(expect.any(Date));
     });
 

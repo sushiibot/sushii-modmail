@@ -4,36 +4,55 @@ import {
   type Snowflake,
   TextChannel,
   User,
+  Guild,
 } from "discord.js";
 import {
   MessageRelayService,
   type Attachment,
-  type MessageRelayServiceMessage,
 } from "../../services/MessageRelayService";
 import {
   UserThreadView,
   type UserThreadViewGuild,
   type UserThreadViewUser,
 } from "views/UserThreadView";
+import {
+  StaffThreadView,
+  type StaffViewUserMessage,
+} from "views/StaffThreadView";
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { randomSnowflakeID } from "tests/utils/snowflake";
+import type { ConfigModel } from "models/config.model";
 
 describe("MessageRelayService", () => {
   let client: Client;
   let service: MessageRelayService;
+  let config: ConfigModel;
+  const guildId = "123456789";
 
   beforeEach(() => {
     client = new Client({ intents: [] });
-    service = new MessageRelayService(client);
+    config = {
+      initialMessage: "Welcome to modmail!",
+      guildId,
+    } as unknown as ConfigModel;
+    service = new MessageRelayService(config, client);
   });
 
   describe("relayUserMessageToStaff", () => {
     it("should relay user message to staff", async () => {
-      const channelId = "123456789";
-      const message: MessageRelayServiceMessage = {
-        author: { tag: "User#1234" },
+      const channelId = randomSnowflakeID();
+      const message: StaffViewUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "User#1234",
+          displayName: "User",
+          displayAvatarURL: () => "https://example.com/avatar.png",
+        },
         content: "Hello, staff!",
-        attachments: new Collection<Snowflake, Attachment>(),
+        attachments: new Collection<string, Attachment>(),
+        stickers: new Collection(),
       };
 
       const threadChannel = {
@@ -42,24 +61,35 @@ describe("MessageRelayService", () => {
       } as unknown as TextChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
+      spyOn(StaffThreadView, "userReplyMessage").mockResolvedValue({
+        embeds: [],
+        files: [],
+      });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
+      expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(message);
       expect(threadChannel.send).toHaveBeenCalledWith({
-        content: `**User#1234:** Hello, staff!`,
+        embeds: [],
         files: [],
       });
       expect(result).toBe(true);
     });
 
     it("should relay attachments to staff", async () => {
-      const channelId = "123456789";
+      const channelId = randomSnowflakeID();
 
-      const message: MessageRelayServiceMessage = {
-        author: { tag: "User#1234" },
+      const message: StaffViewUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "User#1234",
+          displayName: "User",
+          displayAvatarURL: () => "https://example.com/avatar.png",
+        },
         content: "Hello, staff!",
-        attachments: new Collection<Snowflake, Attachment>([
+        attachments: new Collection<string, Attachment>([
           [
             "attachment1",
             {
@@ -70,6 +100,7 @@ describe("MessageRelayService", () => {
             },
           ],
         ]),
+        stickers: new Collection(),
       };
 
       const threadChannel = {
@@ -78,23 +109,35 @@ describe("MessageRelayService", () => {
       } as unknown as TextChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
+      spyOn(StaffThreadView, "userReplyMessage").mockResolvedValue({
+        embeds: [],
+        files: ["https://example.com/file1.txt"],
+      });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
+      expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(message);
       expect(threadChannel.send).toHaveBeenCalledWith({
-        content: `**User#1234:** Hello, staff!`,
+        embeds: [],
         files: ["https://example.com/file1.txt"],
       });
       expect(result).toBe(true);
     });
 
     it("should throw an error if channel is not found", async () => {
-      const channelId = "123456789";
-      const message: MessageRelayServiceMessage = {
-        author: { tag: "User#1234" },
+      const channelId = randomSnowflakeID();
+      const message: StaffViewUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "User#1234",
+          displayName: "User",
+          displayAvatarURL: () => "https://example.com/avatar.png",
+        },
         content: "Hello, staff!",
-        attachments: new Collection<Snowflake, Attachment>(),
+        attachments: new Collection<string, Attachment>(),
+        stickers: new Collection(),
       };
 
       spyOn(client.channels, "fetch").mockResolvedValue(null);
@@ -105,11 +148,18 @@ describe("MessageRelayService", () => {
     });
 
     it("should throw an error if channel is not sendable", async () => {
-      const channelId = "123456789";
-      const message: MessageRelayServiceMessage = {
-        author: { tag: "User#1234" },
+      const channelId = randomSnowflakeID();
+      const message: StaffViewUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "User#1234",
+          displayName: "User",
+          displayAvatarURL: () => "https://example.com/avatar.png",
+        },
         content: "Hello, staff!",
-        attachments: new Collection<Snowflake, Attachment>(),
+        attachments: new Collection<string, Attachment>(),
+        stickers: new Collection(),
       };
 
       const threadChannel = {
@@ -126,7 +176,7 @@ describe("MessageRelayService", () => {
 
   describe("relayStaffMessageToUser", () => {
     it("should relay staff message to user", async () => {
-      const userId = "987654321";
+      const userId = randomSnowflakeID();
       const guild = {} as UserThreadViewGuild;
       const staffUser = {} as UserThreadViewUser;
       const content = "Hello, user!";
@@ -161,6 +211,68 @@ describe("MessageRelayService", () => {
       expect(user.send).toHaveBeenCalledWith({
         content: "Formatted message",
       });
+    });
+  });
+
+  describe("sendInitialMessageToUser", () => {
+    it("should send initial message to user", async () => {
+      const userId = randomSnowflakeID();
+      const initialMessage = "Welcome to modmail!";
+
+      const user = {
+        send: mock(),
+      } as unknown as User;
+
+      const guild = {
+        id: guildId,
+      } as unknown as Guild;
+
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(client.guilds.cache, "get").mockReturnValue(guild);
+      spyOn(UserThreadView, "initialMessage").mockReturnValue({
+        content: initialMessage,
+      });
+
+      const result = await service.sendInitialMessageToUser(userId);
+
+      expect(client.users.fetch).toHaveBeenCalledWith(userId);
+      expect(client.guilds.cache.get).toHaveBeenCalledWith(guildId);
+
+      expect(UserThreadView.initialMessage).toHaveBeenCalledWith(
+        guild,
+        initialMessage
+      );
+      expect(user.send).toHaveBeenCalledWith({
+        content: initialMessage,
+      });
+      expect(result).toBe(initialMessage);
+    });
+
+    it("should throw if guild not found", async () => {
+      const userId = randomSnowflakeID();
+
+      const user = {
+        send: mock(),
+      } as unknown as User;
+
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(client.guilds.cache, "get").mockReturnValue(undefined);
+
+      expect(service.sendInitialMessageToUser(userId)).rejects.toThrow(
+        `Guild not found: ${guildId}`
+      );
+    });
+
+    it("should throw if error occurs", async () => {
+      const userId = randomSnowflakeID();
+
+      spyOn(client.users, "fetch").mockRejectedValue(
+        new Error("User not found")
+      );
+
+      expect(service.sendInitialMessageToUser(userId)).rejects.toThrow(
+        "User not found"
+      );
     });
   });
 });

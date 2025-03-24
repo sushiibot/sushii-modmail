@@ -10,50 +10,48 @@ import { MessageRelayService } from "services/MessageRelayService";
 import { ThreadService } from "services/ThreadService";
 import { ThreadRepository } from "repositories/thread.repository";
 import { AnonymousReplyCommand } from "commands/AnonymousReplyCommand";
+import { ConfigModel } from "models/config.model";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
 
 function buildCommandRouter(
-  config: ConfigType,
+  config: ConfigModel,
   client: Client,
   db: DB
 ): CommandRouter {
   const threadRepository = new ThreadRepository(db);
-  const threadService = new ThreadService(
-    config.MAIL_GUILD_ID,
-    config.FORUM_CHANNEL_ID,
-    client,
-    threadRepository
-  );
-  const messageService = new MessageRelayService(client);
+
+  const threadService = new ThreadService(config, client, threadRepository);
+  const messageService = new MessageRelayService(config, client);
 
   // Commands
   const replyCommand = new ReplyCommand(
-    config.FORUM_CHANNEL_ID,
+    config.forumChannelId,
     threadService,
     messageService
   );
   const areplyCommand = new AnonymousReplyCommand(
-    config.FORUM_CHANNEL_ID,
+    config.forumChannelId,
     threadService,
     messageService
   );
 
-  const router = new CommandRouter();
+  const router = new CommandRouter(config);
   router.addCommands(replyCommand, areplyCommand);
 
   return router;
 }
 
 async function main() {
-  const config = getConfigFromEnv();
+  const rawConfig = getConfigFromEnv();
+  const config = ConfigModel.fromConfigType(rawConfig);
 
   // Update log level from config
-  logger.info(`Setting log level to ${config.LOG_LEVEL}`);
-  initLogger(config.LOG_LEVEL);
+  logger.info(`Setting log level to ${config.logLevel}`);
+  initLogger(config.logLevel);
 
-  const db = getDb(config.DATABASE_URI);
+  const db = getDb(config.databaseUri);
 
   const client = new Client({
     intents: [
@@ -77,7 +75,7 @@ async function main() {
   logger.info("Starting Discord client...");
 
   // Start client, connect to Discord gateway and listen for events
-  await client.login(config.DISCORD_TOKEN);
+  await client.login(config.discordToken);
 }
 
 main().catch((error) => {

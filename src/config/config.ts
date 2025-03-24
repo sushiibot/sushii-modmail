@@ -6,11 +6,15 @@ const configSchema = z.object({
   DISCORD_TOKEN: z.string(),
   DISCORD_CLIENT_ID: z.string(),
 
+  PREFIX: z.string().optional(),
+
   // Where modmails get sent to
   MAIL_GUILD_ID: z.string(),
   FORUM_CHANNEL_ID: z.string(),
 
   DATABASE_URI: z.string(),
+
+  INITIAL_MESSAGE: z.string().optional(),
 });
 
 export type ConfigType = z.infer<typeof configSchema>;
