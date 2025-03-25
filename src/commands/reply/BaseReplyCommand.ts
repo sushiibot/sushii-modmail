@@ -1,5 +1,5 @@
 import type { Message } from "discord.js";
-import TextCommandHandler from "./CommandHandler";
+import TextCommandHandler from "../CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type {
   MessageRelayService,

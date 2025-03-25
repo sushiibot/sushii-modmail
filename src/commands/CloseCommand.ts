@@ -4,7 +4,8 @@ import type { ThreadService } from "services/ThreadService";
 import { getLogger } from "utils/logger";
 
 export class CloseCommand extends TextCommandHandler {
-  name = "close";
+  commandName = "close";
+  subCommandName = null;
   aliases = ["c"];
 
   private forumChannelId: string;

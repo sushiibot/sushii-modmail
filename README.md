@@ -4,9 +4,12 @@ Discord ModMail bot utilizing forum channels for preserving previous ModMail
 threads entirely on Discord.
 
 - Search past threads directly on Discord.
-- No custom need to deal with a custom web UI for chat logs.
+- No need to deal with a custom web UI for chat logs.
 
 ## Features
+
+Basics of what you expect in a Mod Mail bot. Feature set is fairly minimal to
+those essential and more frequently used.
 
 - **Built-in Organization** - ModMail threads are Forum channel threads.
 - **Snippets** - Re-usable messages.
@@ -23,21 +26,35 @@ Responding to a thread
 - `edit` - Edit a previous thread message.
 - `delete` - Delete a previous thread message.
 
+Threads
+- `contact` - Open a new thread with a user.
+
 User information
 - `logs` - Links to previous threads by the same user.
 
+Snippets
+- `snippet add [name] [content]` - Create a new snippet
+- `snippet edit [name] [content]` - Modify an existing snippet
+- `snippet delete [name]` - Delete a snippet
+
+## Usage
+
+You can run sushii-modmail with Docker.
+
+
 ## Development
 
-To install dependencies:
+sushii-modmail uses [Bun](https://bun.sh/) for development and runtime.
 
 ```bash
+# Install dependencies
 bun install
-```
 
-To run:
+# Run tests
+bun test
 
-```bash
-bun run ./src/index.ts
+# Start the bot
+bun start
 ```
 
 ## Attributions

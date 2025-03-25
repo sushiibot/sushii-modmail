@@ -26,3 +26,15 @@ export const threads = sqliteTable(
     check("closedby_id_check", sql`${table.closedBy} NOT GLOB '*[^0-9]*'`),
   ]
 );
+
+export const snippets = sqliteTable(
+  "snippets",
+  {
+    guildId: text().notNull(),
+    name: text().notNull(),
+    content: text().notNull(),
+  },
+  (table) => [
+    check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
+  ]
+);

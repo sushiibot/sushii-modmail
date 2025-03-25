@@ -232,14 +232,18 @@ describe("ThreadService", () => {
       const threadChannel = {
         isThread: () => true,
         send: mock(),
-        setLocked: mock(),
+        edit: mock(),
       } as unknown as ForumThreadChannel;
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
 
       await threadService.closeThread(thread, "userId");
 
       expect(threadChannel.send).toHaveBeenCalledWith("Thread closed.");
-      expect(threadChannel.setLocked).toHaveBeenCalledWith(true);
+      expect(threadChannel.edit).toHaveBeenCalledWith({
+        archived: true,
+        locked: true,
+        appliedTags: [],
+      });
       expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(
         thread.channelId,
         "userId"

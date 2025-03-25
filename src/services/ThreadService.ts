@@ -131,8 +131,14 @@ export class ThreadService {
     // Send closed message
     await threadChannel.send("Thread closed.");
 
-    // Lock the forum thread as completed
-    await threadChannel.setLocked(true);
+    // Lock and close the forum thread as completed
+    await threadChannel.edit({
+      archived: true,
+      locked: true,
+
+      // Clear tags -- TODO: open tag
+      appliedTags: [],
+    });
 
     // Mark as closed in db
     await this.threadRepository.closeThread(thread.channelId, userId);

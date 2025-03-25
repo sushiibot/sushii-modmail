@@ -5,15 +5,21 @@ import CommandRouter from "./CommandRouter";
 import dotenv from "dotenv";
 import { registerEventHandlers } from "./events";
 import { getDb, type DB } from "database/db";
-import { ReplyCommand } from "commands/ReplyCommand";
+import { ReplyCommand } from "commands/reply/ReplyCommand";
 import { MessageRelayService } from "services/MessageRelayService";
 import { ThreadService } from "services/ThreadService";
 import { ThreadRepository } from "repositories/thread.repository";
-import { AnonymousReplyCommand } from "commands/AnonymousReplyCommand";
+import { AnonymousReplyCommand } from "commands/reply/AnonymousReplyCommand";
 import { ConfigModel } from "models/config.model";
 import { CloseCommand } from "commands/CloseCommand";
 import { LogsCommand } from "commands/LogsCommand";
-import { PlainReplyCommand } from "commands/PlainReplyCommand";
+import { PlainReplyCommand } from "commands/reply/PlainReplyCommand";
+import { AddSnippetCommand } from "commands/snippets/AddSnippetCommand";
+import { SnippetService } from "services/SnippetService";
+import { SnippetRepository } from "repositories/snippet.repository";
+import { EditSnippetCommand } from "commands/snippets/EditSnippetCommand";
+import { DeleteSnippetCommand } from "commands/snippets/DeleteSnippetCommand";
+import { ListSnippetsCommand } from "commands/snippets/ListSnippetsCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -24,14 +30,17 @@ function buildCommandRouter(
   db: DB
 ): CommandRouter {
   const threadRepository = new ThreadRepository(db);
+  const snippetRepository = new SnippetRepository(db);
 
   const threadService = new ThreadService(config, client, threadRepository);
   const messageService = new MessageRelayService(config, client);
+  const snippetService = new SnippetService(config, client, snippetRepository);
 
   // Commands
   const router = new CommandRouter(config);
 
   router.addCommands(
+    // Reply commands
     new ReplyCommand(config.forumChannelId, threadService, messageService),
     new AnonymousReplyCommand(
       config.forumChannelId,
@@ -39,6 +48,14 @@ function buildCommandRouter(
       messageService
     ),
     new PlainReplyCommand(config.forumChannelId, threadService, messageService),
+
+    // Snippets
+    new AddSnippetCommand(snippetService),
+    new EditSnippetCommand(snippetService),
+    new DeleteSnippetCommand(snippetService),
+    new ListSnippetsCommand(snippetService),
+
+    // Other
     new LogsCommand(config.forumChannelId, threadService, messageService),
     new CloseCommand(config.forumChannelId, threadService)
   );

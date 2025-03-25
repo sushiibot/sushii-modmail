@@ -5,8 +5,10 @@ import { getLogger } from "utils/logger";
 import { BaseReplyCommand } from "./BaseReplyCommand";
 
 export class PlainReplyCommand extends BaseReplyCommand {
-  name = "preply";
+  commandName = "preply";
+  subCommandName = null;
   aliases = ["pr"];
+
   protected replyOptions = { plainText: true };
 
   constructor(

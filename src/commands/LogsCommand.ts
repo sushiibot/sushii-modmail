@@ -6,7 +6,8 @@ import { getLogger } from "utils/logger";
 import { StaffThreadView } from "../views/StaffThreadView";
 
 export class LogsCommand extends TextCommandHandler {
-  name = "logs";
+  commandName = "logs";
+  subCommandName = null;
   aliases = [];
 
   protected forumChannelId: string;
