@@ -22,9 +22,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Get short SHA
-        id: short_sha
+        id: sha
         run: |
-          echo name=SHORT_SHA::$(echo $GITHUB_SHA | cut -c1-7) >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -33,4 +33,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/sushiibot/modmail:latest
-            ghcr.io/sushiibot/modmail:${{ steps.short_sha.outputs.SHORT_SHA }}
+            ghcr.io/sushiibot/modmail:${{ steps.sha.outputs.sha_short }}
