@@ -1,6 +1,6 @@
 # sushii-modmail
 
-Discord ModMail bot utilizing forum channels for preserving previous ModMail
+Discord ModMail bot utilizing forum channels to preserve previous ModMail
 threads entirely on Discord.
 
 - Search past threads directly on Discord.
@@ -8,17 +8,17 @@ threads entirely on Discord.
 
 ## Features
 
-Basics of what you expect in a Mod Mail bot. Feature set is fairly minimal to
-those essential and more frequently used.
+Feature set is fairly minimal, focusing on essential and frequently used.
 
 - **Built-in Organization** - ModMail threads are Forum channel threads.
 - **Snippets** - Re-usable messages.
+- **Anonymous Replies** - Keep staff members anonymous when replying.
 
 ## Commands
 
 This bot intentionally does not use slash commands for ease of use.
 
-Responding to a thread
+Respond to a thread
 - `reply` - Reply to a thread.
 - `areply` - Anonymously reply to a thread.
 - `preply` - Plain text reply to a thread.
