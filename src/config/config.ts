@@ -12,6 +12,8 @@ const configSchema = z.object({
   MAIL_GUILD_ID: z.string(),
   FORUM_CHANNEL_ID: z.string(),
 
+  ANONYMOUS_SNIPPETS: z.string(),
+
   DATABASE_URI: z.string(),
 
   INITIAL_MESSAGE: z.string().optional(),

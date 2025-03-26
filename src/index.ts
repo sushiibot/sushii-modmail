@@ -10,7 +10,7 @@ import { MessageRelayService } from "services/MessageRelayService";
 import { ThreadService } from "services/ThreadService";
 import { ThreadRepository } from "repositories/thread.repository";
 import { AnonymousReplyCommand } from "commands/reply/AnonymousReplyCommand";
-import { ConfigModel } from "models/config.model";
+import { BotConfig } from "models/botConfig.model";
 import { CloseCommand } from "commands/CloseCommand";
 import { LogsCommand } from "commands/LogsCommand";
 import { PlainReplyCommand } from "commands/reply/PlainReplyCommand";
@@ -21,19 +21,26 @@ import { EditSnippetCommand } from "commands/snippets/EditSnippetCommand";
 import { DeleteSnippetCommand } from "commands/snippets/DeleteSnippetCommand";
 import { ListSnippetsCommand } from "commands/snippets/ListSnippetsCommand";
 import { ContactCommand } from "commands/ContactCommand";
+import { RuntimeConfigRepository } from "repositories/config.repository";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
 
 function buildCommandRouter(
-  config: ConfigModel,
+  config: BotConfig,
   client: Client,
   db: DB
 ): CommandRouter {
   const threadRepository = new ThreadRepository(db);
   const snippetRepository = new SnippetRepository(db);
+  const runtimeConfigRepository = new RuntimeConfigRepository(db);
 
-  const threadService = new ThreadService(config, client, threadRepository);
+  const threadService = new ThreadService(
+    config,
+    client,
+    threadRepository,
+    runtimeConfigRepository
+  );
   const messageService = new MessageRelayService(config, client);
   const snippetService = new SnippetService(config, client, snippetRepository);
 
@@ -67,7 +74,7 @@ function buildCommandRouter(
 
 async function main() {
   const rawConfig = getConfigFromEnv();
-  const config = ConfigModel.fromConfigType(rawConfig);
+  const config = BotConfig.fromConfigType(rawConfig);
 
   // Update log level from config
   logger.info(`Setting log level to ${config.logLevel}`);

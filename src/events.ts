@@ -6,13 +6,14 @@ import { ThreadRepository } from "repositories/thread.repository";
 import { ThreadService } from "services/ThreadService";
 import { MessageRelayService } from "services/MessageRelayService";
 import { DMController } from "controllers/DMController";
-import type { ConfigModel } from "models/config.model";
+import type { BotConfig } from "models/botConfig.model";
 import { SnippetController } from "controllers/SnippetController";
 import { SnippetService } from "services/SnippetService";
 import { SnippetRepository } from "repositories/snippet.repository";
+import { RuntimeConfigRepository } from "repositories/config.repository";
 
 export function registerEventHandlers(
-  config: ConfigModel,
+  config: BotConfig,
   client: Client,
   db: DB,
   commandRouter: CommandRouter
@@ -21,8 +22,14 @@ export function registerEventHandlers(
 
   const threadRepository = new ThreadRepository(db);
   const snippetRepository = new SnippetRepository(db);
+  const runtimeConfigRepository = new RuntimeConfigRepository(db);
 
-  const threadService = new ThreadService(config, client, threadRepository);
+  const threadService = new ThreadService(
+    config,
+    client,
+    threadRepository,
+    runtimeConfigRepository
+  );
   const snippetService = new SnippetService(config, client, snippetRepository);
   const messageService = new MessageRelayService(config, client);
 

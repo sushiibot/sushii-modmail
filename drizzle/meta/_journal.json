@@ -8,6 +8,13 @@
       "when": 1742875943036,
       "tag": "0000_lovely_the_hood",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1742952631047,
+      "tag": "0001_majestic_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

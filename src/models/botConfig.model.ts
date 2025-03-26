@@ -17,7 +17,7 @@ You'll get a ✅ reaction on your messages when they're successfully forwarded t
 /**
  * Model representation of application configuration with standard TypeScript casing
  */
-export class ConfigModel {
+export class BotConfig {
   public readonly logLevel: string;
   public readonly discordToken: string;
   public readonly discordClientId: string;
@@ -53,8 +53,8 @@ export class ConfigModel {
   /**
    * Create a ConfigModel from the environment ConfigType
    */
-  static fromConfigType(config: ConfigType): ConfigModel {
-    return new ConfigModel(
+  static fromConfigType(config: ConfigType): BotConfig {
+    return new BotConfig(
       config.LOG_LEVEL,
       config.DISCORD_TOKEN,
       config.DISCORD_CLIENT_ID,

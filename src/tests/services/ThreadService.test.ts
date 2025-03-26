@@ -8,6 +8,7 @@ import {
   type ForumThreadChannel,
   Guild,
   User,
+  type GuildForumTag,
 } from "discord.js";
 import { ThreadService } from "../../services/ThreadService";
 import { ThreadRepository } from "../../repositories/thread.repository";
@@ -19,7 +20,8 @@ import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { getDb } from "database/db";
 import { randomSnowflakeID } from "tests/utils/snowflake";
 import { mockThread } from "tests/models/thread.model.mock.test";
-import type { ConfigModel } from "models/config.model";
+import type { BotConfig } from "models/botConfig.model";
+import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 // Mock dependencies
 const mockThreadRepository = {
@@ -30,10 +32,15 @@ const mockThreadRepository = {
   closeThread: mock(),
 };
 
+const mockRuntimeConfigRepository = {
+  getConfig: mock(),
+  setOpenTagId: mock(),
+};
+
 describe("ThreadService", () => {
   let client: Client;
   let threadService: ThreadService;
-  let config: ConfigModel;
+  let config: BotConfig;
 
   let guildMock: Guild;
 
@@ -41,7 +48,7 @@ describe("ThreadService", () => {
     config = {
       guildId: randomSnowflakeID(),
       forumChannelId: randomSnowflakeID(),
-    } as unknown as ConfigModel;
+    } as unknown as BotConfig;
 
     client = {
       channels: {
@@ -63,7 +70,72 @@ describe("ThreadService", () => {
       },
     } as unknown as Guild;
 
-    threadService = new ThreadService(config, client, mockThreadRepository);
+    threadService = new ThreadService(
+      config,
+      client,
+      mockThreadRepository,
+      mockRuntimeConfigRepository
+    );
+  });
+
+  describe("getOpenTagId", () => {
+    it("should return the open tag ID from runtime config", async () => {
+      const runtimeConfig = {
+        openTagId: "openTagId123",
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
+
+      const result = await threadService.getOpenTagId();
+
+      expect(result).toBe("openTagId123");
+      expect(mockRuntimeConfigRepository.getConfig).toHaveBeenCalledWith(
+        config.guildId
+      );
+    });
+
+    it("should throw an error if runtime config is not found", async () => {
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
+
+      expect(threadService.getOpenTagId()).rejects.toThrow(
+        `Runtime config not found: ${config.guildId}`
+      );
+    });
+  });
+
+  describe("createOpenTag", () => {
+    it("should create an open tag and save it to the runtime config", async () => {
+      const tagId = randomSnowflakeID();
+
+      const forumChannel = {
+        availableTags: [],
+        setAvailableTags: mock((tags: GuildForumTag[]) => {
+          forumChannel.availableTags = tags.map((tag) => {
+            // For the "Open" tag, use our known tagId
+            if (tag.name === "Open" && !tag.id) {
+              return { ...tag, id: tagId };
+            }
+
+            return tag;
+          });
+
+          return Promise.resolve(forumChannel);
+        }),
+      } as unknown as ForumChannel;
+
+      mockRuntimeConfigRepository.setOpenTagId.mockResolvedValue(
+        {} as RuntimeConfig
+      );
+
+      const result = await threadService.createOpenTag(forumChannel);
+
+      expect(result).toBe(tagId);
+      expect(forumChannel.setAvailableTags).toHaveBeenCalled();
+      expect(mockRuntimeConfigRepository.setOpenTagId).toHaveBeenCalledWith(
+        config.guildId,
+        tagId
+      );
+    });
   });
 
   describe("getOrCreateThread", () => {
@@ -159,6 +231,7 @@ describe("ThreadService", () => {
     it("should create a new thread and return it", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
+      const openTagId = randomSnowflakeID();
 
       const modmailForumChannel = {
         type: ChannelType.GuildForum,
@@ -177,6 +250,7 @@ describe("ThreadService", () => {
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
       spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
+      spyOn(threadService, "getOpenTagId").mockResolvedValue(openTagId);
 
       spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
         name: "threadName",
@@ -198,12 +272,65 @@ describe("ThreadService", () => {
         message: {
           content: "initialMessage",
         },
+        appliedTags: [openTagId],
       });
       expect(mockThreadRepository.createThread).toHaveBeenCalledWith(
         "guildId",
         userId,
         "threadId"
       );
+    });
+
+    it("should create a new open tag if none exists", async () => {
+      const userId = randomSnowflakeID();
+      const username = "testuser";
+      const newOpenTagId = randomSnowflakeID();
+
+      const modmailForumChannel = {
+        type: ChannelType.GuildForum,
+        threads: {
+          create: mock().mockResolvedValue({
+            id: "threadId",
+            guildId: "guildId",
+          }),
+        },
+      } as unknown as ForumChannel;
+
+      const mockUser = {
+        id: "123",
+      } as unknown as User;
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      spyOn(client.users, "fetch").mockResolvedValue(mockUser);
+      spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
+      spyOn(threadService, "getOpenTagId").mockResolvedValue(null);
+      spyOn(threadService, "createOpenTag").mockResolvedValue(newOpenTagId);
+
+      spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
+        name: "threadName",
+        reason: "reason",
+      });
+      spyOn(StaffThreadView, "initialThreadMessage").mockReturnValue({
+        content: "initialMessage",
+      });
+
+      const thread = mockThread();
+      mockThreadRepository.createThread.mockResolvedValue(thread);
+
+      const result = await threadService["createNewThread"](userId, username);
+
+      expect(result).toBeInstanceOf(Thread);
+      expect(threadService.createOpenTag).toHaveBeenCalledWith(
+        modmailForumChannel
+      );
+      expect(modmailForumChannel.threads.create).toHaveBeenCalledWith({
+        name: "threadName",
+        reason: "reason",
+        message: {
+          content: "initialMessage",
+        },
+        appliedTags: [newOpenTagId],
+      });
     });
   });
 

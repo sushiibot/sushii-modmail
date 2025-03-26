@@ -22,12 +22,12 @@ import {
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
-import type { ConfigModel } from "models/config.model";
+import type { BotConfig } from "models/botConfig.model";
 
 describe("MessageRelayService", () => {
   let client: Client;
   let service: MessageRelayService;
-  let config: ConfigModel;
+  let config: BotConfig;
   const guildId = "123456789";
 
   beforeEach(() => {
@@ -35,7 +35,7 @@ describe("MessageRelayService", () => {
     config = {
       initialMessage: "Welcome to modmail!",
       guildId,
-    } as unknown as ConfigModel;
+    } as unknown as BotConfig;
     service = new MessageRelayService(config, client);
   });
 

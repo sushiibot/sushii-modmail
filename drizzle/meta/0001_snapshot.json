@@ -1,0 +1,164 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "3669a254-010f-4fde-a870-8a8a415b79fb",
+  "prevId": "d364c9d2-cffb-4714-9ee2-0ec43450fc83",
+  "tables": {
+    "config": {
+      "name": "config",
+      "columns": {
+        "guild_id": {
+          "name": "guild_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "open_tag_id": {
+          "name": "open_tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "guild_id_check": {
+          "name": "guild_id_check",
+          "value": "\"config\".\"guild_id\" NOT GLOB '*[^0-9]*'"
+        },
+        "open_tag_id_check": {
+          "name": "open_tag_id_check",
+          "value": "\"config\".\"open_tag_id\" NOT GLOB '*[^0-9]*'"
+        }
+      }
+    },
+    "snippets": {
+      "name": "snippets",
+      "columns": {
+        "guild_id": {
+          "name": "guild_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "guild_id_check": {
+          "name": "guild_id_check",
+          "value": "\"snippets\".\"guild_id\" NOT GLOB '*[^0-9]*'"
+        }
+      }
+    },
+    "threads": {
+      "name": "threads",
+      "columns": {
+        "guild_id": {
+          "name": "guild_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recipient_id": {
+          "name": "recipient_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'\"2025-03-26T01:30:31.026Z\"'"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "guild_id_check": {
+          "name": "guild_id_check",
+          "value": "\"threads\".\"guild_id\" NOT GLOB '*[^0-9]*'"
+        },
+        "thread_id_check": {
+          "name": "thread_id_check",
+          "value": "\"threads\".\"thread_id\" NOT GLOB '*[^0-9]*'"
+        },
+        "recipient_id_check": {
+          "name": "recipient_id_check",
+          "value": "\"threads\".\"recipient_id\" NOT GLOB '*[^0-9]*'"
+        },
+        "closedby_id_check": {
+          "name": "closedby_id_check",
+          "value": "\"threads\".\"closed_by\" NOT GLOB '*[^0-9]*'"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

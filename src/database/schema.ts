@@ -38,3 +38,16 @@ export const snippets = sqliteTable(
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
   ]
 );
+
+// Configs that can only be set in run-time and need to be persisted
+export const runtimeConfig = sqliteTable(
+  "config",
+  {
+    guildId: text().notNull(),
+    openTagId: text(),
+  },
+  (table) => [
+    check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
+    check("open_tag_id_check", sql`${table.openTagId} NOT GLOB '*[^0-9]*'`),
+  ]
+);

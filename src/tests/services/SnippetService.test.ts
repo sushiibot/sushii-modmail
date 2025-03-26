@@ -5,7 +5,7 @@ import { getLogger } from "utils/logger";
 
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
-import type { ConfigModel } from "models/config.model";
+import type { BotConfig } from "models/botConfig.model";
 
 // Mock dependencies
 const mockSnippetRepository = {
@@ -32,12 +32,12 @@ const mockSnippet = (overrides = {}): Snippet => {
 describe("SnippetService", () => {
   let client: Client;
   let snippetService: SnippetService;
-  let config: ConfigModel;
+  let config: BotConfig;
 
   beforeEach(() => {
     config = {
       guildId: randomSnowflakeID(),
-    } as unknown as ConfigModel;
+    } as unknown as BotConfig;
 
     client = {} as unknown as Client;
 
