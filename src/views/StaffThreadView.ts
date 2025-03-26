@@ -69,14 +69,18 @@ export class StaffThreadView {
     // - Mutual servers
     // - Previous threads
 
-    const embed = new EmbedBuilder().setAuthor({
-      name: formatUserIdentity(
-        userInfo.user.id,
-        userInfo.user.username,
-        userInfo.member?.nickname
-      ),
-      iconURL: userInfo.member?.avatarURL() || userInfo.user.displayAvatarURL(),
-    });
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: formatUserIdentity(
+          userInfo.user.id,
+          userInfo.user.username,
+          userInfo.member?.nickname
+        ),
+        iconURL:
+          userInfo.member?.avatarURL() || userInfo.user.displayAvatarURL(),
+      })
+      .setColor(Color.Gray)
+      .setTimestamp();
 
     const createdTs = Math.floor(userInfo.user.createdTimestamp / 1000);
     let description = `<@${userInfo.user.id}>\n`;
@@ -125,7 +129,7 @@ export class StaffThreadView {
     embed.addFields(fields);
 
     return {
-      content: `@here`,
+      // content: `@here`,
       embeds: [embed],
     };
   }
@@ -190,7 +194,7 @@ export class StaffThreadView {
         name: authorName,
         iconURL: staffUser.displayAvatarURL(),
       })
-      .setColor(Color.Lavender)
+      .setColor(Color.Green)
       .setDescription(content)
       .setTimestamp();
 
@@ -223,8 +227,6 @@ export class StaffThreadView {
   static async userReplyMessage(
     userMessage: StaffViewUserMessage
   ): Promise<MessageCreateOptions> {
-    const description = userMessage.content;
-
     const fields = [];
 
     if (userMessage.attachments.size > 0) {
@@ -232,8 +234,11 @@ export class StaffThreadView {
         .map((attachment) => `[${attachment.name}](${attachment.url})`)
         .join("\n");
 
+      const name =
+        userMessage.attachments.size > 1 ? "Attachments" : "Attachment";
+
       fields.push({
-        name: "Original Attachment URLs",
+        name: `Original ${name}`,
         value: attachments,
       });
     }
@@ -243,8 +248,10 @@ export class StaffThreadView {
         .map((sticker) => `[${sticker.name}](${sticker.url})`)
         .join("\n");
 
+      const name = userMessage.stickers.size > 1 ? "Stickers" : "Sticker";
+
       fields.push({
-        name: "Stickers",
+        name: name,
         value: stickers,
       });
     }
@@ -257,13 +264,16 @@ export class StaffThreadView {
         ),
         iconURL: userMessage.author.displayAvatarURL() || undefined,
       })
-      .setDescription(description)
       .setColor(Color.Blue)
       .setFooter({
         text: `Message ID: ${userMessage.id}`,
       })
       .setFields(fields)
       .setTimestamp();
+
+    if (userMessage.content) {
+      embed.setDescription(userMessage.content);
+    }
 
     // Re-upload attachments
     const fileDownloads = Array.from(userMessage.attachments.values()).map(

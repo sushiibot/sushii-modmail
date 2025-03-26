@@ -3,7 +3,7 @@ export function formatUserIdentity(
   username: string,
   nickname?: string | null
 ): string {
-  let identity = `@${username} (ID: ${userId})`;
+  let identity = `${username} (ID: ${userId})`;
 
   if (nickname) {
     identity = `${nickname} ~ ${identity}`;

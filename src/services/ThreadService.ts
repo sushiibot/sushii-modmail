@@ -214,7 +214,7 @@ export class ThreadService {
       mutualGuilds: mutualServers,
     });
 
-    const newThread = await modmailForumChannel.threads.create({
+    const discordThread = await modmailForumChannel.threads.create({
       name: threadMetadata.name,
       reason: threadMetadata.reason,
       message: threadInitialMsg,
@@ -224,9 +224,9 @@ export class ThreadService {
     // -------------------------------------------------------------------------
     // Save to database
     const thread = this.threadRepository.createThread(
-      newThread.guildId,
+      discordThread.guildId,
       userId,
-      newThread.id
+      discordThread.id
     );
 
     this.logger.debug(thread, `Created new thread`);

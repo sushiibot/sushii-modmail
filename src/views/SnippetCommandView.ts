@@ -191,7 +191,7 @@ export class SnippetCommandView {
   static snippetList(snippets: Snippet[]): MessageCreateOptions {
     const embed = new EmbedBuilder()
       .setTitle("Available Snippets")
-      .setColor(Color.Lavender)
+      .setColor(Color.Purple)
       .setDescription(
         snippets
           .map((snippet) => `\`${snippet.name}\` - ${snippet.content}`)
