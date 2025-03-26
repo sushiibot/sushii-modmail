@@ -41,6 +41,39 @@ Snippets
 
 You can run sushii-modmail with Docker.
 
+```bash
+# Build the Docker image
+docker build -t sushii-modmail .
+
+# Run the container
+docker run -d --name sushii-modmail \
+  -e TOKEN=your_discord_bot_token \
+  -e OTHER_VARS=... \
+  sushii-modmail
+```
+
+## Configuration
+
+Configuration is set in environment variables. Here's an example .env file:
+
+```env
+# Logging
+LOG_LEVEL=info
+
+# Discord Bot Configuration
+DISCORD_TOKEN=your_discord_bot_token
+DISCORD_CLIENT_ID=your_discord_client_id
+PREFIX=!
+
+# ModMail Settings
+MAIL_GUILD_ID=your_guild_id
+FORUM_CHANNEL_ID=your_forum_channel_id
+ANONYMOUS_SNIPPETS=false
+INITIAL_MESSAGE=Thank you for contacting the mod team! We'll get back to you as soon as possible.
+
+# Sqlite database path
+DATABASE_URI=./data/db.sqlite
+```
 
 ## Development
 
