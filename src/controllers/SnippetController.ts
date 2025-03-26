@@ -8,6 +8,12 @@ import type {
 } from "views/UserThreadView";
 import { StaffThreadView } from "views/StaffThreadView";
 
+interface Config {
+  prefix: string;
+  forumChannelId: string;
+  anonymousSnippets: boolean;
+}
+
 export interface Thread {
   userId: string;
   channelId: string;
@@ -39,7 +45,8 @@ export interface MessageRelayService {
 }
 
 export class SnippetController {
-  private prefix: string;
+  private config: Config;
+
   private snippetService: SnippetService;
   private threadService: ThreadService;
   private messageService: MessageRelayService;
@@ -47,12 +54,12 @@ export class SnippetController {
   private logger: Logger = getLogger(this.constructor.name);
 
   constructor(
-    prefix: string,
+    config: Config,
     snippetService: SnippetService,
     threadService: ThreadService,
     messageService: MessageRelayService
   ) {
-    this.prefix = prefix;
+    this.config = config;
     this.snippetService = snippetService;
     this.threadService = threadService;
     this.messageService = messageService;
@@ -60,24 +67,29 @@ export class SnippetController {
 
   async handleThreadMessage(client: Client, message: Message): Promise<void> {
     try {
+      if (!message.channel.isThread()) {
+        return;
+      }
+
+      // Check if this is the modmail channel
+      if (message.channel.parentId !== this.config.forumChannelId) {
+        return;
+      }
+
       // Skip if not starting with the snippet prefix '-'
-      if (!message.content.startsWith(this.prefix) || message.author.bot) {
+      if (
+        !message.content.startsWith(this.config.prefix) ||
+        message.author.bot
+      ) {
         return;
       }
 
-      if (!message.channel.isSendable()) {
-        return;
-      }
-
-      // Check if this is a modmail thread
+      // Find modmail thread
       const thread = await this.threadService.getThreadByChannelId(
         message.channel.id
       );
 
       if (!thread) {
-        this.logger.debug(
-          `Ignoring message in non-thread channel: ${message.channel.id}`
-        );
         return;
       }
 
@@ -112,7 +124,7 @@ export class SnippetController {
 
       // Relay the snippet content to the user
       const options: StaffMessageOptions = {
-        anonymous: message.content.includes("-a"),
+        anonymous: this.config.anonymousSnippets,
         plainText: message.content.includes("-p"),
         snippet: true,
       };

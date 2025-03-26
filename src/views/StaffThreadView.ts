@@ -66,11 +66,7 @@ export class StaffThreadView {
    */
   static initialThreadMessage(userInfo: UserThreadInfo): MessageCreateOptions {
     // TODO: Should include
-    // - Display name, username
-    // - Mention
-    // - Mutual servers as bots
-    // - Account / Member age
-    // - Roles
+    // - Mutual servers
     // - Previous threads
 
     const embed = new EmbedBuilder().setAuthor({
@@ -83,14 +79,14 @@ export class StaffThreadView {
     });
 
     const createdTs = Math.floor(userInfo.user.createdTimestamp / 1000);
-    let description = `<@${userInfo.user.id}>`;
+    let description = `<@${userInfo.user.id}>\n`;
     description += `User created at <t:${createdTs}:R>`;
 
     if (userInfo.member) {
       if (userInfo.member.joinedTimestamp) {
         const joinedTs = Math.floor(userInfo.member.joinedTimestamp / 1000);
 
-        description += `\nJoined guild at <t:${joinedTs}:R>`;
+        description += `\nJoined server at <t:${joinedTs}:R>`;
       }
     }
 
@@ -142,7 +138,8 @@ export class StaffThreadView {
     username: string
   ): Omit<GuildForumThreadCreateOptions, "message"> {
     return {
-      name: `${username}`,
+      // Need user ID in the thread name to allow searching by ID
+      name: `${username} - ${userId}`,
       reason: `New ModMail from ${userId}`,
     };
   }
@@ -188,10 +185,6 @@ export class StaffThreadView {
       authorName += " (Anonymous)";
     }
 
-    if (options.snippet) {
-      authorName += " - snippet";
-    }
-
     const embed = new EmbedBuilder()
       .setAuthor({
         name: authorName,
@@ -200,6 +193,10 @@ export class StaffThreadView {
       .setColor(Color.Lavender)
       .setDescription(content)
       .setTimestamp();
+
+    if (options.snippet) {
+      embed.setFooter({ text: "Sent from snippet" });
+    }
 
     // Indicate if message is sent as plain text
     if (options.plainText) {

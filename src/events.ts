@@ -10,7 +10,7 @@ import type { BotConfig } from "models/botConfig.model";
 import { SnippetController } from "controllers/SnippetController";
 import { SnippetService } from "services/SnippetService";
 import { SnippetRepository } from "repositories/snippet.repository";
-import { RuntimeConfigRepository } from "repositories/config.repository";
+import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -35,7 +35,7 @@ export function registerEventHandlers(
 
   const dmController = new DMController(threadService, messageService);
   const snippetController = new SnippetController(
-    config.prefix,
+    config,
     snippetService,
     threadService,
     messageService

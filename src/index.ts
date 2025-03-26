@@ -21,7 +21,7 @@ import { EditSnippetCommand } from "commands/snippets/EditSnippetCommand";
 import { DeleteSnippetCommand } from "commands/snippets/DeleteSnippetCommand";
 import { ListSnippetsCommand } from "commands/snippets/ListSnippetsCommand";
 import { ContactCommand } from "commands/ContactCommand";
-import { RuntimeConfigRepository } from "repositories/config.repository";
+import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();

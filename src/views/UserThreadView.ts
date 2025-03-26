@@ -28,6 +28,9 @@ export class UserThreadView {
       })
       .setDescription(message)
       .setColor(Color.Gray)
+      .setFooter({
+        text: "Automated message",
+      })
       .setTimestamp();
 
     return {

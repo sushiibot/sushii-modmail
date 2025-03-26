@@ -1,9 +1,11 @@
 import {
   ChannelType,
   Client,
+  DiscordAPIError,
   ForumChannel,
   GuildChannel,
   GuildMember,
+  RESTJSONErrorCodes,
   type GuildForumTagData,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
@@ -63,7 +65,7 @@ export class ThreadService {
     );
 
     if (!runtimeConfig) {
-      throw new Error(`Runtime config not found: ${this.config.guildId}`);
+      return null;
     }
 
     return runtimeConfig.openTagId;
@@ -120,6 +122,36 @@ export class ThreadService {
     return { thread, isNew };
   }
 
+  async getMutualServers(
+    userId: string
+  ): Promise<{ id: string; name: string }[]> {
+    // This is NOT efficient with many servers.
+    // Bot is designed to be in only the 1-2 servers, e.g. main and appeals server
+    const mutualGuilds = [];
+
+    for (const guild of this.client.guilds.cache.values()) {
+      // Fetch member - throws if not found
+      try {
+        await guild.members.fetch(userId);
+      } catch (err) {
+        if (
+          err instanceof DiscordAPIError &&
+          err.code === RESTJSONErrorCodes.UnknownMember
+        ) {
+          // Not found member, continue
+          continue;
+        }
+
+        // Unexpected error
+        throw err;
+      }
+
+      mutualGuilds.push(guild);
+    }
+
+    return mutualGuilds.map((g) => ({ id: g.id, name: g.name }));
+  }
+
   private async createNewThread(
     userId: string,
     username: string
@@ -164,12 +196,22 @@ export class ThreadService {
     }
 
     // -------------------------------------------------------------------------
+    // Get user metadata, previous threads and mutual servers
+    const previousThreads = await this.threadRepository.getAllThreadsByUserId(
+      userId
+    );
+
+    const mutualServers = await this.getMutualServers(userId);
+
+    // -------------------------------------------------------------------------
     // Create Forum thread
 
     const threadMetadata = StaffThreadView.newThreadMetadata(userId, username);
     const threadInitialMsg = StaffThreadView.initialThreadMessage({
       user: user,
       member: member,
+      previousThreads: previousThreads,
+      mutualGuilds: mutualServers,
     });
 
     const newThread = await modmailForumChannel.threads.create({

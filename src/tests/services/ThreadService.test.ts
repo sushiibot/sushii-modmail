@@ -9,6 +9,9 @@ import {
   Guild,
   User,
   type GuildForumTag,
+  Collection,
+  DiscordAPIError,
+  RESTJSONErrorCodes,
 } from "discord.js";
 import { ThreadService } from "../../services/ThreadService";
 import { ThreadRepository } from "../../repositories/thread.repository";
@@ -57,6 +60,7 @@ describe("ThreadService", () => {
       guilds: {
         cache: {
           get: mock(),
+          values: mock(() => []),
         },
       },
       users: {
@@ -94,11 +98,14 @@ describe("ThreadService", () => {
       );
     });
 
-    it("should throw an error if runtime config is not found", async () => {
+    it("should return null if runtime config is not found", async () => {
       mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
 
-      expect(threadService.getOpenTagId()).rejects.toThrow(
-        `Runtime config not found: ${config.guildId}`
+      const result = await threadService.getOpenTagId();
+
+      expect(result).toBeNull();
+      expect(mockRuntimeConfigRepository.getConfig).toHaveBeenCalledWith(
+        config.guildId
       );
     });
   });
@@ -251,6 +258,7 @@ describe("ThreadService", () => {
       spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
       spyOn(threadService, "getOpenTagId").mockResolvedValue(openTagId);
+      spyOn(threadService, "getMutualServers").mockResolvedValue([]);
 
       spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
         name: "threadName",
@@ -262,10 +270,12 @@ describe("ThreadService", () => {
 
       const thread = mockThread();
       mockThreadRepository.createThread.mockResolvedValue(thread);
+      mockThreadRepository.getAllThreadsByUserId.mockResolvedValue([]);
 
       const result = await threadService["createNewThread"](userId, username);
 
       expect(result).toBeInstanceOf(Thread);
+      expect(threadService.getMutualServers).toHaveBeenCalledWith(userId);
       expect(modmailForumChannel.threads.create).toHaveBeenCalledWith({
         name: "threadName",
         reason: "reason",
@@ -305,6 +315,7 @@ describe("ThreadService", () => {
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
       spyOn(threadService, "getOpenTagId").mockResolvedValue(null);
       spyOn(threadService, "createOpenTag").mockResolvedValue(newOpenTagId);
+      spyOn(threadService, "getMutualServers").mockResolvedValue([]);
 
       spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
         name: "threadName",
@@ -316,6 +327,7 @@ describe("ThreadService", () => {
 
       const thread = mockThread();
       mockThreadRepository.createThread.mockResolvedValue(thread);
+      mockThreadRepository.getAllThreadsByUserId.mockResolvedValue([]);
 
       const result = await threadService["createNewThread"](userId, username);
 
@@ -419,6 +431,44 @@ describe("ThreadService", () => {
       expect(mockThreadRepository.getAllThreadsByUserId).toHaveBeenCalledWith(
         userId
       );
+    });
+  });
+
+  describe("getMutualServers", () => {
+    it("should return mutual servers", async () => {
+      const userId = randomSnowflakeID();
+      const guildId1 = randomSnowflakeID();
+      const guildId2 = randomSnowflakeID();
+
+      const guildsMock = [
+        { id: guildId1, name: "Server 1", members: { fetch: mock() } },
+        { id: guildId2, name: "Server 2", members: { fetch: mock() } },
+      ];
+
+      // Setup the successful fetch for guild1
+      guildsMock[0].members.fetch.mockResolvedValue(123);
+
+      // Setup the error for guild2
+      const unknownMemberError = new DiscordAPIError(
+        { code: RESTJSONErrorCodes.UnknownMember, message: "Unknown Member" },
+        RESTJSONErrorCodes.UnknownMember,
+        404,
+        "GET",
+        "",
+        {}
+      );
+      guildsMock[1].members.fetch.mockRejectedValue(unknownMemberError);
+
+      const guilds = guildsMock as unknown as MapIterator<Guild>;
+
+      // Mock the guilds cache values to return our guilds
+      spyOn(client.guilds.cache, "values").mockReturnValue(guilds);
+
+      const result = await threadService.getMutualServers(userId);
+
+      expect(result).toEqual([{ id: guildId1, name: "Server 1" }]);
+      expect(guildsMock[0].members.fetch).toHaveBeenCalledWith(userId);
+      expect(guildsMock[1].members.fetch).toHaveBeenCalledWith(userId);
     });
   });
 });

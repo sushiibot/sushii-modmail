@@ -27,8 +27,10 @@ export class BotConfig {
 
   public readonly databaseUri: string;
 
+  // Runtime configuration
   public readonly prefix: string;
   public readonly initialMessage: string;
+  public readonly anonymousSnippets: boolean;
 
   constructor(
     logLevel: string,
@@ -38,7 +40,8 @@ export class BotConfig {
     forumChannelId: string,
     databaseUri: string,
     prefix: string | undefined = "-",
-    initialMessage: string | undefined = defaultInitialMessage
+    initialMessage: string | undefined = defaultInitialMessage,
+    anonymousSnippets: boolean | undefined = false
   ) {
     this.logLevel = logLevel;
     this.discordToken = discordToken;
@@ -48,6 +51,7 @@ export class BotConfig {
     this.databaseUri = databaseUri;
     this.prefix = prefix;
     this.initialMessage = initialMessage;
+    this.anonymousSnippets = anonymousSnippets;
   }
 
   /**
@@ -62,7 +66,8 @@ export class BotConfig {
       config.FORUM_CHANNEL_ID,
       config.DATABASE_URI,
       config.PREFIX,
-      config.INITIAL_MESSAGE
+      config.INITIAL_MESSAGE,
+      config.ANONYMOUS_SNIPPETS
     );
   }
 
