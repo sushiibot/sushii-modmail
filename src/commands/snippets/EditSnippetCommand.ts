@@ -48,7 +48,7 @@ export class EditSnippetCommand extends TextCommandHandler {
       // Update the snippet
       await this.snippetService.updateSnippet(msg.guildId, name, content);
 
-      await msg.reply(SnippetCommandView.snippetUpdated(name));
+      await msg.reply(SnippetCommandView.snippetUpdated(name, content));
     } catch (error) {
       this.logger.error(`Error updating snippet: ${error}`);
       await msg.reply(SnippetCommandView.errorUpdatingSnippet());

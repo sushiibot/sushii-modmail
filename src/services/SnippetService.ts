@@ -8,7 +8,7 @@ interface Config {
 
 interface SnippetRepository {
   getSnippet(guildId: string, name: string): Promise<Snippet | null>;
-  getAllSnippetsByGuild(guildId: string): Promise<Snippet[]>;
+  getAllSnippets(guildId: string): Promise<Snippet[]>;
   createSnippet(
     guildId: string,
     name: string,
@@ -56,7 +56,7 @@ export class SnippetService {
    */
   async getAllSnippets(guildId: string): Promise<Snippet[]> {
     this.logger.debug(`Getting all snippets for guild ${guildId}`);
-    return this.snippetRepository.getAllSnippetsByGuild(guildId);
+    return this.snippetRepository.getAllSnippets(guildId);
   }
 
   /**

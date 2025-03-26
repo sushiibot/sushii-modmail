@@ -10,7 +10,7 @@ import type { ConfigModel } from "models/config.model";
 // Mock dependencies
 const mockSnippetRepository = {
   getSnippet: mock(),
-  getAllSnippetsByGuild: mock(),
+  getAllSnippets: mock(),
   createSnippet: mock(),
   updateSnippet: mock(),
   deleteSnippet: mock(),
@@ -45,7 +45,7 @@ describe("SnippetService", () => {
 
     // Reset mocks
     mockSnippetRepository.getSnippet.mockReset();
-    mockSnippetRepository.getAllSnippetsByGuild.mockReset();
+    mockSnippetRepository.getAllSnippets.mockReset();
     mockSnippetRepository.createSnippet.mockReset();
     mockSnippetRepository.updateSnippet.mockReset();
     mockSnippetRepository.deleteSnippet.mockReset();
@@ -84,7 +84,7 @@ describe("SnippetService", () => {
     });
   });
 
-  describe("getAllSnippetsByGuild", () => {
+  describe("getAllSnippets", () => {
     it("should return all snippets for a guild", async () => {
       const guildId = randomSnowflakeID();
       const snippets = [
@@ -93,13 +93,13 @@ describe("SnippetService", () => {
         mockSnippet({ guildId, name: "snippet3" }),
       ];
 
-      mockSnippetRepository.getAllSnippetsByGuild.mockResolvedValue(snippets);
+      mockSnippetRepository.getAllSnippets.mockResolvedValue(snippets);
 
       const result = await snippetService.getAllSnippets(guildId);
 
       expect(result).toBe(snippets);
       expect(result.length).toBe(3);
-      expect(mockSnippetRepository.getAllSnippetsByGuild).toHaveBeenCalledWith(
+      expect(mockSnippetRepository.getAllSnippets).toHaveBeenCalledWith(
         guildId
       );
     });
@@ -107,12 +107,12 @@ describe("SnippetService", () => {
     it("should return an empty array if no snippets are found", async () => {
       const guildId = randomSnowflakeID();
 
-      mockSnippetRepository.getAllSnippetsByGuild.mockResolvedValue([]);
+      mockSnippetRepository.getAllSnippets.mockResolvedValue([]);
 
       const result = await snippetService.getAllSnippets(guildId);
 
       expect(result).toEqual([]);
-      expect(mockSnippetRepository.getAllSnippetsByGuild).toHaveBeenCalledWith(
+      expect(mockSnippetRepository.getAllSnippets).toHaveBeenCalledWith(
         guildId
       );
     });

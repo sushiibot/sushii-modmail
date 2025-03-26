@@ -64,7 +64,10 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
 
       // Re-lock -- should always be a thread from the check above, but need type check
       if (msg.channel.isThread()) {
-        await msg.channel.setLocked(true);
+        await msg.channel.edit({
+          locked: true,
+          archived: true,
+        });
       }
 
       return;

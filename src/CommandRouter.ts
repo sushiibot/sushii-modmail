@@ -139,28 +139,47 @@ export default class CommandRouter {
       msg.content.slice(1)
     );
 
-    // First try to find an exact match for "command subcommand"
-    const fullCommandName = subCommandName
-      ? `${commandName} ${subCommandName}`
-      : commandName;
-    let commandEntry = this.commands.get(fullCommandName);
+    let rootCommand = this.commands.get(commandName);
 
-    // If no exact match, fall back to just the command
-    if (!commandEntry) {
-      commandEntry = this.commands.get(commandName);
+    // No matching command
+    if (!rootCommand) {
+      return;
     }
 
-    if (!commandEntry || !commandEntry.handler) {
+    let handler: TextCommandHandler | null;
+
+    // Subcommand found, use subcommand handler
+    if (subCommandName) {
+      const subcommand = rootCommand.subcommands.get(subCommandName);
+
+      if (!subcommand) {
+        this.logger.warn(
+          `Subcommand not found: ${commandName} ${subCommandName}`
+        );
+        return;
+      }
+
+      handler = subcommand;
+    } else {
+      // No subcommand, use root sub-command
+      handler = rootCommand.handler;
+    }
+
+    if (!handler) {
       this.logger.warn(
-        `Command not found: ${fullCommandName}, ignoring. Please register the command with CommandRouter.`
+        `Command handler not found: ${rootCommand} ${subCommandName}`
       );
+
       return;
     }
 
     try {
-      await commandEntry.handler.handler(msg, args);
+      await handler.handler(msg, args);
     } catch (error) {
-      this.logger.error(error, `Error handling command: ${fullCommandName}`);
+      this.logger.error(
+        error,
+        `Error handling command: ${commandName} ${subCommandName}`
+      );
     }
   }
 }

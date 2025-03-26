@@ -5,7 +5,11 @@ import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
 import { StaffThreadView } from "views/StaffThreadView";
 
-export abstract class ContactCommand extends TextCommandHandler {
+export class ContactCommand extends TextCommandHandler {
+  commandName = "contact";
+  subCommandName = null;
+  aliases = ["open"];
+
   protected threadService: ThreadService;
   protected messageService: MessageRelayService;
 
@@ -41,6 +45,6 @@ export abstract class ContactCommand extends TextCommandHandler {
     }
 
     // Send a message to the staff to link the thread
-    await msg.channel.send(thread.link);
+    await msg.channel.send(`Created a new thread: ${thread.link}`);
   }
 }

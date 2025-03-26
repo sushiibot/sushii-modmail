@@ -27,7 +27,7 @@ export class UserThreadView {
         iconURL: guild.iconURL() || undefined,
       })
       .setDescription(message)
-      .setColor(Color.Blue)
+      .setColor(Color.Gray)
       .setTimestamp();
 
     return {

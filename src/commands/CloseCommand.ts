@@ -50,6 +50,12 @@ export class CloseCommand extends TextCommandHandler {
 
     if (thread.isClosed) {
       await msg.channel.send("This thread is already closed.");
+
+      await msg.channel.edit({
+        locked: true,
+        archived: true,
+      });
+
       return;
     }
 

@@ -20,6 +20,7 @@ import { SnippetRepository } from "repositories/snippet.repository";
 import { EditSnippetCommand } from "commands/snippets/EditSnippetCommand";
 import { DeleteSnippetCommand } from "commands/snippets/DeleteSnippetCommand";
 import { ListSnippetsCommand } from "commands/snippets/ListSnippetsCommand";
+import { ContactCommand } from "commands/ContactCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -57,7 +58,8 @@ function buildCommandRouter(
 
     // Other
     new LogsCommand(config.forumChannelId, threadService, messageService),
-    new CloseCommand(config.forumChannelId, threadService)
+    new CloseCommand(config.forumChannelId, threadService),
+    new ContactCommand(threadService, messageService)
   );
 
   return router;

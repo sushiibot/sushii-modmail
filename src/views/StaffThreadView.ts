@@ -188,6 +188,10 @@ export class StaffThreadView {
       authorName += " (Anonymous)";
     }
 
+    if (options.snippet) {
+      authorName += " - snippet";
+    }
+
     const embed = new EmbedBuilder()
       .setAuthor({
         name: authorName,

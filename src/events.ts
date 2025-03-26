@@ -7,19 +7,9 @@ import { ThreadService } from "services/ThreadService";
 import { MessageRelayService } from "services/MessageRelayService";
 import { DMController } from "controllers/DMController";
 import type { ConfigModel } from "models/config.model";
-
-function getDMHandler(
-  config: ConfigModel,
-  client: Client,
-  db: DB
-): DMController {
-  const threadRepository = new ThreadRepository(db);
-
-  const threadService = new ThreadService(config, client, threadRepository);
-  const messageService = new MessageRelayService(config, client);
-
-  return new DMController(threadService, messageService);
-}
+import { SnippetController } from "controllers/SnippetController";
+import { SnippetService } from "services/SnippetService";
+import { SnippetRepository } from "repositories/snippet.repository";
 
 export function registerEventHandlers(
   config: ConfigModel,
@@ -28,6 +18,21 @@ export function registerEventHandlers(
   commandRouter: CommandRouter
 ) {
   const logger = getLogger("events");
+
+  const threadRepository = new ThreadRepository(db);
+  const snippetRepository = new SnippetRepository(db);
+
+  const threadService = new ThreadService(config, client, threadRepository);
+  const snippetService = new SnippetService(config, client, snippetRepository);
+  const messageService = new MessageRelayService(config, client);
+
+  const dmController = new DMController(threadService, messageService);
+  const snippetController = new SnippetController(
+    config.prefix,
+    snippetService,
+    threadService,
+    messageService
+  );
 
   client.once(Events.ClientReady, () => {
     logger.info(`Bot is online! ${client.user?.tag}`);
@@ -41,8 +46,6 @@ export function registerEventHandlers(
     logger.info(`Joined server: ${guild.name}`);
   });
 
-  const dmController = getDMHandler(config, client, db);
-
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) {
       return;
@@ -55,6 +58,7 @@ export function registerEventHandlers(
     await Promise.allSettled([
       commandRouter.handleMessage(message),
       dmController.handleUserDM(message.client, message),
+      snippetController.handleThreadMessage(message.client, message),
     ]);
   });
 }

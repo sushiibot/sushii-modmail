@@ -25,7 +25,7 @@ export class SnippetRepository {
     return Snippet.fromDatabaseRow(result[0]);
   }
 
-  async getAllSnippetsByGuild(guildId: string): Promise<Snippet[]> {
+  async getAllSnippets(guildId: string): Promise<Snippet[]> {
     const result = await this.db
       .select()
       .from(snippets)

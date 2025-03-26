@@ -10,6 +10,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -20,6 +21,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -30,6 +32,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -40,6 +43,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -52,6 +56,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -64,36 +69,48 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
-  static snippetAdded(name: string): MessageCreateOptions {
+  static snippetAdded(name: string, content: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
       .setDescription(`Successfully added snippet \`${name}\`.`)
-      .setColor(Color.Gray);
+      .addFields({
+        name: "Content",
+        value: content,
+      })
+      .setColor(Color.Blue);
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
-  static snippetUpdated(name: string): MessageCreateOptions {
+  static snippetUpdated(name: string, content: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
       .setDescription(`Successfully updated snippet \`${name}\`.`)
-      .setColor(Color.Gray);
+      .addFields({
+        name: "Content",
+        value: content,
+      })
+      .setColor(Color.Blue);
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
   static snippetDeleted(name: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
       .setDescription(`Successfully deleted snippet \`${name}\`.`)
-      .setColor(Color.Gray);
+      .setColor(Color.Blue);
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -104,6 +121,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -116,6 +134,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -128,6 +147,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -140,6 +160,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -152,6 +173,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -162,6 +184,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
+      allowedMentions: {},
     };
   }
 
@@ -170,10 +193,12 @@ export class SnippetCommandView {
       .setTitle("Available Snippets")
       .setColor(Color.Lavender)
       .setDescription(
-        snippets.map((snippet) => `\`${snippet.name}\``).join(", ")
+        snippets
+          .map((snippet) => `\`${snippet.name}\` - ${snippet.content}`)
+          .join(", ")
       )
       .setFooter({ text: `Total snippets: ${snippets.length}` });
 
-    return { embeds: [embed] };
+    return { embeds: [embed], allowedMentions: {} };
   }
 }

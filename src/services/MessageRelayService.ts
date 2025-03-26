@@ -18,6 +18,7 @@ interface Config {
 export interface StaffMessageOptions {
   anonymous?: boolean;
   plainText?: boolean;
+  snippet?: boolean;
 }
 
 export interface Attachment {

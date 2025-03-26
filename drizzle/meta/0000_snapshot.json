@@ -1,9 +1,45 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "680efeea-cedb-4f2e-bca4-5487eebdac68",
+  "id": "d364c9d2-cffb-4714-9ee2-0ec43450fc83",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "snippets": {
+      "name": "snippets",
+      "columns": {
+        "guild_id": {
+          "name": "guild_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "guild_id_check": {
+          "name": "guild_id_check",
+          "value": "\"snippets\".\"guild_id\" NOT GLOB '*[^0-9]*'"
+        }
+      }
+    },
     "threads": {
       "name": "threads",
       "columns": {
@@ -28,17 +64,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "open": {
-          "name": "open",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "generated": {
-            "as": "(closed_at IS NULL)",
-            "type": "stored"
-          }
-        },
         "title": {
           "name": "title",
           "type": "text",
@@ -52,11 +77,18 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'\"2025-03-21T01:46:09.857Z\"'"
+          "default": "'\"2025-03-25T04:12:23.023Z\"'"
         },
         "closed_at": {
           "name": "closed_at",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -78,6 +110,10 @@
         "recipient_id_check": {
           "name": "recipient_id_check",
           "value": "\"threads\".\"recipient_id\" NOT GLOB '*[^0-9]*'"
+        },
+        "closedby_id_check": {
+          "name": "closedby_id_check",
+          "value": "\"threads\".\"closed_by\" NOT GLOB '*[^0-9]*'"
         }
       }
     }
