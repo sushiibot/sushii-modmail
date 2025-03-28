@@ -14,6 +14,7 @@ const mockSnippetRepository = {
   createSnippet: mock(),
   updateSnippet: mock(),
   deleteSnippet: mock(),
+  snippetExists: mock(),
 };
 
 // Mock snippet factory
@@ -49,6 +50,7 @@ describe("SnippetService", () => {
     mockSnippetRepository.createSnippet.mockReset();
     mockSnippetRepository.updateSnippet.mockReset();
     mockSnippetRepository.deleteSnippet.mockReset();
+    mockSnippetRepository.snippetExists.mockReset();
   });
 
   describe("getSnippet", () => {
@@ -125,16 +127,36 @@ describe("SnippetService", () => {
       const content = "This is a new snippet content";
       const newSnippet = mockSnippet({ guildId, name, content });
 
+      // Mock the snippetExists method to return false (snippet doesn't exist yet)
+      mockSnippetRepository.getSnippet.mockResolvedValue(null);
       mockSnippetRepository.createSnippet.mockResolvedValue(newSnippet);
 
       const result = await snippetService.createSnippet(guildId, name, content);
 
       expect(result).toBe(newSnippet);
+      expect(mockSnippetRepository.getSnippet).toHaveBeenCalledWith(
+        guildId,
+        name
+      );
       expect(mockSnippetRepository.createSnippet).toHaveBeenCalledWith(
         guildId,
         name,
         content
       );
+    });
+
+    it("should throw an error if snippet already exists", async () => {
+      const guildId = randomSnowflakeID();
+      const name = "existing-snippet";
+      const content = "This is content for an existing snippet";
+
+      // Mock the snippetExists method to return true (snippet already exists)
+      mockSnippetRepository.snippetExists.mockResolvedValue(true);
+
+      // Use await with the assertion for async rejections
+      expect(
+        snippetService.createSnippet(guildId, name, content)
+      ).rejects.toThrow(`Snippet '${name}' already exists`);
     });
   });
 

@@ -28,15 +28,21 @@ describe("MessageRelayService", () => {
   let client: Client;
   let service: MessageRelayService;
   let config: BotConfig;
+  let messageRepository: any;
   const guildId = "123456789";
 
   beforeEach(() => {
     client = new Client({ intents: [] });
+    messageRepository = {
+      saveMessage: mock().mockResolvedValue({}),
+      getByThreadMessageId: mock().mockResolvedValue(null),
+      getByUserDMMessageId: mock().mockResolvedValue(null),
+    };
     config = {
       initialMessage: "Welcome to modmail!",
       guildId,
     } as unknown as BotConfig;
-    service = new MessageRelayService(config, client);
+    service = new MessageRelayService(config, client, messageRepository);
   });
 
   describe("relayUserMessageToStaff", () => {
@@ -56,7 +62,7 @@ describe("MessageRelayService", () => {
       };
 
       const threadChannel = {
-        send: mock(),
+        send: mock().mockResolvedValue({ id: "relayed-message-id" }),
         isSendable: mock().mockReturnValue(true),
       } as unknown as TextChannel;
 
@@ -73,6 +79,18 @@ describe("MessageRelayService", () => {
       expect(threadChannel.send).toHaveBeenCalledWith({
         embeds: [],
         files: [],
+      });
+      expect(messageRepository.saveMessage).toHaveBeenCalledWith({
+        threadId: channelId,
+        messageId: "relayed-message-id",
+        isStaff: false,
+        authorId: message.author.id,
+        userDmMessageId: message.id,
+        content: message.content,
+        staffRelayedMessageId: null,
+        isAnonymous: null,
+        isPlainText: null,
+        isSnippet: null,
       });
       expect(result).toBe(true);
     });
@@ -104,7 +122,7 @@ describe("MessageRelayService", () => {
       };
 
       const threadChannel = {
-        send: mock(),
+        send: mock().mockResolvedValue({ id: "relayed-message-id" }),
         isSendable: mock().mockReturnValue(true),
       } as unknown as TextChannel;
 
@@ -121,6 +139,18 @@ describe("MessageRelayService", () => {
       expect(threadChannel.send).toHaveBeenCalledWith({
         embeds: [],
         files: ["https://example.com/file1.txt"],
+      });
+      expect(messageRepository.saveMessage).toHaveBeenCalledWith({
+        threadId: channelId,
+        messageId: "relayed-message-id",
+        isStaff: false,
+        authorId: message.author.id,
+        userDmMessageId: message.id,
+        content: message.content,
+        staffRelayedMessageId: null,
+        isAnonymous: null,
+        isPlainText: null,
+        isSnippet: null,
       });
       expect(result).toBe(true);
     });
@@ -180,10 +210,17 @@ describe("MessageRelayService", () => {
       const guild = {} as UserThreadViewGuild;
       const staffUser = {} as UserThreadViewUser;
       const content = "Hello, user!";
-      const options = { anonymous: true };
+      const options = { anonymous: true, plainText: false, snippet: false };
+
+      const relayedMsg = {
+        id: "relayed-message-id",
+        channel: {
+          id: "dm-channel-id",
+        },
+      };
 
       const user = {
-        send: mock(),
+        send: mock().mockResolvedValue(relayedMsg),
       } as unknown as User;
 
       spyOn(client.users, "fetch").mockResolvedValue(user);
@@ -191,7 +228,7 @@ describe("MessageRelayService", () => {
         content: "Formatted message",
       });
 
-      await service.relayStaffMessageToUser(
+      const result = await service.relayStaffMessageToUser(
         userId,
         guild,
         staffUser,
@@ -210,6 +247,10 @@ describe("MessageRelayService", () => {
       );
       expect(user.send).toHaveBeenCalledWith({
         content: "Formatted message",
+      });
+      expect(result).toEqual({
+        msgId: "relayed-message-id",
+        dmChannelId: "dm-channel-id",
       });
     });
   });

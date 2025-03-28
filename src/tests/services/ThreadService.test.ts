@@ -101,11 +101,60 @@ describe("ThreadService", () => {
     it("should return null if runtime config is not found", async () => {
       mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
 
+      // Mock forum channel fetch
+      const mockForumChannel = {
+        type: ChannelType.GuildForum,
+        availableTags: [],
+      } as unknown as ForumChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
+
       const result = await threadService.getOpenTagId();
 
       expect(result).toBeNull();
       expect(mockRuntimeConfigRepository.getConfig).toHaveBeenCalledWith(
         config.guildId
+      );
+      expect(client.channels.fetch).toHaveBeenCalledWith(config.forumChannelId);
+    });
+
+    it("should find and return existing Open tag ID from forum channel", async () => {
+      const existingTagId = randomSnowflakeID();
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
+
+      // Mock forum channel fetch with existing Open tag
+      const mockForumChannel = {
+        type: ChannelType.GuildForum,
+        availableTags: [{ name: "Open", id: existingTagId }],
+      } as unknown as ForumChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
+      mockRuntimeConfigRepository.setOpenTagId.mockResolvedValue(
+        {} as RuntimeConfig
+      );
+
+      const result = await threadService.getOpenTagId();
+
+      expect(result).toBe(existingTagId);
+      expect(client.channels.fetch).toHaveBeenCalledWith(config.forumChannelId);
+      expect(mockRuntimeConfigRepository.setOpenTagId).toHaveBeenCalledWith(
+        config.guildId,
+        existingTagId
+      );
+    });
+
+    it("should handle invalid forum channel", async () => {
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
+
+      // Mock invalid channel type
+      const invalidChannel = {
+        type: ChannelType.GuildText,
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(invalidChannel);
+
+      expect(threadService.getOpenTagId()).rejects.toThrow(
+        `Invalid forum channel: ${config.forumChannelId} (${ChannelType.GuildText})`
       );
     });
   });
