@@ -41,7 +41,7 @@ export interface MessageRelayService {
     staffUser: UserThreadViewUser,
     content: string,
     options?: StaffMessageOptions
-  ): Promise<void>;
+  ): Promise<{ msgId: string; dmChannelId: string }>;
 }
 
 export class SnippetController {

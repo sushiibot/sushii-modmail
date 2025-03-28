@@ -23,6 +23,8 @@ interface SnippetRepository {
 }
 
 export class SnippetService {
+  private reservedNames: Set<string> = new Set(["help", "reply"]);
+
   private config: Config;
   private client: Client;
   private snippetRepository: SnippetRepository;
@@ -36,6 +38,16 @@ export class SnippetService {
     this.config = config;
     this.client = client;
     this.snippetRepository = snippetRepository;
+  }
+
+  /**
+   * Set the reserved snippet names that cannot be used
+   * @param names Array of reserved names
+   */
+  setReservedNames(names: Set<string>): void {
+    this.logger.debug({ names }, `Setting reserved names}`);
+
+    this.reservedNames = names;
   }
 
   /**
@@ -60,11 +72,35 @@ export class SnippetService {
   }
 
   /**
+   * Check if a snippet exists
+   * @param guildId The Discord guild ID
+   * @param name The snippet name
+   * @returns Whether the snippet exists
+   */
+  async snippetExists(guildId: string, name: string): Promise<boolean> {
+    this.logger.debug(
+      `Checking if snippet ${name} exists for guild ${guildId}`
+    );
+    const snippet = await this.snippetRepository.getSnippet(guildId, name);
+    return snippet !== null;
+  }
+
+  /**
+   * Check if a snippet name is allowed (not reserved)
+   * @param name The snippet name to check
+   * @returns Whether the name is allowed
+   */
+  snippetNameAllowed(name: string): boolean {
+    return !this.reservedNames.has(name.toLowerCase());
+  }
+
+  /**
    * Create a new snippet
    * @param guildId The Discord guild ID
    * @param name The snippet name
    * @param content The snippet content
    * @returns The created snippet
+   * @throws Error if snippet already exists or name is reserved
    */
   async createSnippet(
     guildId: string,
@@ -72,6 +108,18 @@ export class SnippetService {
     content: string
   ): Promise<Snippet> {
     this.logger.debug(`Creating snippet ${name} for guild ${guildId}`);
+
+    // Check if name is reserved
+    if (!this.snippetNameAllowed(name)) {
+      throw new Error(`Snippet name '${name}' is reserved and cannot be used`);
+    }
+
+    // Check if snippet already exists
+    const exists = await this.snippetExists(guildId, name);
+    if (exists) {
+      throw new Error(`Snippet '${name}' already exists`);
+    }
+
     return this.snippetRepository.createSnippet(guildId, name, content);
   }
 

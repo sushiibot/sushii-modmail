@@ -29,26 +29,18 @@ export class RuntimeConfigRepository {
     guildId: string,
     openTagId: string | null
   ): Promise<RuntimeConfig> {
-    // Try to update first
-    const updated = await this.db
-      .update(runtimeConfig)
-      .set({ openTagId })
-      .where(eq(runtimeConfig.guildId, guildId))
+    const inserted = await this.db
+      .insert(runtimeConfig)
+      .values({
+        guildId,
+        openTagId,
+      })
+      .onConflictDoUpdate({
+        target: [runtimeConfig.guildId],
+        set: { openTagId },
+      })
       .returning();
 
-    // If no rows were updated, insert a new record
-    if (updated.length === 0) {
-      const inserted = await this.db
-        .insert(runtimeConfig)
-        .values({
-          guildId,
-          openTagId,
-        })
-        .returning();
-
-      return RuntimeConfig.fromDatabaseRow(inserted[0]);
-    }
-
-    return RuntimeConfig.fromDatabaseRow(updated[0]);
+    return RuntimeConfig.fromDatabaseRow(inserted[0]);
   }
 }

@@ -27,6 +27,56 @@ export const threads = sqliteTable(
   ]
 );
 
+export const messages = sqliteTable(
+  "messages",
+  {
+    threadId: text()
+      .notNull()
+      .references(() => threads.threadId, { onDelete: "cascade" }),
+    // This is always the message in the modmail thread
+    // Could be staff message (resent) or user message (relayed)
+    messageId: text().notNull().primaryKey(),
+    authorId: text().notNull(),
+    isStaff: integer({ mode: "boolean" }).notNull(),
+
+    // If staff message relayed to user, this is the relayed message in DMs
+    staffRelayedMessageId: text(),
+
+    // If user message relayed to staff, this is the ORIGINAL message in DMs
+    userDmMessageId: text(),
+
+    // Metadata, mostly useful for re-building the message in staff thread
+    // Staff only fields.
+    content: text(),
+    isAnonymous: integer({ mode: "boolean" }),
+    isPlainText: integer({ mode: "boolean" }),
+    isSnippet: integer({ mode: "boolean" }),
+  },
+  (table) => [
+    // IDs
+    check("thread_id_check", sql`${table.threadId} NOT GLOB '*[^0-9]*'`),
+    check("message_id_check", sql`${table.messageId} NOT GLOB '*[^0-9]*'`),
+    check("author_id_check", sql`${table.authorId} NOT GLOB '*[^0-9]*'`),
+    check(
+      "dm_message_id_check",
+      sql`${table.staffRelayedMessageId} NOT GLOB '*[^0-9]*'`
+    ),
+    check(
+      "user_dm_message_id_check",
+      sql`${table.userDmMessageId} NOT GLOB '*[^0-9]*'`
+    ),
+
+    // If staff message: Must have relayed message && No user message
+    // If user message: Must have no relayed message && Must have user message
+    check(
+      "message_type_check",
+      sql`(${table.isStaff} = 1 AND ${table.staffRelayedMessageId} IS NOT NULL AND ${table.userDmMessageId} IS NULL)
+          OR
+          (${table.isStaff} = 0 AND ${table.userDmMessageId} IS NOT NULL AND ${table.staffRelayedMessageId} IS NULL)`
+    ),
+  ]
+);
+
 export const snippets = sqliteTable(
   "snippets",
   {
@@ -43,7 +93,7 @@ export const snippets = sqliteTable(
 export const runtimeConfig = sqliteTable(
   "config",
   {
-    guildId: text().notNull(),
+    guildId: text().notNull().primaryKey(),
     openTagId: text(),
   },
   (table) => [

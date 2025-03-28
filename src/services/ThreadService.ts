@@ -13,6 +13,9 @@ import { StaffThreadView } from "../views/StaffThreadView";
 import { getLogger } from "utils/logger";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 
+// Global constant for the open tag name
+const OPEN_TAG_NAME = "Open";
+
 interface Config {
   guildId: string;
   forumChannelId: string;
@@ -64,22 +67,56 @@ export class ThreadService {
       this.config.guildId
     );
 
-    if (!runtimeConfig) {
-      return null;
+    // Check if there's an ID stored in the runtime config
+    if (runtimeConfig?.openTagId) {
+      return runtimeConfig.openTagId;
     }
 
-    return runtimeConfig.openTagId;
+    this.logger.debug(
+      `Did not find open tag ID in runtime config, checking existing tags`
+    );
+
+    // If no ID is stored, check if there's already a tag named "Open" in the forum channel
+    const forumChannel = await this.client.channels.fetch(
+      this.config.forumChannelId
+    );
+
+    if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
+      // Oop
+      throw new Error(
+        `Invalid forum channel: ${this.config.forumChannelId} (${forumChannel?.type})`
+      );
+    }
+
+    // Find the tag with the name "Open"
+    const openTag = forumChannel.availableTags.find(
+      (tag) => tag.name === OPEN_TAG_NAME
+    );
+
+    if (openTag) {
+      this.logger.info(
+        `Found existing "open" tag with ID ${openTag.id}, saving to runtime config`
+      );
+
+      // Save the found tag ID
+      await this.runtimeConfigRepository.setOpenTagId(
+        this.config.guildId,
+        openTag.id
+      );
+
+      return openTag.id;
+    }
+
+    return null;
   }
 
   async createOpenTag(forumChannel: ForumChannel): Promise<string> {
     const currentTags: GuildForumTagData[] = forumChannel.availableTags;
 
-    const tagName = "Open";
-
     // Add the open tag to the list of available tags
     currentTags.push({
       moderated: false,
-      name: tagName,
+      name: OPEN_TAG_NAME,
       emoji: {
         id: null,
         name: "📨",
@@ -91,7 +128,7 @@ export class ThreadService {
 
     // Re-fetch tags to get the new tag ID
     const openTag = forumChannel.availableTags.find(
-      (tag) => tag.name === tagName
+      (tag) => tag.name === OPEN_TAG_NAME
     );
 
     if (!openTag) {
@@ -105,6 +142,10 @@ export class ThreadService {
     );
 
     return openTag.id;
+  }
+
+  async getThread(userId: string): Promise<Thread | null> {
+    return this.threadRepository.getOpenThreadByUserID(userId);
   }
 
   async getOrCreateThread(
@@ -191,6 +232,8 @@ export class ThreadService {
     // -------------------------------------------------------------------------
     // Check open tag
     let openTagID = await this.getOpenTagId();
+    // Check if there's already a tag named "Open" and save that ID
+
     if (!openTagID) {
       openTagID = await this.createOpenTag(modmailForumChannel);
     }

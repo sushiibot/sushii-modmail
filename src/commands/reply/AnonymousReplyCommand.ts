@@ -1,5 +1,8 @@
 import type { ThreadService } from "services/ThreadService";
-import type { MessageRelayService } from "services/MessageRelayService";
+import {
+  defaultStaffMessageOptions,
+  type MessageRelayService,
+} from "services/MessageRelayService";
 import { BaseReplyCommand } from "./BaseReplyCommand";
 
 export class AnonymousReplyCommand extends BaseReplyCommand {
@@ -7,7 +10,10 @@ export class AnonymousReplyCommand extends BaseReplyCommand {
   subCommandName = null;
   aliases = ["ar"];
 
-  protected replyOptions = { anonymous: true };
+  protected replyOptions = {
+    ...defaultStaffMessageOptions,
+    anonymous: true,
+  };
 
   constructor(
     forumChannelId: string,

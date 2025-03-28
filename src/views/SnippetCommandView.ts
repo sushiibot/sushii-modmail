@@ -201,4 +201,17 @@ export class SnippetCommandView {
 
     return { embeds: [embed], allowedMentions: {} };
   }
+
+  static snippetNameReserved(name: string): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setDescription(
+        `The snippet name \`${name}\` is reserved and cannot be used. Please choose a different name.`
+      )
+      .setColor(Color.Pink);
+
+    return {
+      embeds: [embed],
+      allowedMentions: {},
+    };
+  }
 }

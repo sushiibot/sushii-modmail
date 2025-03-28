@@ -22,6 +22,9 @@ import { DeleteSnippetCommand } from "commands/snippets/DeleteSnippetCommand";
 import { ListSnippetsCommand } from "commands/snippets/ListSnippetsCommand";
 import { ContactCommand } from "commands/ContactCommand";
 import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
+import { MessageRepository } from "repositories/message.repository";
+import { EditCommand } from "commands/EditCommand";
+import { DeleteCommand } from "commands/DeleteCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -34,6 +37,7 @@ function buildCommandRouter(
   const threadRepository = new ThreadRepository(db);
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(db);
+  const messageRepository = new MessageRepository(db);
 
   const threadService = new ThreadService(
     config,
@@ -41,7 +45,11 @@ function buildCommandRouter(
     threadRepository,
     runtimeConfigRepository
   );
-  const messageService = new MessageRelayService(config, client);
+  const messageService = new MessageRelayService(
+    config,
+    client,
+    messageRepository
+  );
   const snippetService = new SnippetService(config, client, snippetRepository);
 
   // Commands
@@ -57,6 +65,10 @@ function buildCommandRouter(
     ),
     new PlainReplyCommand(config.forumChannelId, threadService, messageService),
 
+    // Thread message commands
+    new EditCommand(config.forumChannelId, threadService, messageService),
+    new DeleteCommand(threadService, messageService),
+
     // Snippets
     new AddSnippetCommand(snippetService),
     new EditSnippetCommand(snippetService),
@@ -64,10 +76,12 @@ function buildCommandRouter(
     new ListSnippetsCommand(snippetService),
 
     // Other
-    new LogsCommand(config.forumChannelId, threadService, messageService),
     new CloseCommand(config.forumChannelId, threadService),
+    new LogsCommand(config.forumChannelId, threadService, messageService),
     new ContactCommand(threadService, messageService)
   );
+
+  snippetService.setReservedNames(router.getCommandNames());
 
   return router;
 }
@@ -87,8 +101,10 @@ async function main() {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMessageReactions,
       GatewayIntentBits.MessageContent,
       GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.DirectMessageReactions,
     ],
     // Required to receive DMs with Events.MessageCreate
     partials: [Partials.Channel],

@@ -75,13 +75,15 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
 
     try {
       // Send the reply to the user
-      await this.messageService.relayStaffMessageToUser(
+      const relay = await this.messageService.relayStaffMessageToUser(
         thread.userId,
         msg.guild,
         msg.author,
         replyContent,
         this.replyOptions
       );
+
+      const relayedMsgId = relay.msgId;
 
       // Re-send as embed to show the message was sent and how it looks
       const embed = StaffThreadView.staffReplyEmbed(
@@ -90,13 +92,22 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         this.replyOptions
       );
 
-      await Promise.allSettled([
-        // Delete the original message
-        msg.delete(),
-        msg.channel.send({
-          embeds: [embed],
-        }),
-      ]);
+      const threadStaffMsg = await msg.channel.send({
+        embeds: [embed],
+      });
+
+      await this.messageService.saveStaffMessage({
+        threadId: thread.channelId,
+        threadMessageId: threadStaffMsg.id,
+        relayedMessageId: relayedMsgId,
+        authorId: msg.author.id,
+        content: replyContent,
+        isAnonymous: this.replyOptions.anonymous ?? null,
+        isPlainText: this.replyOptions.plainText ?? null,
+        isSnippet: this.replyOptions.snippet ?? null,
+      });
+
+      await msg.delete();
     } catch (error) {
       this.logger.error(`Error sending reply: ${error}`);
       await msg.channel.send("Failed to send reply. See logs for details.");

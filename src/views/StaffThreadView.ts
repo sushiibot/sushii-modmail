@@ -7,7 +7,10 @@ import {
   type MessageCreateOptions,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
-import type { StaffMessageOptions } from "services/MessageRelayService";
+import {
+  defaultStaffMessageOptions,
+  type StaffMessageOptions,
+} from "services/MessageRelayService";
 import { formatUserIdentity } from "./user";
 import { Color } from "./Color";
 import { fetch, file } from "bun";
@@ -181,7 +184,7 @@ export class StaffThreadView {
   static staffReplyEmbed(
     staffUser: User,
     content: string,
-    options: StaffMessageOptions = {}
+    options: StaffMessageOptions = defaultStaffMessageOptions
   ): EmbedBuilder {
     // Set the author field based on anonymous option
     let authorName = staffUser.username;
@@ -224,9 +227,57 @@ export class StaffThreadView {
     };
   }
 
-  static async userReplyMessage(
-    userMessage: StaffViewUserMessage
+  static userReplyDeletedMessage(
+    messageId: string,
+    previousMessageId?: string
+  ): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setTitle("Message deleted")
+      .setDescription(`Message ID: ${messageId}`)
+      .setColor(Color.Pink)
+      .setTimestamp();
+
+    const msg: MessageCreateOptions = {
+      embeds: [embed],
+    };
+
+    if (previousMessageId) {
+      msg.reply = {
+        messageReference: previousMessageId,
+      };
+    }
+
+    return msg;
+  }
+
+  static async userReplyEditedMessage(
+    newUserMessage: StaffViewUserMessage,
+    previousMessageId?: string
   ): Promise<MessageCreateOptions> {
+    // Edited messages just do the same thing as new messages but reply to the
+    // original message
+
+    const embed = StaffThreadView.createUserReplyEmbed(newUserMessage)
+      .setTitle("Message edited")
+      .setColor(Color.Purple);
+
+    let msg: MessageCreateOptions = {
+      embeds: [embed],
+    };
+
+    if (previousMessageId) {
+      msg.reply = {
+        messageReference: previousMessageId,
+      };
+    }
+
+    return msg;
+  }
+
+  /**
+   * Creates an embed for a user's message without handling attachments
+   */
+  static createUserReplyEmbed(userMessage: StaffViewUserMessage): EmbedBuilder {
     const fields = [];
 
     if (userMessage.attachments.size > 0) {
@@ -274,6 +325,14 @@ export class StaffThreadView {
     if (userMessage.content) {
       embed.setDescription(userMessage.content);
     }
+
+    return embed;
+  }
+
+  static async userReplyMessage(
+    userMessage: StaffViewUserMessage
+  ): Promise<MessageCreateOptions> {
+    const embed = StaffThreadView.createUserReplyEmbed(userMessage);
 
     // Re-upload attachments
     const fileDownloads = Array.from(userMessage.attachments.values()).map(

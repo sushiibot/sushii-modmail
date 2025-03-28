@@ -87,6 +87,21 @@ export default class CommandRouter {
     }
   }
 
+  getCommandNames(): Set<string> {
+    // Create a set for uniqueness
+    const commandNames = new Set<string>();
+
+    // Iterate through all commands
+    for (const [name, entry] of this.commands.entries()) {
+      // Include all command names and aliases that have a handler
+      if (entry.handler) {
+        commandNames.add(name);
+      }
+    }
+
+    return commandNames;
+  }
+
   async getPrefix(msg: Message): Promise<string> {
     return this.config.prefix;
   }

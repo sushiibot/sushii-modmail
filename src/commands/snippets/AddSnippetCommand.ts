@@ -34,13 +34,16 @@ export class AddSnippetCommand extends TextCommandHandler {
     const content = args.slice(1).join(" ");
 
     try {
-      // Check if snippet already exists
-      const existingSnippet = await this.snippetService.getSnippet(
-        msg.guildId,
-        name
-      );
+      // Check if name is reserved
+      if (!this.snippetService.snippetNameAllowed(name)) {
+        await msg.reply(SnippetCommandView.snippetNameReserved(name));
 
-      if (existingSnippet) {
+        return;
+      }
+
+      // Check if snippet already exists
+      const exists = await this.snippetService.snippetExists(msg.guildId, name);
+      if (exists) {
         await msg.reply(SnippetCommandView.snippetAlreadyExists(name));
         return;
       }
@@ -48,7 +51,7 @@ export class AddSnippetCommand extends TextCommandHandler {
       // Create the new snippet
       await this.snippetService.createSnippet(msg.guildId, name, content);
 
-      await msg.reply(SnippetCommandView.snippetAdded(name));
+      await msg.reply(SnippetCommandView.snippetAdded(name, content));
     } catch (error) {
       this.logger.error(`Error creating snippet: ${error}`);
       await msg.reply(SnippetCommandView.errorCreatingSnippet());

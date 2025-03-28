@@ -11,6 +11,8 @@ import { SnippetController } from "controllers/SnippetController";
 import { SnippetService } from "services/SnippetService";
 import { SnippetRepository } from "repositories/snippet.repository";
 import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
+import { MessageRepository } from "repositories/message.repository";
+import { ReactionRelayService } from "services/ReactionRelayService";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -23,6 +25,7 @@ export function registerEventHandlers(
   const threadRepository = new ThreadRepository(db);
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(db);
+  const messageRepository = new MessageRepository(db);
 
   const threadService = new ThreadService(
     config,
@@ -31,9 +34,22 @@ export function registerEventHandlers(
     runtimeConfigRepository
   );
   const snippetService = new SnippetService(config, client, snippetRepository);
-  const messageService = new MessageRelayService(config, client);
+  const messageService = new MessageRelayService(
+    config,
+    client,
+    messageRepository
+  );
+  const reactionService = new ReactionRelayService(
+    config,
+    client,
+    messageRepository
+  );
 
-  const dmController = new DMController(threadService, messageService);
+  const dmController = new DMController(
+    threadService,
+    messageService,
+    reactionService
+  );
   const snippetController = new SnippetController(
     config,
     snippetService,
@@ -66,6 +82,42 @@ export function registerEventHandlers(
       commandRouter.handleMessage(message),
       dmController.handleUserDM(message.client, message),
       snippetController.handleThreadMessage(message.client, message),
+    ]);
+  });
+
+  client.on(Events.MessageUpdate, async (_, newMessage) => {
+    if (newMessage.author.bot) {
+      return;
+    }
+
+    await Promise.allSettled([dmController.handleUserDMEdit(newMessage)]);
+  });
+
+  client.on(Events.MessageDelete, async (oldMessage) => {
+    if (oldMessage?.author?.bot) {
+      return;
+    }
+
+    await Promise.allSettled([dmController.handleUserDMDelete(oldMessage)]);
+  });
+
+  client.on(Events.MessageReactionAdd, async (reaction, user) => {
+    if (user.bot) {
+      return;
+    }
+
+    await Promise.allSettled([
+      dmController.handleUserDMReaction(reaction, user),
+    ]);
+  });
+
+  client.on(Events.MessageReactionRemove, async (reaction, user) => {
+    if (user.bot) {
+      return;
+    }
+
+    await Promise.allSettled([
+      dmController.handleUserDMReactionRemove(reaction, user),
     ]);
   });
 }

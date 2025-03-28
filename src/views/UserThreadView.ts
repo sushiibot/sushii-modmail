@@ -3,7 +3,10 @@ import {
   type ImageURLOptions,
   type MessageCreateOptions,
 } from "discord.js";
-import type { StaffMessageOptions } from "services/MessageRelayService";
+import {
+  defaultStaffMessageOptions,
+  type StaffMessageOptions,
+} from "services/MessageRelayService";
 import { Color } from "./Color";
 
 export interface UserThreadViewGuild {
@@ -42,7 +45,7 @@ export class UserThreadView {
     guild: UserThreadViewGuild,
     staffUser: UserThreadViewUser,
     content: string,
-    options: StaffMessageOptions = {}
+    options: StaffMessageOptions = defaultStaffMessageOptions
   ): MessageCreateOptions {
     if (options.plainText) {
       return {
