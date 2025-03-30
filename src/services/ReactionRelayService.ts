@@ -36,13 +36,15 @@ export class ReactionRelayService {
   /**
    * Relay a reaction from user to staff thread
    * @param userDmMessageId The user's DM message ID that was reacted to
-   * @param emoji The emoji that was added
    * @param userId The ID of the user who added the reaction
+   * @param emojiIdentifier The emoji that was added
+   * @param emojiString The string representation of the emoji (optional)
    */
   async relayUserReactionToStaff(
     userDmMessageId: string,
-    emoji: string,
-    userId: string
+    userId: string,
+    emojiIdentifier: string,
+    emojiString: string
   ): Promise<void> {
     // Get the corresponding thread message
 
@@ -73,23 +75,36 @@ export class ReactionRelayService {
       );
 
       // Add the reaction to the thread message
-      await threadMessage.react(emoji);
+      await threadMessage.react(emojiIdentifier);
 
       // Send a system message indicating a reaction was added
       const user = await this.client.users.fetch(userId);
       const systemMessage = StaffThreadView.systemMessage(
-        `${user.tag} reacted with ${emoji} to a message`
+        `${user.tag} reacted with ${emojiString}`,
+        {
+          automated: false,
+        }
       );
+
+      // Add reply to the reacted message
+      systemMessage.reply = {
+        messageReference: message.messageId,
+      };
 
       await threadChannel.send(systemMessage);
 
       this.logger.debug(
-        { userDmMessageId, emoji, threadMessageId: message.messageId },
+        {
+          threadMessageId: message.messageId,
+          userDmMessageId,
+          emojiIdentifier,
+          emojiString,
+        },
         "Relayed user reaction to staff thread"
       );
     } catch (error) {
       this.logger.error(
-        { error, userDmMessageId, emoji },
+        { error, userDmMessageId, emojiIdentifier },
         "Failed to relay user reaction to staff"
       );
     }
@@ -99,12 +114,13 @@ export class ReactionRelayService {
    * Relay a removed reaction from user to staff thread
    * @param userDmMessageId The user's DM message ID that the reaction was removed from
    * @param emoji The emoji that was removed
-   * @param userId The ID of the user who removed the reaction
+   * @param emojiIdentifier The ID of the user who removed the reaction
    */
   async relayUserReactionRemovalToStaff(
     userDmMessageId: string,
-    emoji: string,
-    userId: string
+    userId: string,
+    emojiIdentifier: string,
+    emojiString: string
   ): Promise<void> {
     // Get the corresponding thread message
     const message = await this.messageRepository.getByStaffDMMessageId(
@@ -132,7 +148,7 @@ export class ReactionRelayService {
       );
 
       // Get users who reacted with this emoji
-      const reactions = threadMessage.reactions.cache.get(emoji);
+      const reactions = threadMessage.reactions.cache.get(emojiIdentifier);
       if (reactions) {
         // Remove bot's reaction to reflect user's removal
         await reactions.remove();
@@ -141,18 +157,31 @@ export class ReactionRelayService {
       // Send a system message indicating a reaction was removed
       const user = await this.client.users.fetch(userId);
       const systemMessage = StaffThreadView.systemMessage(
-        `${user.tag} removed their ${emoji} reaction from a message`
+        `${user.tag} removed their ${emojiString} reaction`,
+        {
+          automated: false,
+        }
       );
+
+      // Add reply to the reacted message
+      systemMessage.reply = {
+        messageReference: message.messageId,
+      };
 
       await threadChannel.send(systemMessage);
 
       this.logger.debug(
-        { userDmMessageId, emoji, threadMessageId: message.messageId },
+        {
+          threadMessageId: message.messageId,
+          userDmMessageId,
+          emojiIdentifier,
+          emojiString,
+        },
         "Relayed user reaction removal to staff thread"
       );
     } catch (error) {
       this.logger.error(
-        { error, userDmMessageId, emoji },
+        { error, userDmMessageId, emojiIdentifier },
         "Failed to relay user reaction removal to staff"
       );
     }
@@ -164,13 +193,18 @@ export class ReactionRelayService {
   /**
    * Relay a reaction from staff to user DM
    * @param threadMessageId The thread message ID that was reacted to
-   * @param emoji The emoji that was added
+   * @param emojiIdentifier The emoji that was added
    * @param staffUserId The ID of the staff member who added the reaction
    */
   async relayStaffReactionToUser(
     threadMessageId: string,
-    emoji: string
+    emojiIdentifier: string
   ): Promise<void> {
+    this.logger.debug(
+      { threadMessageId, emoji: emojiIdentifier },
+      "Relaying staff reaction to user DM"
+    );
+
     // Get the corresponding DM message
     const message = await this.messageRepository.getByThreadMessageId(
       threadMessageId
@@ -186,8 +220,8 @@ export class ReactionRelayService {
     }
 
     // Only relay staff reactions on user messages
-    if (message.isStaff) {
-      this.logger.warn(
+    if (message.isStaff()) {
+      this.logger.debug(
         { threadMessageId },
         "Message is on a staff message, ignoring staff reaction"
       );
@@ -196,24 +230,32 @@ export class ReactionRelayService {
     }
 
     try {
-      // Get user to DM
+      this.logger.debug(
+        {
+          message,
+          emoji: emojiIdentifier,
+        },
+        "Relaying staff reaction to user DM"
+      );
+
+      // Get user's DM channel
       const user = await this.client.users.fetch(message.authorId);
       const dmChannel = await user.createDM();
 
       // React to the user's message
-      await dmChannel.messages.react(message.staffRelayedMessageId, emoji);
+      await dmChannel.messages.react(message.userDmMessageId, emojiIdentifier);
 
       this.logger.debug(
         {
           threadMessageId,
-          emoji,
-          dmMessageId: message.staffRelayedMessageId,
+          emoji: emojiIdentifier,
+          dmMessageId: message.userDmMessageId,
         },
         "Relayed staff reaction to user DM"
       );
     } catch (error) {
       this.logger.error(
-        { error, threadMessageId, emoji },
+        { error, threadMessageId, emoji: emojiIdentifier },
         "Failed to relay staff reaction to user"
       );
     }
@@ -222,13 +264,18 @@ export class ReactionRelayService {
   /**
    * Relay a removed reaction from staff to user DM
    * @param threadMessageId The thread message ID that the reaction was removed from
-   * @param emoji The emoji that was removed
+   * @param emojiIdentifier The emoji that was removed
    * @param staffUserId The ID of the staff member who removed the reaction
    */
   async relayStaffReactionRemovalToUser(
     threadMessageId: string,
-    emoji: string
+    emojiIdentifier: string
   ): Promise<void> {
+    this.logger.debug(
+      { threadMessageId, emoji: emojiIdentifier },
+      "Deleting staff reaction from user DM"
+    );
+
     // Get the corresponding DM message
     const message = await this.messageRepository.getByThreadMessageId(
       threadMessageId
@@ -241,10 +288,10 @@ export class ReactionRelayService {
       return;
     }
 
-    if (!message.isStaff) {
+    if (message.isStaff()) {
       this.logger.debug(
         { threadMessageId },
-        "No relayed message ID found for staff reaction removal"
+        "Staff react on staff message, ignoring staff reaction removal"
       );
 
       return;
@@ -256,27 +303,33 @@ export class ReactionRelayService {
       const dmChannel = await user.createDM();
 
       // Fetch the message to remove reaction from
-      const dmMessage = await dmChannel.messages.fetch(
-        message.staffRelayedMessageId
-      );
+      const dmMessage = await dmChannel.messages.fetch(message.userDmMessageId);
 
       // Get the reaction to remove (bot's reaction)
-      const reaction = dmMessage.reactions.cache.get(emoji);
+      const reaction = dmMessage.reactions.cache.get(emojiIdentifier);
       if (reaction) {
-        await reaction.remove();
+        // Delete only own reaction to use /@me route in DMs
+        await reaction.users.remove(this.client.user!);
       }
 
       this.logger.debug(
         {
           threadMessageId,
-          emoji,
-          dmMessageId: message.staffRelayedMessageId,
+          emoji: emojiIdentifier,
+          dmMessageId: message.userDmMessageId,
         },
         "Relayed staff reaction removal to user DM"
       );
     } catch (error) {
       this.logger.error(
-        { error, threadMessageId, emoji },
+        {
+          error:
+            error instanceof Error
+              ? { message: error.message, stack: error.stack }
+              : String(error),
+          threadMessageId,
+          emoji: emojiIdentifier,
+        },
         "Failed to relay staff reaction removal to user"
       );
     }

@@ -213,10 +213,20 @@ export class StaffThreadView {
     return embed;
   }
 
-  static systemMessage(content: string): MessageCreateOptions {
+  static systemMessage(
+    content: string,
+    options: {
+      automated: boolean;
+    } = { automated: true }
+  ): MessageCreateOptions {
+    let name = "System";
+    if (options.automated) {
+      name += " (Automated)";
+    }
+
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: "System (Automated Message)",
+        name: name,
       })
       .setDescription(content)
       .setColor(Color.Gray)

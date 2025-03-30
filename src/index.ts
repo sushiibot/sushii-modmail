@@ -106,8 +106,9 @@ async function main() {
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.DirectMessageReactions,
     ],
-    // Required to receive DMs with Events.MessageCreate
-    partials: [Partials.Channel],
+    // Partials.Channel: Required to receive DMs with Events.MessageCreate
+    // Partials.Reaction and Partials.Message: Required to receive reactions on uncached messages
+    partials: [Partials.Channel, Partials.Reaction, Partials.Message],
   });
 
   logger.info("Initializing command router...");

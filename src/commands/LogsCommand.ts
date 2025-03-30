@@ -33,6 +33,28 @@ export class LogsCommand extends TextCommandHandler {
       return;
     }
 
+    // If the message is not in a thread, require arg to be a user to look up
+    if (!msg.channel.isThread()) {
+      if (args.length === 0) {
+        await msg.channel.send(
+          "Please provide a user ID to look up their threads."
+        );
+
+        return;
+      }
+
+      const userId = args[0];
+
+      // Find all previous threads by the same user
+      const threads = await this.threadService.getAllThreadsByUserId(userId);
+
+      // Format and show links to all previous threads
+      const formattedThreads = StaffThreadView.formatThreadList(threads);
+      await msg.channel.send(formattedThreads);
+
+      return;
+    }
+
     // Check if the message is in a modmail thread
     if (msg.channel.parentId !== this.forumChannelId) {
       return;

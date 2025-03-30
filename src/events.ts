@@ -13,6 +13,8 @@ import { SnippetRepository } from "repositories/snippet.repository";
 import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
 import { MessageRepository } from "repositories/message.repository";
 import { ReactionRelayService } from "services/ReactionRelayService";
+import { UserReactionController } from "controllers/UserReactionController";
+import { StaffReactionController } from "controllers/StaffReactionController";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -50,6 +52,8 @@ export function registerEventHandlers(
     messageService,
     reactionService
   );
+  const userReactionController = new UserReactionController(reactionService);
+  const staffReactionController = new StaffReactionController(reactionService);
   const snippetController = new SnippetController(
     config,
     snippetService,
@@ -107,7 +111,8 @@ export function registerEventHandlers(
     }
 
     await Promise.allSettled([
-      dmController.handleUserDMReaction(reaction, user),
+      userReactionController.handleUserDMReactionAdd(reaction, user),
+      staffReactionController.handleStaffReactionAdd(reaction, user),
     ]);
   });
 
@@ -117,7 +122,8 @@ export function registerEventHandlers(
     }
 
     await Promise.allSettled([
-      dmController.handleUserDMReactionRemove(reaction, user),
+      userReactionController.handleUserDMReactionRemove(reaction, user),
+      staffReactionController.handleStaffReactionRemove(reaction, user),
     ]);
   });
 }

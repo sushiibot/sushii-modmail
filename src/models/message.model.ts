@@ -1,15 +1,12 @@
 import type { messages } from "../database/schema";
 
-// Remove MessageSource type as it's not used in the schema
-// Instead, the schema uses isStaff boolean
-
-export class Message {
+export class BaseMessage {
   public readonly threadId: string;
   public readonly messageId: string;
   public readonly authorId: string;
-  public readonly isStaff: boolean;
-  private readonly _staffRelayedMessageId: string | null;
-  public readonly userDmMessageId: string | null;
+  private readonly _isStaff: boolean;
+  protected readonly _staffRelayedMessageId: string | null;
+  protected readonly _userDmMessageId: string | null;
   public readonly content: string | null;
   public readonly isAnonymous: boolean | null;
   public readonly isPlainText: boolean | null;
@@ -30,45 +27,53 @@ export class Message {
     this.threadId = threadId;
     this.messageId = messageId;
     this.authorId = authorId;
-    this.isStaff = isStaff;
+    this._isStaff = isStaff;
     this._staffRelayedMessageId = staffRelayedMessageId;
-    this.userDmMessageId = userDmMessageId;
+    this._userDmMessageId = userDmMessageId;
     this.content = content;
     this.isAnonymous = isAnonymous;
     this.isPlainText = isPlainText;
     this.isSnippet = isSnippet;
   }
 
-  static fromDatabaseRow(row: typeof messages.$inferSelect): Message {
-    return new Message(
-      row.threadId,
-      row.messageId,
-      row.authorId,
-      row.isStaff,
-      row.staffRelayedMessageId || null,
-      row.userDmMessageId || null,
-      row.content || null,
-      row.isAnonymous !== undefined ? row.isAnonymous : null,
-      row.isPlainText !== undefined ? row.isPlainText : null,
-      row.isSnippet !== undefined ? row.isSnippet : null
+  isUser(): this is UserMessage {
+    return !this._isStaff;
+  }
+
+  isStaff(): this is StaffMessage {
+    return this._isStaff;
+  }
+}
+
+export class StaffMessage extends BaseMessage {
+  constructor(
+    threadId: string,
+    messageId: string,
+    authorId: string,
+    staffRelayedMessageId: string,
+    userDmMessageId: string | null = null,
+    content: string | null = null,
+    isAnonymous: boolean | null = null,
+    isPlainText: boolean | null = null,
+    isSnippet: boolean | null = null
+  ) {
+    super(
+      threadId,
+      messageId,
+      authorId,
+      true,
+      staffRelayedMessageId,
+      userDmMessageId,
+      content,
+      isAnonymous,
+      isPlainText,
+      isSnippet
     );
   }
 
-  get isUser(): boolean {
-    return !this.isStaff;
-  }
-
-  get userMessageId(): string | never {
-    if (this.isUser && this.userDmMessageId) {
-      return this.userDmMessageId;
-    }
-
-    throw new Error("userMessageId is only available for user messages");
-  }
-
-  get staffRelayedMessageId(): string | never {
-    if (!this.isUser && this.staffRelayedMessageId) {
-      return this.staffRelayedMessageId;
+  get staffRelayedMessageId(): string {
+    if (!this.isUser() && this._staffRelayedMessageId) {
+      return this._staffRelayedMessageId;
     }
 
     throw new Error(
@@ -76,3 +81,68 @@ export class Message {
     );
   }
 }
+
+export class UserMessage extends BaseMessage {
+  constructor(
+    threadId: string,
+    messageId: string,
+    authorId: string,
+    userDmMessageId: string,
+    content: string | null = null,
+    isAnonymous: boolean | null = null,
+    isPlainText: boolean | null = null,
+    isSnippet: boolean | null = null
+  ) {
+    super(
+      threadId,
+      messageId,
+      authorId,
+      false,
+      null,
+      userDmMessageId,
+      content,
+      isAnonymous,
+      isPlainText,
+      isSnippet
+    );
+  }
+
+  get userDmMessageId(): string {
+    if (this.isUser() && this._userDmMessageId) {
+      return this._userDmMessageId;
+    }
+
+    throw new Error("userDmMessageId is only available for user messages");
+  }
+}
+
+export type Message = StaffMessage | UserMessage;
+
+export const Message = {
+  fromDatabaseRow(row: typeof messages.$inferSelect): Message {
+    if (row.isStaff) {
+      return new StaffMessage(
+        row.threadId,
+        row.messageId,
+        row.authorId,
+        row.staffRelayedMessageId || "",
+        row.userDmMessageId || null,
+        row.content || null,
+        row.isAnonymous !== undefined ? row.isAnonymous : null,
+        row.isPlainText !== undefined ? row.isPlainText : null,
+        row.isSnippet !== undefined ? row.isSnippet : null
+      );
+    } else {
+      return new UserMessage(
+        row.threadId,
+        row.messageId,
+        row.authorId,
+        row.userDmMessageId || "",
+        row.content || null,
+        row.isAnonymous !== undefined ? row.isAnonymous : null,
+        row.isPlainText !== undefined ? row.isPlainText : null,
+        row.isSnippet !== undefined ? row.isSnippet : null
+      );
+    }
+  },
+};
