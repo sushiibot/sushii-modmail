@@ -1,10 +1,8 @@
 # sushii-modmail
 
 Discord ModMail bot utilizing forum channels to preserve previous ModMail
-threads entirely on Discord.
-
-- Search past threads directly on Discord.
-- No need to deal with a custom web UI for chat logs.
+threads entirely on Discord. Search past threads directly on Discord without
+needing a custom web UI.
 
 ## Features
 
@@ -35,21 +33,21 @@ User information
 Snippets
 - `snippet add [name] [content]` - Create a new snippet
 - `snippet edit [name] [content]` - Modify an existing snippet
+- `snippet list` - List all available snippets
 - `snippet delete [name]` - Delete a snippet
 
 ## Usage
 
 You can run sushii-modmail with Docker.
 
-```bash
-# Build the Docker image
-docker build -t sushii-modmail .
+Images are built and published to [Github container registry](https://github.com/sushiibot/sushii-modmail/pkgs/container/modmail)
 
-# Run the container
-docker run -d --name sushii-modmail \
+```bash
+docker run -d \
+  --name sushii-modmail \
   -e TOKEN=your_discord_bot_token \
   -e OTHER_VARS=... \
-  sushii-modmail
+  ghcr.io/sushiibot/modmail:latest
 ```
 
 ## Configuration
