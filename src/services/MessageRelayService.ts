@@ -266,7 +266,7 @@ export class MessageRelayService {
     staffUser: UserThreadViewUser,
     content: string,
     options: StaffMessageOptions = defaultStaffMessageOptions
-  ): Promise<void> {
+  ): Promise<boolean> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
@@ -276,6 +276,15 @@ export class MessageRelayService {
     );
     if (!messageData) {
       throw new Error(`Message not found: ${staffViewMessageId}`);
+    }
+
+    if (messageData.isUser()) {
+      this.logger.debug(
+        messageData,
+        "Cannot edit relayed staff message: is a user message"
+      );
+
+      return false;
     }
 
     this.logger.debug(messageData, "Editing relayed staff message");
@@ -289,12 +298,51 @@ export class MessageRelayService {
       options
     );
 
+    // USER DM
     // Edit the message
     const dmChannel = await user.createDM();
     await dmChannel.messages.edit(
       messageData.staffRelayedMessageId,
       newMessage
     );
+
+    // ----
+    // STAFF MODMAIL THREAd
+    // Send a staff view of the edited message
+    const threadChannel = await this.client.channels.fetch(
+      messageData.threadId
+    );
+
+    if (!threadChannel) {
+      throw new Error(`Thread channel not found: ${messageData.threadId}`);
+    }
+
+    if (!threadChannel.isThread()) {
+      throw new Error(`Not thread: ${messageData.threadId}`);
+    }
+
+    const staffFullUser = await this.client.users.fetch(messageData.authorId);
+    const editedEmbed = StaffThreadView.staffReplyEmbed(
+      staffFullUser,
+      messageData.content,
+      {
+        anonymous: messageData.isAnonymous,
+        plainText: messageData.isPlainText,
+        snippet: messageData.isSnippet,
+      }
+    );
+
+    // Set the footer to indicate the message was deleted
+    editedEmbed.setFooter({
+      text: `Deleted by ${staffUser.tag}`,
+    });
+
+    // Edit the message
+    await threadChannel.messages.edit(messageData.messageId, {
+      embeds: [editedEmbed],
+    });
+
+    return true;
   }
 
   /**
@@ -305,7 +353,7 @@ export class MessageRelayService {
   async deleteStaffMessage(
     userId: string,
     staffViewMessageId: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
@@ -317,11 +365,60 @@ export class MessageRelayService {
       throw new Error(`Message not found: ${staffViewMessageId}`);
     }
 
+    if (messageData.isUser()) {
+      this.logger.debug(
+        messageData,
+        "Cannot delete relayed staff message: is a user message"
+      );
+
+      return false;
+    }
+
     this.logger.debug(messageData, "Deleting relayed staff message");
 
+    // USER DM
     // Delete the message
     const dmChannel = await user.createDM();
     await dmChannel.messages.delete(messageData.staffRelayedMessageId);
+
+    // ---
+    // MODMAIL STAFF THREAD
+    // Update the staff message in thread
+    const threadChannel = await this.client.channels.fetch(
+      messageData.threadId
+    );
+
+    if (!threadChannel) {
+      throw new Error(`Thread channel not found: ${messageData.threadId}`);
+    }
+
+    if (!threadChannel.isThread()) {
+      throw new Error(`Not thread: ${messageData.threadId}`);
+    }
+
+    // Re-build staff message
+    const staffUser = await this.client.users.fetch(messageData.authorId);
+    const editedEmbed = StaffThreadView.staffReplyEmbed(
+      staffUser,
+      messageData.content,
+      {
+        anonymous: messageData.isAnonymous,
+        plainText: messageData.isPlainText,
+        snippet: messageData.isSnippet,
+      }
+    );
+
+    // Set the footer to indicate the message was deleted
+    editedEmbed.setFooter({
+      text: `Deleted by ${staffUser.username}`,
+    });
+
+    // Edit the message
+    await threadChannel.messages.edit(messageData.messageId, {
+      embeds: [editedEmbed],
+    });
+
+    return true;
   }
 
   /**

@@ -116,24 +116,8 @@ export class EditCommand extends TextCommandHandler {
         messageOptions
       );
 
-      // Send a staff view of the edited message
-      const editedEmbed = StaffThreadView.staffReplyEmbed(
-        msg.author,
-        editContent,
-        messageOptions
-      );
-
-      editedEmbed.setFooter({ text: `Edited by ${msg.author.username}` });
-
-      // Edit the original message
-      await targetMessage.edit({ embeds: [editedEmbed] });
-
-      // Delete the command message
-      try {
-        await msg.delete();
-      } catch (err) {
-        // fine
-      }
+      // React to the command message to indicate success
+      await msg.react("✅");
     } catch (error) {
       this.logger.error(`Error editing message: ${error}`);
       await msg.channel.send("Failed to edit message. See logs for details.");

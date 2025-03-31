@@ -1,5 +1,11 @@
 import type { messages } from "../database/schema";
 
+interface StaffMessageOptions {
+  isAnonymous: boolean;
+  isPlainText: boolean;
+  isSnippet: boolean;
+}
+
 export class BaseMessage {
   public readonly threadId: string;
   public readonly messageId: string;
@@ -8,9 +14,6 @@ export class BaseMessage {
   protected readonly _staffRelayedMessageId: string | null;
   protected readonly _userDmMessageId: string | null;
   public readonly content: string | null;
-  public readonly isAnonymous: boolean | null;
-  public readonly isPlainText: boolean | null;
-  public readonly isSnippet: boolean | null;
 
   constructor(
     threadId: string,
@@ -19,10 +22,7 @@ export class BaseMessage {
     isStaff: boolean,
     staffRelayedMessageId: string | null = null,
     userDmMessageId: string | null = null,
-    content: string | null = null,
-    isAnonymous: boolean | null = null,
-    isPlainText: boolean | null = null,
-    isSnippet: boolean | null = null
+    content: string | null = null
   ) {
     this.threadId = threadId;
     this.messageId = messageId;
@@ -31,9 +31,6 @@ export class BaseMessage {
     this._staffRelayedMessageId = staffRelayedMessageId;
     this._userDmMessageId = userDmMessageId;
     this.content = content;
-    this.isAnonymous = isAnonymous;
-    this.isPlainText = isPlainText;
-    this.isSnippet = isSnippet;
   }
 
   isUser(): this is UserMessage {
@@ -46,16 +43,19 @@ export class BaseMessage {
 }
 
 export class StaffMessage extends BaseMessage {
+  public readonly isAnonymous: boolean;
+  public readonly isPlainText: boolean;
+  public readonly isSnippet: boolean;
+  // Override the content type to be non-null
+  public readonly content: string;
+
   constructor(
     threadId: string,
     messageId: string,
     authorId: string,
     staffRelayedMessageId: string,
-    userDmMessageId: string | null = null,
-    content: string | null = null,
-    isAnonymous: boolean | null = null,
-    isPlainText: boolean | null = null,
-    isSnippet: boolean | null = null
+    content: string,
+    options: StaffMessageOptions
   ) {
     super(
       threadId,
@@ -63,21 +63,24 @@ export class StaffMessage extends BaseMessage {
       authorId,
       true,
       staffRelayedMessageId,
-      userDmMessageId,
-      content,
-      isAnonymous,
-      isPlainText,
-      isSnippet
+      null,
+      content
     );
+
+    this.content = content;
+
+    this.isAnonymous = options.isAnonymous;
+    this.isPlainText = options.isPlainText;
+    this.isSnippet = options.isSnippet;
   }
 
   get staffRelayedMessageId(): string {
-    if (!this.isUser() && this._staffRelayedMessageId) {
+    if (this._staffRelayedMessageId) {
       return this._staffRelayedMessageId;
     }
 
     throw new Error(
-      "staffRelayedMessageId is only available for staff messages"
+      `Staff message ${this.messageId} does not have a relayed message ID`
     );
   }
 }
@@ -88,31 +91,19 @@ export class UserMessage extends BaseMessage {
     messageId: string,
     authorId: string,
     userDmMessageId: string,
-    content: string | null = null,
-    isAnonymous: boolean | null = null,
-    isPlainText: boolean | null = null,
-    isSnippet: boolean | null = null
+    content: string | null = null
   ) {
-    super(
-      threadId,
-      messageId,
-      authorId,
-      false,
-      null,
-      userDmMessageId,
-      content,
-      isAnonymous,
-      isPlainText,
-      isSnippet
-    );
+    super(threadId, messageId, authorId, false, null, userDmMessageId, content);
   }
 
   get userDmMessageId(): string {
-    if (this.isUser() && this._userDmMessageId) {
+    if (this._userDmMessageId) {
       return this._userDmMessageId;
     }
 
-    throw new Error("userDmMessageId is only available for user messages");
+    throw new Error(
+      `User message ${this.messageId} does not have a user DM message ID`
+    );
   }
 }
 
@@ -121,27 +112,57 @@ export type Message = StaffMessage | UserMessage;
 export const Message = {
   fromDatabaseRow(row: typeof messages.$inferSelect): Message {
     if (row.isStaff) {
+      if (row.staffRelayedMessageId === null) {
+        throw new Error(
+          `Invalid staff message ${row.messageId}: missing staffRelayedMessageId`
+        );
+      }
+      if (row.content === null) {
+        throw new Error(
+          `Invalid staff message ${row.messageId}: missing content`
+        );
+      }
+      if (row.isAnonymous === null) {
+        throw new Error(
+          `Invalid staff message ${row.messageId}: missing isAnonymous flag`
+        );
+      }
+      if (row.isPlainText === null) {
+        throw new Error(
+          `Invalid staff message ${row.messageId}: missing isPlainText flag`
+        );
+      }
+      if (row.isSnippet === null) {
+        throw new Error(
+          `Invalid staff message ${row.messageId}: missing isSnippet flag`
+        );
+      }
+
       return new StaffMessage(
         row.threadId,
         row.messageId,
         row.authorId,
-        row.staffRelayedMessageId || "",
-        row.userDmMessageId || null,
-        row.content || null,
-        row.isAnonymous !== undefined ? row.isAnonymous : null,
-        row.isPlainText !== undefined ? row.isPlainText : null,
-        row.isSnippet !== undefined ? row.isSnippet : null
+        row.staffRelayedMessageId,
+        row.content,
+        {
+          isAnonymous: row.isAnonymous,
+          isPlainText: row.isPlainText,
+          isSnippet: row.isSnippet,
+        }
       );
     } else {
+      if (row.userDmMessageId === null) {
+        throw new Error(
+          `Invalid user message ${row.messageId}: missing userDmMessageId`
+        );
+      }
+
       return new UserMessage(
         row.threadId,
         row.messageId,
         row.authorId,
-        row.userDmMessageId || "",
-        row.content || null,
-        row.isAnonymous !== undefined ? row.isAnonymous : null,
-        row.isPlainText !== undefined ? row.isPlainText : null,
-        row.isSnippet !== undefined ? row.isSnippet : null
+        row.userDmMessageId,
+        row.content || null
       );
     }
   },

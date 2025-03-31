@@ -34,13 +34,15 @@ export interface MessageRelayService {
 export interface ReactionRelayService {
   relayUserReactionToStaff(
     userDmMessageId: string,
-    emoji: string,
-    userId: string
+    userId: string,
+    emojiIdentifier: string,
+    emojiString: string
   ): Promise<void>;
   relayUserReactionRemovalToStaff(
     userDmMessageId: string,
-    emoji: string,
-    userId: string
+    userId: string,
+    emojiIdentifier: string,
+    emojiString: string
   ): Promise<void>;
 }
 
@@ -93,10 +95,33 @@ export class DMController {
         message.author.username
       );
 
-      const success = await this.messageService.relayUserMessageToStaff(
-        thread.channelId,
-        message
-      );
+      let success = false;
+
+      if (message.messageSnapshots.size > 0) {
+        // Forwarded message
+        const snapshot = message.messageSnapshots.first()!;
+
+        success = await this.messageService.relayUserMessageToStaff(
+          thread.channelId,
+          {
+            // ThreadDB stores main message ID, not forwarded message ID
+            id: message.id,
+            author: message.author,
+            // Only use snapshot for the content itself
+            content: snapshot.content,
+            attachments: snapshot.attachments,
+            stickers: snapshot.stickers,
+            // Mark as forwarded
+            forwarded: true,
+          }
+        );
+      } else {
+        // Normal message
+        success = await this.messageService.relayUserMessageToStaff(
+          thread.channelId,
+          message
+        );
+      }
 
       if (success) {
         // React to the user's message to indicate that it was received

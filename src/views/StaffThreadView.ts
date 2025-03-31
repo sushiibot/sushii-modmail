@@ -61,6 +61,7 @@ export interface StaffViewUserMessage {
   content: string;
   attachments: Collection<string, Attachment>;
   stickers: Collection<string, Sticker>;
+  forwarded?: boolean;
 }
 
 export class StaffThreadView {

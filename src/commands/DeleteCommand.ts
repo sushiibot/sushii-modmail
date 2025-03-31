@@ -75,21 +75,22 @@ export class DeleteCommand extends TextCommandHandler {
       }
 
       // Delete the message to the user
-      await this.messageService.deleteStaffMessage(
+      const success = await this.messageService.deleteStaffMessage(
         thread.userId,
         repliedToMessage
       );
 
-      // Send confirmation
-      // TODO: Update original message to say Deleted and change embed color
-      await msg.channel.send("Message deleted!");
+      if (!success) {
+        // Tried to delete user message
+        await msg.channel.send(
+          "You can only delete staff messages. Make sure to reply to the bot message you want to delete."
+        );
 
-      // Delete the command message
-      try {
-        await msg.delete();
-      } catch (err) {
-        // Fine
+        return;
       }
+
+      // React to the message with a checkmark
+      await msg.react("✅");
     } catch (error) {
       this.logger.error(`Error deleting message: ${error}`);
 

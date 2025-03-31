@@ -70,9 +70,33 @@ export const messages = sqliteTable(
     // If user message: Must have no relayed message && Must have user message
     check(
       "message_type_check",
-      sql`(${table.isStaff} = 1 AND ${table.staffRelayedMessageId} IS NOT NULL AND ${table.userDmMessageId} IS NULL)
+      sql`(
+            ${table.isStaff} = 1
+            AND ${table.staffRelayedMessageId} IS NOT NULL
+            AND ${table.userDmMessageId} IS NULL)
           OR
-          (${table.isStaff} = 0 AND ${table.userDmMessageId} IS NOT NULL AND ${table.staffRelayedMessageId} IS NULL)`
+          (
+            ${table.isStaff} = 0
+            AND ${table.userDmMessageId} IS NOT NULL
+            AND ${table.staffRelayedMessageId} IS NULL
+          )`
+    ),
+
+    // Metadata
+    // If staff, must have all metadata columns
+    // If user, content column is optional.
+    check(
+      "staff_metadata_check",
+      sql`
+        ${table.isStaff} = 0
+        OR
+        (
+          ${table.isStaff} = 1
+          AND ${table.content} IS NOT NULL
+          AND ${table.isAnonymous} IS NOT NULL
+          AND ${table.isPlainText} IS NOT NULL
+          AND ${table.isSnippet} IS NOT NULL
+        )`
     ),
   ]
 );
