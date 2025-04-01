@@ -81,6 +81,8 @@ services:
       # Restore if DB not found
       - RESTORE_DB=true # Optional, default is false
 
+      - LITESTREAM_ACCESS_KEY_ID=s3-access-key-id
+      - LITESTREAM_SECRET_ACCESS_KEY=s3-secret-access-key
       - LITESTREAM_BUCKET=bucket-name
       - LITESTREAM_PATH=path/within/bucket
       - LITESTREAM_ENDPOINT=s3-endpoint
