@@ -1,10 +1,11 @@
-import { Message } from "discord.js";
+import { Message, PermissionsBitField } from "discord.js";
 import type TextCommandHandler from "./commands/CommandHandler";
 import parentLogger from "./utils/logger";
 import type { Logger } from "pino";
 
 interface Config {
   prefix: string;
+  requiredRoleId: string;
 }
 
 interface CommandEntry {
@@ -146,6 +147,22 @@ export default class CommandRouter {
   }
 
   async handleMessage(msg: Message) {
+    if (msg.author.bot) {
+      return;
+    }
+
+    if (!msg.inGuild() || !msg.member) {
+      return;
+    }
+
+    // Check if user has required role
+    if (!msg.member.roles.cache.has(this.config.requiredRoleId)) {
+      this.logger.debug(
+        `User ${msg.author.username} does not have required role to use commands, skipping`
+      );
+      return;
+    }
+
     if (!(await this.isCommand(msg))) {
       return;
     }

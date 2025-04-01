@@ -14,6 +14,7 @@ const configSchema = z.object({
 
   // Errors or important information
   LOGS_CHANNEL_ID: z.string(),
+  REQUIRED_ROLE_ID: z.string(),
 
   ANONYMOUS_SNIPPETS: z
     .enum(["true", "false"])
