@@ -60,3 +60,5 @@ jobs:
           tags: |
             ghcr.io/sushiibot/modmail:latest
             ghcr.io/sushiibot/modmail:${{ steps.sha.outputs.sha_short }}
+          cache-from: type=registry,ref=ghcr.io/sushiibot/modmail:buildcache
+          cache-to: type=registry,ref=ghcr.io/sushiibot/modmail:buildcache,mode=max
