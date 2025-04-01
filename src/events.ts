@@ -59,7 +59,10 @@ export function registerEventHandlers(
     reactionService,
     logService
   );
-  const staffReactionController = new StaffReactionController(reactionService);
+  const staffReactionController = new StaffReactionController(
+    config,
+    reactionService
+  );
   const snippetController = new SnippetController(
     config,
     snippetService,

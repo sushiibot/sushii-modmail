@@ -6,6 +6,10 @@ import {
 } from "discord.js";
 import { getLogger } from "../utils/logger";
 
+interface Config {
+  forumChannelId: string;
+}
+
 export interface StaffReactionRelayService {
   relayStaffReactionToUser(
     threadMessageId: string,
@@ -18,11 +22,13 @@ export interface StaffReactionRelayService {
 }
 
 export class StaffReactionController {
+  private config: Config;
   private reactionService: StaffReactionRelayService;
 
   private logger = getLogger(this.constructor.name);
 
-  constructor(reactionService: StaffReactionRelayService) {
+  constructor(config: Config, reactionService: StaffReactionRelayService) {
+    this.config = config;
     this.reactionService = reactionService;
   }
 
@@ -32,6 +38,11 @@ export class StaffReactionController {
   ): Promise<void> {
     try {
       if (!reaction.message.channel.isThread()) {
+        return;
+      }
+
+      // Ignore unrelated threads
+      if (reaction.message.channel.parentId !== this.config.forumChannelId) {
         return;
       }
 
@@ -50,6 +61,11 @@ export class StaffReactionController {
   ): Promise<void> {
     try {
       if (!reaction.message.channel.isThread()) {
+        return;
+      }
+
+      // Ignore unrelated threads
+      if (reaction.message.channel.parentId !== this.config.forumChannelId) {
         return;
       }
 
