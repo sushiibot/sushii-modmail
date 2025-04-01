@@ -19,14 +19,22 @@ RUN apt-get update && \
 # Copy litestream binary from the previous stage
 COPY --from=litestream /go/bin/litestream /usr/local/bin/litestream
 
+# Copy default configuration for litestream
+COPY ./litestream.yml /etc/litestream.yml
+
 # Copy package.json and lockfile first for better caching
 COPY package.json bun.lockb* ./
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy the rest of the application
-COPY . .
+# Application source code
+COPY ./tsconfig.json ./
+COPY ./drizzle ./drizzle
+COPY ./src ./src
+
+# Entrypoint script
+COPY ./scripts ./scripts
 
 # Set the command to run the bot
-CMD ["bun", "start"]
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]

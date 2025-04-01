@@ -1,4 +1,4 @@
-import { Client, Collection, type Snowflake } from "discord.js";
+import { Client, Collection, Colors, type Snowflake } from "discord.js";
 import type { Message } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
@@ -333,9 +333,11 @@ export class MessageRelayService {
     );
 
     // Set the footer to indicate the message was deleted
-    editedEmbed.setFooter({
-      text: `Deleted by ${staffUser.tag}`,
-    });
+    editedEmbed
+      .setFooter({
+        text: `Deleted by ${staffUser.tag}`,
+      })
+      .setColor(Colors.Grey);
 
     // Edit the message
     await threadChannel.messages.edit(messageData.messageId, {

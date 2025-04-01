@@ -11,6 +11,7 @@ Feature set is fairly minimal, focusing on essential and frequently used.
 - **Built-in Organization** - ModMail threads are Forum channel threads.
 - **Snippets** - Re-usable messages.
 - **Anonymous Replies** - Keep staff members anonymous when replying.
+- **Easy Setup** - No need for a web server or separate database.
 
 ## Commands
 
@@ -38,16 +39,69 @@ Snippets
 
 ## Usage
 
-You can run sushii-modmail with Docker.
+You can run sushii-modmail with Docker and uses SQLite as the database so there
+is no need to run a separate database server.
 
 Images are built and published to [Github container registry](https://github.com/sushiibot/sushii-modmail/pkgs/container/modmail)
 
-```bash
-docker run -d \
-  --name sushii-modmail \
-  -e TOKEN=your_discord_bot_token \
-  -e OTHER_VARS=... \
-  ghcr.io/sushiibot/modmail:latest
+Images contain a [Litestream](https://litestream.io/) binary for automatic
+replication of the SQLite database to a remote S3-compatible storage. This is
+not enabled by default, but can be optionally configured.
+
+Example Docker compose file:
+
+```yml
+services:
+  modmail:
+    name: sushii-modmail
+    image: ghcr.io/sushiibot/modmail:latest
+    restart: unless-stopped
+    volumes:
+      # Directory to store database
+      - ./data:/app/data
+
+      # If you want to override the default Litestream config, you can mount
+      # your own, otherwise it will use the default config ./litestream.yml
+      # and use environment variables below
+      # https://litestream.io/reference/config/
+      - ./litestream.yml:/etc/litestream.yml
+    environment:
+      - LOG_LEVEL=info
+      - DISCORD_TOKEN=your_discord_bot_token
+      - DISCORD_CLIENT_ID=your_discord_client_id
+      - PREFIX=!
+      - MAIL_GUILD_ID=your_guild_id
+      - FORUM_CHANNEL_ID=your_forum_channel_id
+      - ANONYMOUS_SNIPPETS=false
+      - INITIAL_MESSAGE=Thank you for contacting the mod team! We'll get back to you as soon as possible.
+      - DATABASE_URI=/app/data/db.sqlite
+
+      # Litestream configuration
+      - REPLICATE_DB=true # Optional, default is false
+      # Restore if DB not found
+      - RESTORE_DB=true # Optional, default is false
+
+      - LITESTREAM_BUCKET=bucket-name
+      - LITESTREAM_PATH=path/within/bucket
+      - LITESTREAM_ENDPOINT=s3-endpoint
+      - LITESTREAM_FORCE_PATH_STYLE=true # Optional, default is false, some S3 providers require this
+```
+
+Example litestream config:
+
+```yml
+access-key-id: your-backblaze-keyID
+secret-access-key: your-backblaze-applicationKey
+
+dbs:
+    # Match the path in your docker-compose file
+  - path: /app/data/db.sqlite
+    replicas:
+      - type: s3
+        bucket: your-bucket-name
+        path: db # change to whatever path you want
+        endpoint: s3.us-west-000.backblazeb2.com # change this
+        force-path-style: true
 ```
 
 ## Configuration
