@@ -6,6 +6,7 @@ import {
   type PartialUser,
 } from "discord.js";
 import { getLogger } from "../utils/logger";
+import type { LogService } from "../services/LogService";
 
 export interface ReactionRelayService {
   relayUserReactionToStaff(
@@ -24,11 +25,13 @@ export interface ReactionRelayService {
 
 export class UserReactionController {
   private reactionService: ReactionRelayService;
+  private logService: LogService;
 
   private logger = getLogger(this.constructor.name);
 
-  constructor(reactionService: ReactionRelayService) {
+  constructor(reactionService: ReactionRelayService, logService: LogService) {
     this.reactionService = reactionService;
+    this.logService = logService;
   }
 
   async handleUserDMReactionAdd(
@@ -47,7 +50,11 @@ export class UserReactionController {
         reaction.emoji.toString()
       );
     } catch (err) {
-      this.logger.error(err, `Error handling DM reaction`);
+      const contextMsg = `Error handling DM reaction from user ${
+        user.tag || user.id
+      }`;
+
+      await this.logService.logError(err, contextMsg, this.constructor.name);
     }
   }
 
@@ -67,7 +74,11 @@ export class UserReactionController {
         reaction.emoji.toString()
       );
     } catch (err) {
-      this.logger.error(err, `Error handling DM reaction removal`);
+      const contextMsg = `Error handling DM reaction removal from user ${
+        user.tag || user.id
+      }`;
+
+      await this.logService.logError(err, contextMsg, this.constructor.name);
     }
   }
 }

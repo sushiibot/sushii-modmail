@@ -1,5 +1,4 @@
 import {
-  ChannelType,
   MessageReaction,
   User,
   type PartialMessageReaction,

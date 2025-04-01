@@ -24,6 +24,7 @@ export class BotConfig {
 
   public readonly mailGuildId: string;
   public readonly forumChannelId: string;
+  public readonly logsChannelId: string;
 
   public readonly databaseUri: string;
 
@@ -38,6 +39,7 @@ export class BotConfig {
     discordClientId: string,
     mailGuildId: string,
     forumChannelId: string,
+    logsChannelId: string,
     databaseUri: string,
     prefix: string | undefined = "-",
     initialMessage: string | undefined = defaultInitialMessage,
@@ -48,6 +50,7 @@ export class BotConfig {
     this.discordClientId = discordClientId;
     this.mailGuildId = mailGuildId;
     this.forumChannelId = forumChannelId;
+    this.logsChannelId = logsChannelId;
     this.databaseUri = databaseUri;
     this.prefix = prefix;
     this.initialMessage = initialMessage;
@@ -64,6 +67,7 @@ export class BotConfig {
       config.DISCORD_CLIENT_ID,
       config.MAIL_GUILD_ID,
       config.FORUM_CHANNEL_ID,
+      config.LOGS_CHANNEL_ID,
       config.DATABASE_URI,
       config.PREFIX,
       config.INITIAL_MESSAGE,

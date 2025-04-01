@@ -2,17 +2,12 @@ import {
   ChannelType,
   Client,
   Message,
-  MessageReaction,
-  User,
   type OmitPartialGroupDMChannel,
   type PartialMessage,
-  type PartialMessageReaction,
-  type PartialUser,
 } from "discord.js";
 import { getLogger } from "../utils/logger";
-import type { Logger } from "pino";
 import type { StaffViewUserMessage } from "views/StaffThreadView";
-import { MySqlBigInt53 } from "drizzle-orm/mysql-core";
+import type { LogService } from "../services/LogService";
 
 export interface MessageRelayService {
   relayUserMessageToStaff(
@@ -62,17 +57,20 @@ export class DMController {
   private threadService: ThreadService;
   private messageService: MessageRelayService;
   private reactionService: ReactionRelayService;
+  private logService: LogService;
 
   private logger = getLogger(this.constructor.name);
 
   constructor(
     threadService: ThreadService,
     messageService: MessageRelayService,
-    reactionService: ReactionRelayService
+    reactionService: ReactionRelayService,
+    logService: LogService
   ) {
     this.threadService = threadService;
     this.messageService = messageService;
     this.reactionService = reactionService;
+    this.logService = logService;
   }
 
   async handleUserDM(client: Client, message: Message): Promise<void> {
@@ -144,7 +142,12 @@ export class DMController {
         }
       }
     } catch (err) {
-      this.logger.error(err, `Error handling DM`);
+      const contextMsg = `Error handling DM from ${
+        message.author?.tag || "unknown user"
+      }`;
+
+      // Log to both Discord and console via logService
+      await this.logService.logError(err, contextMsg, this.constructor.name);
 
       // Send an error message to the user
       await message.author.send(
@@ -179,7 +182,11 @@ export class DMController {
         newMessage
       );
     } catch (err) {
-      this.logger.error(err, `Error handling DM edit`);
+      const contextMsg = `Error handling DM edit from ${
+        newMessage.author?.tag || "unknown user"
+      }`;
+
+      await this.logService.logError(err, contextMsg, this.constructor.name);
     }
   }
 
@@ -224,7 +231,9 @@ export class DMController {
         message.id
       );
     } catch (err) {
-      this.logger.error(err, `Error handling DM delete`);
+      const contextMsg = `Error handling DM delete for message ${message.id}`;
+
+      await this.logService.logError(err, contextMsg, this.constructor.name);
     }
   }
 }

@@ -12,6 +12,9 @@ const configSchema = z.object({
   MAIL_GUILD_ID: z.string(),
   FORUM_CHANNEL_ID: z.string(),
 
+  // Errors or important information
+  LOGS_CHANNEL_ID: z.string(),
+
   ANONYMOUS_SNIPPETS: z
     .enum(["true", "false"])
     .transform((value) => value === "true")

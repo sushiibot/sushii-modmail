@@ -15,6 +15,7 @@ import { MessageRepository } from "repositories/message.repository";
 import { ReactionRelayService } from "services/ReactionRelayService";
 import { UserReactionController } from "controllers/UserReactionController";
 import { StaffReactionController } from "controllers/StaffReactionController";
+import { DiscordLogService } from "services/LogService";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -46,13 +47,18 @@ export function registerEventHandlers(
     client,
     messageRepository
   );
+  const logService = new DiscordLogService(config, client);
 
   const dmController = new DMController(
     threadService,
     messageService,
-    reactionService
+    reactionService,
+    logService
   );
-  const userReactionController = new UserReactionController(reactionService);
+  const userReactionController = new UserReactionController(
+    reactionService,
+    logService
+  );
   const staffReactionController = new StaffReactionController(reactionService);
   const snippetController = new SnippetController(
     config,

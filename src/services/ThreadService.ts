@@ -3,7 +3,6 @@ import {
   Client,
   DiscordAPIError,
   ForumChannel,
-  GuildChannel,
   GuildMember,
   RESTJSONErrorCodes,
   type GuildForumTagData,

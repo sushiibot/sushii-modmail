@@ -1,8 +1,7 @@
-import { Client, type Snowflake } from "discord.js";
+import { Client } from "discord.js";
 import type { Message } from "models/message.model";
 import { getLogger } from "utils/logger";
 import { StaffThreadView } from "views/StaffThreadView";
-import { UserThreadView } from "views/UserThreadView";
 
 interface Config {
   guildId: string;
