@@ -38,10 +38,11 @@ export class MessageRepository {
         isStaff: msg.isStaff,
         staffRelayedMessageId: msg.staffRelayedMessageId || null,
         userDmMessageId: msg.userDmMessageId || null,
-        content: msg.content || null,
-        isAnonymous: msg.isAnonymous || null,
-        isPlainText: msg.isPlainText || null,
-        isSnippet: msg.isSnippet || null,
+        // Do not use || null or it'll make falsey values null
+        content: msg.content,
+        isAnonymous: msg.isAnonymous,
+        isPlainText: msg.isPlainText,
+        isSnippet: msg.isSnippet,
       })
       .returning();
 
