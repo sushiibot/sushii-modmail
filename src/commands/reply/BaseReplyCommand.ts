@@ -108,7 +108,13 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       });
 
       // TODO: Clear error for if bot missing MANAGE_MESSAGES permission
-      await msg.delete();
+      try {
+        await msg.delete();
+      } catch (err) {
+        this.logger.error(
+          `Error deleting command message: ${err} -- ${msg.content}`
+        );
+      }
     } catch (error) {
       this.logger.error(`Error sending reply: ${error}`);
 
