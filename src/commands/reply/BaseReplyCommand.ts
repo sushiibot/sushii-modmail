@@ -110,7 +110,10 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       await msg.delete();
     } catch (error) {
       this.logger.error(`Error sending reply: ${error}`);
-      await msg.channel.send("Failed to send reply. See logs for details.");
+
+      await msg.channel.send(
+        "Error while sending reply. See logs for details."
+      );
     }
   }
 }
