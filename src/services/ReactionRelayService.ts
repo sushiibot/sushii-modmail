@@ -1,4 +1,9 @@
-import { Client } from "discord.js";
+import {
+  Client,
+  DiscordAPIError,
+  DiscordjsErrorCodes,
+  RESTJSONErrorCodes,
+} from "discord.js";
 import type { Message } from "models/message.model";
 import { getLogger } from "utils/logger";
 import { StaffThreadView } from "views/StaffThreadView";
@@ -73,13 +78,14 @@ export class ReactionRelayService {
         message.messageId
       );
 
-      // Add the reaction to the thread message
-      await threadMessage.react(emojiIdentifier);
-
       // Send a system message indicating a reaction was added
       const user = await this.client.users.fetch(userId);
+
+      const emojiID = this.client.emojis.resolveId(emojiIdentifier);
+      const emojiURL = this.client.rest.cdn.emoji(emojiID);
+
       const systemMessage = StaffThreadView.systemMessage(
-        `${user.tag} reacted with ${emojiString}`,
+        `${user.tag} reacted with ${emojiString} ([\`${emojiIdentifier}\`](<${emojiURL}>))`,
         {
           automated: false,
         }
@@ -91,6 +97,24 @@ export class ReactionRelayService {
       };
 
       await threadChannel.send(systemMessage);
+
+      try {
+        // Add the reaction to the thread message
+        await threadMessage.react(emojiIdentifier);
+      } catch (err) {
+        if (!(err instanceof DiscordAPIError)) {
+          // Unrelated error, throw
+          throw err;
+        }
+
+        // Custom emoji, bot doesn't have access to it, fine
+        if (err.code === RESTJSONErrorCodes.UnknownEmoji) {
+          this.logger.debug(
+            { error: err, emojiIdentifier },
+            "Failed to add reaction to thread message, bot doesn't have access to the emoji"
+          );
+        }
+      }
 
       this.logger.debug(
         {
@@ -153,10 +177,13 @@ export class ReactionRelayService {
         await reactions.remove();
       }
 
+      const emojiID = this.client.emojis.resolveId(emojiIdentifier);
+      const emojiURL = this.client.rest.cdn.emoji(emojiID);
+
       // Send a system message indicating a reaction was removed
       const user = await this.client.users.fetch(userId);
       const systemMessage = StaffThreadView.systemMessage(
-        `${user.tag} removed their ${emojiString} reaction`,
+        `${user.tag} removed reaction ${emojiString} ([\`${emojiIdentifier}\`](<${emojiURL}>))`,
         {
           automated: false,
         }
@@ -242,7 +269,40 @@ export class ReactionRelayService {
       const dmChannel = await user.createDM();
 
       // React to the user's message
-      await dmChannel.messages.react(message.userDmMessageId, emojiIdentifier);
+      try {
+        await dmChannel.messages.react(
+          message.userDmMessageId,
+          emojiIdentifier
+        );
+      } catch (err) {
+        if (!(err instanceof DiscordAPIError)) {
+          throw err;
+        }
+
+        // Custom emoji, bot doesn't have access to it, respond with a warning
+        if (err.code === RESTJSONErrorCodes.UnknownEmoji) {
+          this.logger.debug(
+            { error: err, emojiIdentifier },
+            "Failed to add reaction to user DM message, bot doesn't have access to the emoji"
+          );
+
+          // Send a warning message to staff thread
+          const warningMessage = StaffThreadView.systemMessage(
+            `I couldn't add the reaction ${emojiIdentifier} to the user's message. Please check if the emoji is valid or if I have access to it.`,
+            {
+              automated: false,
+            }
+          );
+
+          const threadChannel = await this.client.channels.fetch(
+            message.threadId
+          );
+
+          if (threadChannel?.isThread()) {
+            await threadChannel.send(warningMessage);
+          }
+        }
+      }
 
       this.logger.debug(
         {
