@@ -155,15 +155,15 @@ export default class CommandRouter {
       return;
     }
 
+    if (!(await this.isCommand(msg))) {
+      return;
+    }
+
     // Check if user has required role
     if (!msg.member.roles.cache.has(this.config.requiredRoleId)) {
       this.logger.debug(
         `User ${msg.author.username} does not have required role to use commands, skipping`
       );
-      return;
-    }
-
-    if (!(await this.isCommand(msg))) {
       return;
     }
 
