@@ -15,6 +15,13 @@
       "when": 1743138477527,
       "tag": "0001_talented_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1743554557378,
+      "tag": "0002_confused_the_captain",
+      "breakpoints": true
     }
   ]
 }
