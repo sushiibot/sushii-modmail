@@ -288,7 +288,7 @@ export class ReactionRelayService {
 
           // Send a warning message to staff thread
           const warningMessage = StaffThreadView.systemMessage(
-            `I couldn't add the reaction ${emojiIdentifier} to the user's message. Please check if the emoji is valid or if I have access to it.`,
+            `I couldn't add the reaction ${emojiIdentifier} to the user's message. I can only add reactions for emojis from servers I'm in.`,
             {
               automated: false,
             }

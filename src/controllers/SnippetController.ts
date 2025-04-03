@@ -6,7 +6,7 @@ import type {
   UserThreadViewGuild,
   UserThreadViewUser,
 } from "views/UserThreadView";
-import { StaffThreadView } from "views/StaffThreadView";
+import { StaffThreadView, type RelayMessage } from "views/StaffThreadView";
 
 interface Config {
   prefix: string;
@@ -38,8 +38,7 @@ export interface MessageRelayService {
   relayStaffMessageToUser(
     userId: string,
     guild: UserThreadViewGuild,
-    staffUser: UserThreadViewUser,
-    content: string,
+    msg: RelayMessage,
     options?: StaffMessageOptions
   ): Promise<{ msgId: string; dmChannelId: string }>;
 }
@@ -138,11 +137,13 @@ export class SnippetController {
         `Sending snippet to user`
       );
 
+      // Override the message content with the snippet content before relaying
+      message.content = snippet.content;
+
       await this.messageService.relayStaffMessageToUser(
         thread.userId,
         guild,
-        message.author,
-        snippet.content,
+        message,
         options
       );
 

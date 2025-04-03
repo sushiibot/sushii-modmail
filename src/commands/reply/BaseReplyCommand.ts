@@ -78,8 +78,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       const relay = await this.messageService.relayStaffMessageToUser(
         thread.userId,
         msg.guild,
-        msg.author,
-        replyContent,
+        msg,
         this.replyOptions
       );
 
@@ -102,9 +101,9 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         relayedMessageId: relayedMsgId,
         authorId: msg.author.id,
         content: replyContent,
-        isAnonymous: this.replyOptions.anonymous ?? null,
-        isPlainText: this.replyOptions.plainText ?? null,
-        isSnippet: this.replyOptions.snippet ?? null,
+        isAnonymous: this.replyOptions.anonymous,
+        isPlainText: this.replyOptions.plainText,
+        isSnippet: this.replyOptions.snippet,
       });
 
       // TODO: Clear error for if bot missing MANAGE_MESSAGES permission

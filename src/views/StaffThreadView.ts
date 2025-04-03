@@ -14,6 +14,11 @@ import {
 import { formatUserIdentity } from "./user";
 import { Color } from "./Color";
 import { fetch, file } from "bun";
+import {
+  createAttachmentField,
+  createStickerField,
+  downloadAttachments,
+} from "./util";
 
 interface MemberRole {
   id: string;
@@ -55,7 +60,7 @@ interface Sticker {
   url: string;
 }
 
-export interface StaffViewUserMessage {
+export interface RelayMessage {
   id: string;
   author: User;
   content: string;
@@ -262,7 +267,7 @@ export class StaffThreadView {
   }
 
   static async userReplyEditedMessage(
-    newUserMessage: StaffViewUserMessage,
+    newUserMessage: RelayMessage,
     previousMessageId?: string
   ): Promise<MessageCreateOptions> {
     // Edited messages just do the same thing as new messages but reply to the
@@ -288,34 +293,17 @@ export class StaffThreadView {
   /**
    * Creates an embed for a user's message without handling attachments
    */
-  static createUserReplyEmbed(userMessage: StaffViewUserMessage): EmbedBuilder {
+  static createUserReplyEmbed(userMessage: RelayMessage): EmbedBuilder {
     const fields = [];
 
-    if (userMessage.attachments.size > 0) {
-      const attachments = Array.from(userMessage.attachments.values())
-        .map((attachment) => `[${attachment.name}](${attachment.url})`)
-        .join("\n");
-
-      const name =
-        userMessage.attachments.size > 1 ? "Attachments" : "Attachment";
-
-      fields.push({
-        name: `Original ${name}`,
-        value: attachments,
-      });
+    const attachmentField = createAttachmentField(userMessage.attachments);
+    if (attachmentField) {
+      fields.push(attachmentField);
     }
 
-    if (userMessage.stickers.size > 0) {
-      const stickers = Array.from(userMessage.stickers.values())
-        .map((sticker) => `[${sticker.name}](${sticker.url})`)
-        .join("\n");
-
-      const name = userMessage.stickers.size > 1 ? "Stickers" : "Sticker";
-
-      fields.push({
-        name: name,
-        value: stickers,
-      });
+    const stickerField = createStickerField(userMessage.stickers);
+    if (stickerField) {
+      fields.push(stickerField);
     }
 
     const embed = new EmbedBuilder()
@@ -341,25 +329,12 @@ export class StaffThreadView {
   }
 
   static async userReplyMessage(
-    userMessage: StaffViewUserMessage
+    userMessage: RelayMessage
   ): Promise<MessageCreateOptions> {
     const embed = StaffThreadView.createUserReplyEmbed(userMessage);
 
     // Re-upload attachments
-    const fileDownloads = Array.from(userMessage.attachments.values()).map(
-      async (file) => {
-        const res = await fetch(file.url);
-        const arrBuf = await res.arrayBuffer();
-        const attachment = new AttachmentBuilder(Buffer.from(arrBuf)).setName(
-          file.name
-        );
-
-        return attachment;
-      }
-    );
-
-    // Download files in parallel
-    const files = await Promise.all(fileDownloads);
+    const files = await downloadAttachments(userMessage.attachments);
 
     return {
       embeds: [embed],

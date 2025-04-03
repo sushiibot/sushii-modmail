@@ -2,10 +2,7 @@ import { Client, Collection, Colors, type Snowflake } from "discord.js";
 import type { Message } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
-import {
-  StaffThreadView,
-  type StaffViewUserMessage,
-} from "views/StaffThreadView";
+import { StaffThreadView, type RelayMessage } from "views/StaffThreadView";
 import {
   UserThreadView,
   type UserThreadViewGuild,
@@ -73,7 +70,7 @@ export class MessageRelayService {
 
   async relayUserMessageToStaff(
     threadId: string,
-    message: StaffViewUserMessage
+    message: RelayMessage
   ): Promise<boolean> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
@@ -119,7 +116,7 @@ export class MessageRelayService {
 
   async relayUserEditedMessageToStaff(
     threadId: string,
-    message: StaffViewUserMessage
+    message: RelayMessage
   ): Promise<void> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
@@ -199,20 +196,14 @@ export class MessageRelayService {
   async relayStaffMessageToUser(
     userId: string,
     guild: UserThreadViewGuild,
-    staffUser: UserThreadViewUser,
-    content: string,
+    msg: RelayMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<{ msgId: string; dmChannelId: string }> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
     // Format the message to include staff member information
-    const message = UserThreadView.staffMessage(
-      guild,
-      staffUser,
-      content,
-      options
-    );
+    const message = await UserThreadView.staffMessage(guild, msg, options);
 
     this.logger.debug(message, "Relaying staff message to user");
 
@@ -263,8 +254,7 @@ export class MessageRelayService {
     staffViewMessageId: string,
     userId: string,
     guild: UserThreadViewGuild,
-    staffUser: UserThreadViewUser,
-    content: string,
+    msg: RelayMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<boolean> {
     // Fetch the user to DM
@@ -291,10 +281,9 @@ export class MessageRelayService {
 
     // Re-build staff message with new content
     // Exclude flags since they are incompatible with editing
-    const { flags, ...newMessage } = UserThreadView.staffMessage(
+    const { flags, ...newMessage } = await UserThreadView.staffMessage(
       guild,
-      staffUser,
-      content,
+      msg,
       options
     );
 
@@ -335,7 +324,7 @@ export class MessageRelayService {
     // Set the footer to indicate the message was deleted
     editedEmbed
       .setFooter({
-        text: `Deleted by ${staffUser.tag}`,
+        text: `Deleted by ${msg.author.username}`,
       })
       .setColor(Colors.Grey);
 

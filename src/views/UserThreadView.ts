@@ -8,6 +8,12 @@ import {
   type StaffMessageOptions,
 } from "services/MessageRelayService";
 import { Color } from "./Color";
+import type { RelayMessage } from "./StaffThreadView";
+import {
+  createAttachmentField,
+  createStickerField,
+  downloadAttachments,
+} from "./util";
 
 export interface UserThreadViewGuild {
   name: string;
@@ -41,15 +47,19 @@ export class UserThreadView {
     };
   }
 
-  static staffMessage(
+  static async staffMessage(
     guild: UserThreadViewGuild,
-    staffUser: UserThreadViewUser,
-    content: string,
+    msg: RelayMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
-  ): MessageCreateOptions {
+  ): Promise<MessageCreateOptions> {
+    // Re-upload attachments
+    const files = await downloadAttachments(msg.attachments);
+
+    // TODO: Stickers aren't relayed
     if (options.plainText) {
       return {
-        content,
+        content: msg.content,
+        files,
       };
     }
 
@@ -62,21 +72,16 @@ export class UserThreadView {
       });
     } else {
       embed.setAuthor({
-        name: staffUser.tag,
-        iconURL: staffUser.displayAvatarURL(),
+        name: msg.author.displayName,
+        iconURL: msg.author.displayAvatarURL(),
       });
     }
 
-    // Set the content
-    embed.setDescription(content);
-
-    embed.setColor(Color.Blue);
-
-    // Set timestamp
-    embed.setTimestamp();
+    embed.setDescription(msg.content).setColor(Color.Blue).setTimestamp();
 
     return {
       embeds: [embed],
+      files,
     };
   }
 }

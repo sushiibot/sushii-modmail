@@ -6,17 +6,17 @@ import {
   type PartialMessage,
 } from "discord.js";
 import { getLogger } from "../utils/logger";
-import type { StaffViewUserMessage } from "views/StaffThreadView";
+import type { RelayMessage } from "views/StaffThreadView";
 import type { LogService } from "../services/LogService";
 
 export interface MessageRelayService {
   relayUserMessageToStaff(
     threadId: string,
-    message: StaffViewUserMessage
+    message: RelayMessage
   ): Promise<boolean>;
   relayUserEditedMessageToStaff(
     threadId: string,
-    message: StaffViewUserMessage
+    message: RelayMessage
   ): Promise<void>;
   relayUserDeletedMessageToStaff(
     threadId: string,

@@ -15,10 +15,7 @@ import {
   type UserThreadViewGuild,
   type UserThreadViewUser,
 } from "views/UserThreadView";
-import {
-  StaffThreadView,
-  type StaffViewUserMessage,
-} from "views/StaffThreadView";
+import { StaffThreadView, type RelayMessage } from "views/StaffThreadView";
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
@@ -48,7 +45,7 @@ describe("MessageRelayService", () => {
   describe("relayUserMessageToStaff", () => {
     it("should relay user message to staff", async () => {
       const channelId = randomSnowflakeID();
-      const message: StaffViewUserMessage = {
+      const message: RelayMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -98,7 +95,7 @@ describe("MessageRelayService", () => {
     it("should relay attachments to staff", async () => {
       const channelId = randomSnowflakeID();
 
-      const message: StaffViewUserMessage = {
+      const message: RelayMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -157,7 +154,7 @@ describe("MessageRelayService", () => {
 
     it("should throw an error if channel is not found", async () => {
       const channelId = randomSnowflakeID();
-      const message: StaffViewUserMessage = {
+      const message: RelayMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -179,7 +176,7 @@ describe("MessageRelayService", () => {
 
     it("should throw an error if channel is not sendable", async () => {
       const channelId = randomSnowflakeID();
-      const message: StaffViewUserMessage = {
+      const message: RelayMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),

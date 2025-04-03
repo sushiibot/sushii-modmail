@@ -106,13 +106,15 @@ export class EditCommand extends TextCommandHandler {
         snippet: isSnippet,
       };
 
+      // Set the new content for the message
+      msg.content = editContent;
+
       // Edit the message with the new content
       await this.messageService.editStaffMessage(
         repliedToMessage,
         thread.userId,
         msg.guild,
-        msg.author,
-        editContent,
+        msg,
         messageOptions
       );
 

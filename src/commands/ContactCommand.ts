@@ -1,4 +1,4 @@
-import type { Message } from "discord.js";
+import type { Message, User } from "discord.js";
 import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
@@ -30,11 +30,18 @@ export class ContactCommand extends TextCommandHandler {
     }
 
     // Creates a new thread as staff to contact specific members
-    const userId = args[0];
+    const targetUserStr = args[0];
+
+    // First check if mention
+    let targetUser = msg.mentions.users.first();
+    if (!targetUser) {
+      // Then try to fetch user by ID / user resolveable
+      targetUser = await msg.client.users.fetch(targetUserStr);
+    }
 
     const { thread, isNew } = await this.threadService.getOrCreateThread(
-      userId,
-      msg.author.tag
+      targetUser.id,
+      targetUser.username
     );
 
     if (!isNew) {
