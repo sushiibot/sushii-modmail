@@ -205,9 +205,22 @@ describe("MessageRelayService", () => {
     it("should relay staff message to user", async () => {
       const userId = randomSnowflakeID();
       const guild = {} as UserThreadViewGuild;
-      const staffUser = {} as UserThreadViewUser;
       const content = "Hello, user!";
       const options = { anonymous: true, plainText: false, snippet: false };
+
+      // Create a RelayMessage object instead of separate staffUser and content
+      const msg: RelayMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content,
+        attachments: new Collection<string, Attachment>(),
+        stickers: new Collection(),
+      };
 
       const relayedMsg = {
         id: "relayed-message-id",
@@ -221,15 +234,14 @@ describe("MessageRelayService", () => {
       } as unknown as User;
 
       spyOn(client.users, "fetch").mockResolvedValue(user);
-      spyOn(UserThreadView, "staffMessage").mockReturnValue({
+      spyOn(UserThreadView, "staffMessage").mockResolvedValue({
         content: "Formatted message",
       });
 
       const result = await service.relayStaffMessageToUser(
         userId,
         guild,
-        staffUser,
-        content,
+        msg,
         options
       );
 
@@ -238,8 +250,7 @@ describe("MessageRelayService", () => {
       );
       expect(UserThreadView.staffMessage).toHaveBeenCalledWith(
         guild,
-        staffUser,
-        content,
+        msg,
         options
       );
       expect(user.send).toHaveBeenCalledWith({
