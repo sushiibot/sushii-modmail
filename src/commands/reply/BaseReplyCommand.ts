@@ -74,6 +74,9 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
     }
 
     try {
+      // Update message content to be the reply only, not full command
+      msg.content = replyContent;
+
       // Send the reply to the user
       const relay = await this.messageService.relayStaffMessageToUser(
         thread.userId,
