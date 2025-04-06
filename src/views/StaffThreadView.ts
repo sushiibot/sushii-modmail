@@ -321,6 +321,12 @@ export class StaffThreadView {
       .setFields(fields)
       .setTimestamp();
 
+    // Set sticker as image -- attachments are handled in message itself, not
+    // in embed
+    if (userMessage.stickers.size === 1) {
+      embed.setImage(userMessage.stickers.first()!.url);
+    }
+
     if (userMessage.content) {
       embed.setDescription(userMessage.content);
     }
