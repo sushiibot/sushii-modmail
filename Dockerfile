@@ -8,6 +8,9 @@ RUN go install \
 
 FROM oven/bun:1.2.7-debian
 
+LABEL org.opencontainers.image.source=https://github.com/sushiibot/sushii-modmail
+LABEL org.opencontainers.image.description="Discord Modmail Bot"
+
 WORKDIR /app
 
 RUN apt-get update && \
