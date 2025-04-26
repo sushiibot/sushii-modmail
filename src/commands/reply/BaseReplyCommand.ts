@@ -40,8 +40,15 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
     }
 
     const replyContent = args.join(" ");
-    if (!replyContent || msg.attachments.size === 0) {
-      await msg.channel.send("Please provide a message or attachment to reply with.");
+    // If ALL are empty, return
+    if (
+      !replyContent &&
+      msg.attachments.size === 0 &&
+      msg.stickers.size === 0
+    ) {
+      await msg.channel.send(
+        "Please provide a message or attachment to reply with."
+      );
       return;
     }
 
