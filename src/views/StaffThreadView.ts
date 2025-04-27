@@ -204,6 +204,24 @@ export class StaffThreadView {
       .setDescription(msg.content)
       .setTimestamp();
 
+    // Set sticker as image -- attachments are handled in message itself, not
+    // in embed
+    if (msg.stickers.size > 0) {
+      const sticker = msg.stickers.first()!;
+
+      embed.setImage(sticker.url);
+
+      const stickerDisplay = `[${sticker.name}](${sticker.url})`;
+      embed.addFields({
+        name: "Sticker",
+        value: stickerDisplay,
+      });
+    }
+
+    if (msg.content) {
+      embed.setDescription(msg.content);
+    }
+
     if (options.snippet) {
       embed.setFooter({ text: "Sent from snippet" });
     }
@@ -320,8 +338,16 @@ export class StaffThreadView {
 
     // Set sticker as image -- attachments are handled in message itself, not
     // in embed
-    if (userMessage.stickers.size === 1) {
-      embed.setImage(userMessage.stickers.first()!.url);
+    if (userMessage.stickers.size > 0) {
+      const sticker = userMessage.stickers.first()!;
+
+      embed.setImage(sticker.url);
+
+      const stickerDisplay = `[${sticker.name}](${sticker.url})`;
+      embed.addFields({
+        name: "Sticker",
+        value: stickerDisplay,
+      });
     }
 
     if (userMessage.content) {
