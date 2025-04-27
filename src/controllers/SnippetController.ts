@@ -6,7 +6,10 @@ import type {
   UserThreadViewGuild,
   UserThreadViewUser,
 } from "views/UserThreadView";
-import { StaffThreadView, type RelayMessage } from "views/StaffThreadView";
+import {
+  StaffThreadView,
+  type RelayMessageCreate,
+} from "views/StaffThreadView";
 
 interface Config {
   prefix: string;
@@ -38,7 +41,7 @@ export interface MessageRelayService {
   relayStaffMessageToUser(
     userId: string,
     guild: UserThreadViewGuild,
-    msg: RelayMessage,
+    msg: RelayMessageCreate,
     options?: StaffMessageOptions
   ): Promise<{ msgId: string; dmChannelId: string }>;
 }

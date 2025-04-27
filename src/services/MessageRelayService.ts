@@ -2,7 +2,11 @@ import { Client, Collection, Colors, type Snowflake } from "discord.js";
 import type { Message } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
-import { StaffThreadView, type RelayMessage } from "views/StaffThreadView";
+import { Color } from "views/Color";
+import {
+  StaffThreadView,
+  type RelayMessageCreate,
+} from "views/StaffThreadView";
 import {
   UserThreadView,
   type UserThreadViewGuild,
@@ -70,7 +74,7 @@ export class MessageRelayService {
 
   async relayUserMessageToStaff(
     threadId: string,
-    message: RelayMessage
+    message: RelayMessageCreate
   ): Promise<boolean> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
@@ -116,7 +120,7 @@ export class MessageRelayService {
 
   async relayUserEditedMessageToStaff(
     threadId: string,
-    message: RelayMessage
+    message: RelayMessageCreate
   ): Promise<void> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
@@ -196,7 +200,7 @@ export class MessageRelayService {
   async relayStaffMessageToUser(
     userId: string,
     guild: UserThreadViewGuild,
-    msg: RelayMessage,
+    msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<{ msgId: string; dmChannelId: string }> {
     // Fetch the user to DM
@@ -254,7 +258,7 @@ export class MessageRelayService {
     staffViewMessageId: string,
     userId: string,
     guild: UserThreadViewGuild,
-    msg: RelayMessage,
+    msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<boolean> {
     // Fetch the user to DM
@@ -312,8 +316,15 @@ export class MessageRelayService {
 
     const staffFullUser = await this.client.users.fetch(messageData.authorId);
     const editedEmbed = StaffThreadView.staffReplyEmbed(
-      staffFullUser,
-      messageData.content,
+      {
+        author: staffFullUser,
+        // message
+        id: messageData.messageId,
+        content: msg.content,
+        attachments: msg.attachments,
+        stickers: msg.stickers,
+        forwarded: msg.forwarded,
+      },
       {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,
@@ -345,6 +356,9 @@ export class MessageRelayService {
     userId: string,
     staffViewMessageId: string
   ): Promise<boolean> {
+    // -------------------------------------------------------------------------
+    // DATA REQUIREMENTS
+
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
@@ -367,13 +381,16 @@ export class MessageRelayService {
 
     this.logger.debug(messageData, "Deleting relayed staff message");
 
+    // -------------------------------------------------------------------------
     // USER DM
+
     // Delete the message
     const dmChannel = await user.createDM();
     await dmChannel.messages.delete(messageData.staffRelayedMessageId);
 
-    // ---
+    // -------------------------------------------------------------------------
     // MODMAIL STAFF THREAD
+
     // Update the staff message in thread
     const threadChannel = await this.client.channels.fetch(
       messageData.threadId
@@ -390,8 +407,16 @@ export class MessageRelayService {
     // Re-build staff message
     const staffUser = await this.client.users.fetch(messageData.authorId);
     const editedEmbed = StaffThreadView.staffReplyEmbed(
-      staffUser,
-      messageData.content,
+      {
+        author: staffUser,
+        id: messageData.messageId,
+        content: messageData.content,
+        // TODO: What to do when deleted? doesn't really make sense to store them
+        // just for deleted messages
+        attachments: new Collection(),
+        stickers: new Collection(),
+        forwarded: messageData.forwarded,
+      },
       {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,
@@ -400,9 +425,11 @@ export class MessageRelayService {
     );
 
     // Set the footer to indicate the message was deleted
-    editedEmbed.setFooter({
-      text: `Deleted by ${staffUser.username}`,
-    });
+    editedEmbed
+      .setFooter({
+        text: `Deleted by ${staffUser.username}`,
+      })
+      .setColor(Color.Gray);
 
     // Edit the message
     await threadChannel.messages.edit(messageData.messageId, {

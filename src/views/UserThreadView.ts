@@ -8,7 +8,7 @@ import {
   type StaffMessageOptions,
 } from "services/MessageRelayService";
 import { Color } from "./Color";
-import type { RelayMessage } from "./StaffThreadView";
+import type { RelayMessageCreate } from "./StaffThreadView";
 import {
   createAttachmentField,
   createStickerField,
@@ -49,13 +49,13 @@ export class UserThreadView {
 
   static async staffMessage(
     guild: UserThreadViewGuild,
-    msg: RelayMessage,
+    msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<MessageCreateOptions> {
     // Re-upload attachments
     const files = await downloadAttachments(msg.attachments);
 
-    // TODO: Stickers aren't relayed
+    // TODO: Stickers aren't relayed for plain text
     if (options.plainText) {
       return {
         content: msg.content,
@@ -78,6 +78,19 @@ export class UserThreadView {
     }
 
     embed.setDescription(msg.content).setColor(Color.Blue).setTimestamp();
+
+    // Relay stickers
+    if (msg.stickers.size > 0) {
+      const sticker = msg.stickers.first()!;
+
+      embed.setImage(sticker.url);
+
+      const stickerDisplay = `[${sticker.name}](${sticker.url})`;
+      embed.addFields({
+        name: "Sticker",
+        value: stickerDisplay,
+      });
+    }
 
     return {
       embeds: [embed],

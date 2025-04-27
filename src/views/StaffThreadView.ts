@@ -5,6 +5,7 @@ import {
   MessageFlags,
   type GuildForumThreadCreateOptions,
   type MessageCreateOptions,
+  type Snowflake,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
 import {
@@ -60,10 +61,11 @@ interface Sticker {
   url: string;
 }
 
-export interface RelayMessage {
+export interface RelayMessageCreate {
   id: string;
   author: User;
   content: string;
+  // List of IDs for edits
   attachments: Collection<string, Attachment>;
   stickers: Collection<string, Sticker>;
   forwarded?: boolean;
@@ -74,10 +76,6 @@ export class StaffThreadView {
    * Generates the initial message for a new modmail thread
    */
   static initialThreadMessage(userInfo: UserThreadInfo): MessageCreateOptions {
-    // TODO: Should include
-    // - Mutual servers
-    // - Previous threads
-
     const embed = new EmbedBuilder()
       .setAuthor({
         name: formatUserIdentity(
@@ -146,7 +144,7 @@ export class StaffThreadView {
   /**
    * Generates the thread metadata (name, etc.)
    */
-  static newThreadMetadata(
+  static createThreadOptions(
     userId: string,
     username: string
   ): Omit<GuildForumThreadCreateOptions, "message"> {
@@ -188,12 +186,11 @@ export class StaffThreadView {
    * @returns A Discord MessageEmbed representing the staff reply
    */
   static staffReplyEmbed(
-    staffUser: User,
-    content: string,
+    msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): EmbedBuilder {
     // Set the author field based on anonymous option
-    let authorName = staffUser.username;
+    let authorName = msg.author.username;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
@@ -201,10 +198,10 @@ export class StaffThreadView {
     const embed = new EmbedBuilder()
       .setAuthor({
         name: authorName,
-        iconURL: staffUser.displayAvatarURL(),
+        iconURL: msg.author.displayAvatarURL(),
       })
       .setColor(Color.Green)
-      .setDescription(content)
+      .setDescription(msg.content)
       .setTimestamp();
 
     if (options.snippet) {
@@ -267,13 +264,13 @@ export class StaffThreadView {
   }
 
   static async userReplyEditedMessage(
-    newUserMessage: RelayMessage,
+    newUserMessage: RelayMessageCreate,
     previousMessageId?: string
   ): Promise<MessageCreateOptions> {
     // Edited messages just do the same thing as new messages but reply to the
     // original message
 
-    const embed = StaffThreadView.createUserReplyEmbed(newUserMessage)
+    const embed = StaffThreadView.userReplyEmbed(newUserMessage)
       .setTitle("Message edited")
       .setColor(Color.Purple);
 
@@ -293,7 +290,7 @@ export class StaffThreadView {
   /**
    * Creates an embed for a user's message without handling attachments
    */
-  static createUserReplyEmbed(userMessage: RelayMessage): EmbedBuilder {
+  static userReplyEmbed(userMessage: RelayMessageCreate): EmbedBuilder {
     const fields = [];
 
     const attachmentField = createAttachmentField(userMessage.attachments);
@@ -335,9 +332,9 @@ export class StaffThreadView {
   }
 
   static async userReplyMessage(
-    userMessage: RelayMessage
+    userMessage: RelayMessageCreate
   ): Promise<MessageCreateOptions> {
-    const embed = StaffThreadView.createUserReplyEmbed(userMessage);
+    const embed = StaffThreadView.userReplyEmbed(userMessage);
 
     // Re-upload attachments
     const files = await downloadAttachments(userMessage.attachments);

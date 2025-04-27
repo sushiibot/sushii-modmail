@@ -95,11 +95,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       const relayedMsgId = relay.msgId;
 
       // Re-send as embed to show the message was sent and how it looks
-      const embed = StaffThreadView.staffReplyEmbed(
-        msg.author,
-        replyContent,
-        this.replyOptions
-      );
+      const embed = StaffThreadView.staffReplyEmbed(msg, this.replyOptions);
 
       const threadStaffMsg = await msg.channel.send({
         embeds: [embed],

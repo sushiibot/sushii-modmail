@@ -248,7 +248,10 @@ export class ThreadService {
     // -------------------------------------------------------------------------
     // Create Forum thread
 
-    const threadMetadata = StaffThreadView.newThreadMetadata(userId, username);
+    const threadMetadata = StaffThreadView.createThreadOptions(
+      userId,
+      username
+    );
     const threadInitialMsg = StaffThreadView.initialThreadMessage({
       user: user,
       member: member,

@@ -48,6 +48,9 @@ export const messages = sqliteTable(
     // Metadata, mostly useful for re-building the message in staff thread
     // Staff only fields.
     content: text(),
+    forwarded: integer({ mode: "boolean" }).notNull().default(false),
+
+    // Flags
     isAnonymous: integer({ mode: "boolean" }),
     isPlainText: integer({ mode: "boolean" }),
     isSnippet: integer({ mode: "boolean" }),

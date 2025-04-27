@@ -15,7 +15,10 @@ import {
   type UserThreadViewGuild,
   type UserThreadViewUser,
 } from "views/UserThreadView";
-import { StaffThreadView, type RelayMessage } from "views/StaffThreadView";
+import {
+  StaffThreadView,
+  type RelayMessageCreate,
+} from "views/StaffThreadView";
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
@@ -45,7 +48,7 @@ describe("MessageRelayService", () => {
   describe("relayUserMessageToStaff", () => {
     it("should relay user message to staff", async () => {
       const channelId = randomSnowflakeID();
-      const message: RelayMessage = {
+      const message: RelayMessageCreate = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -95,7 +98,7 @@ describe("MessageRelayService", () => {
     it("should relay attachments to staff", async () => {
       const channelId = randomSnowflakeID();
 
-      const message: RelayMessage = {
+      const message: RelayMessageCreate = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -154,7 +157,7 @@ describe("MessageRelayService", () => {
 
     it("should throw an error if channel is not found", async () => {
       const channelId = randomSnowflakeID();
-      const message: RelayMessage = {
+      const message: RelayMessageCreate = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -176,7 +179,7 @@ describe("MessageRelayService", () => {
 
     it("should throw an error if channel is not sendable", async () => {
       const channelId = randomSnowflakeID();
-      const message: RelayMessage = {
+      const message: RelayMessageCreate = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -209,7 +212,7 @@ describe("MessageRelayService", () => {
       const options = { anonymous: true, plainText: false, snippet: false };
 
       // Create a RelayMessage object instead of separate staffUser and content
-      const msg: RelayMessage = {
+      const msg: RelayMessageCreate = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),

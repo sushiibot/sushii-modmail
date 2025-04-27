@@ -14,6 +14,7 @@ export class BaseMessage {
   protected readonly _staffRelayedMessageId: string | null;
   protected readonly _userDmMessageId: string | null;
   public readonly content: string | null;
+  public readonly forwarded: boolean;
 
   constructor(
     threadId: string,
@@ -22,7 +23,8 @@ export class BaseMessage {
     isStaff: boolean,
     staffRelayedMessageId: string | null = null,
     userDmMessageId: string | null = null,
-    content: string | null = null
+    content: string | null = null,
+    forwarded: boolean = false
   ) {
     this.threadId = threadId;
     this.messageId = messageId;
@@ -31,6 +33,7 @@ export class BaseMessage {
     this._staffRelayedMessageId = staffRelayedMessageId;
     this._userDmMessageId = userDmMessageId;
     this.content = content;
+    this.forwarded = forwarded;
   }
 
   isUser(): this is UserMessage {
@@ -55,6 +58,7 @@ export class StaffMessage extends BaseMessage {
     authorId: string,
     staffRelayedMessageId: string,
     content: string,
+    forwarded: boolean = false,
     options: StaffMessageOptions
   ) {
     super(
@@ -64,7 +68,8 @@ export class StaffMessage extends BaseMessage {
       true,
       staffRelayedMessageId,
       null,
-      content
+      content,
+      forwarded
     );
 
     this.content = content;
@@ -91,9 +96,19 @@ export class UserMessage extends BaseMessage {
     messageId: string,
     authorId: string,
     userDmMessageId: string,
-    content: string | null = null
+    content: string | null = null,
+    forwarded: boolean = false
   ) {
-    super(threadId, messageId, authorId, false, null, userDmMessageId, content);
+    super(
+      threadId,
+      messageId,
+      authorId,
+      false,
+      null,
+      userDmMessageId,
+      content,
+      forwarded
+    );
   }
 
   get userDmMessageId(): string {
@@ -137,6 +152,11 @@ export const Message = {
           `Invalid staff message ${row.messageId}: missing isSnippet flag`
         );
       }
+      if (row.forwarded === null) {
+        throw new Error(
+          `Invalid staff message ${row.messageId}: missing forwarded flag`
+        );
+      }
 
       return new StaffMessage(
         row.threadId,
@@ -144,6 +164,7 @@ export const Message = {
         row.authorId,
         row.staffRelayedMessageId,
         row.content,
+        row.forwarded,
         {
           isAnonymous: row.isAnonymous,
           isPlainText: row.isPlainText,
@@ -156,13 +177,19 @@ export const Message = {
           `Invalid user message ${row.messageId}: missing userDmMessageId`
         );
       }
+      if (row.forwarded === null) {
+        throw new Error(
+          `Invalid user message ${row.messageId}: missing forwarded flag`
+        );
+      }
 
       return new UserMessage(
         row.threadId,
         row.messageId,
         row.authorId,
         row.userDmMessageId,
-        row.content || null
+        row.content || null,
+        row.forwarded
       );
     }
   },
