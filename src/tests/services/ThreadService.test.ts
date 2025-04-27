@@ -309,7 +309,7 @@ describe("ThreadService", () => {
       spyOn(threadService, "getOpenTagId").mockResolvedValue(openTagId);
       spyOn(threadService, "getMutualServers").mockResolvedValue([]);
 
-      spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
+      spyOn(StaffThreadView, "createThreadOptions").mockReturnValue({
         name: "threadName",
         reason: "reason",
       });
@@ -366,7 +366,7 @@ describe("ThreadService", () => {
       spyOn(threadService, "createOpenTag").mockResolvedValue(newOpenTagId);
       spyOn(threadService, "getMutualServers").mockResolvedValue([]);
 
-      spyOn(StaffThreadView, "newThreadMetadata").mockReturnValue({
+      spyOn(StaffThreadView, "createThreadOptions").mockReturnValue({
         name: "threadName",
         reason: "reason",
       });

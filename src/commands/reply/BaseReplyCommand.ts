@@ -1,4 +1,4 @@
-import type { Message } from "discord.js";
+import { DiscordAPIError, RESTJSONErrorCodes, type Message } from "discord.js";
 import TextCommandHandler from "../CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type {
@@ -116,6 +116,15 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       try {
         await msg.delete();
       } catch (err) {
+        if (
+          err instanceof DiscordAPIError &&
+          err.code === RESTJSONErrorCodes.MissingPermissions
+        ) {
+          await msg.channel.send(
+            "If you want the original reply commands to be automatically deleted, please ensure I have the `Manage Messages` permission in this channel."
+          );
+        }
+
         this.logger.error(
           `Error deleting command message: ${err} -- ${msg.content}`
         );
