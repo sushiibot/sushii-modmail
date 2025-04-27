@@ -209,7 +209,14 @@ export class MessageRelayService {
     // Format the message to include staff member information
     const message = await UserThreadView.staffMessage(guild, msg, options);
 
-    this.logger.debug(message, "Relaying staff message to user");
+    this.logger.debug(
+      {
+        recipient: user.username,
+        content: message.content,
+        attachments: message.files?.length || 0,
+      },
+      "Relaying staff message to user"
+    );
 
     // Send the DM
     const relayedMsg = await user.send(message);
@@ -274,7 +281,9 @@ export class MessageRelayService {
 
     if (messageData.isUser()) {
       this.logger.debug(
-        messageData,
+        {
+          messageId: messageData.messageId,
+        },
         "Cannot edit relayed staff message: is a user message"
       );
 
