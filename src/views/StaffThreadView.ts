@@ -16,8 +16,8 @@ import { formatUserIdentity } from "./user";
 import { Color } from "./Color";
 import { fetch, file } from "bun";
 import {
-  createAttachmentField,
-  createStickerField,
+  applyStickerToEmbed,
+  createAttachmentListField,
   downloadAttachments,
 } from "./util";
 
@@ -204,19 +204,8 @@ export class StaffThreadView {
       .setDescription(msg.content)
       .setTimestamp();
 
-    // Set sticker as image -- attachments are handled in message itself, not
-    // in embed
-    if (msg.stickers.size > 0) {
-      const sticker = msg.stickers.first()!;
-
-      embed.setImage(sticker.url);
-
-      const stickerDisplay = `[${sticker.name}](${sticker.url})`;
-      embed.addFields({
-        name: "Sticker",
-        value: stickerDisplay,
-      });
-    }
+    // Apply sticker to embed if any
+    applyStickerToEmbed(embed, msg.stickers);
 
     if (msg.content) {
       embed.setDescription(msg.content);
@@ -309,18 +298,6 @@ export class StaffThreadView {
    * Creates an embed for a user's message without handling attachments
    */
   static userReplyEmbed(userMessage: RelayMessageCreate): EmbedBuilder {
-    const fields = [];
-
-    const attachmentField = createAttachmentField(userMessage.attachments);
-    if (attachmentField) {
-      fields.push(attachmentField);
-    }
-
-    const stickerField = createStickerField(userMessage.stickers);
-    if (stickerField) {
-      fields.push(stickerField);
-    }
-
     const embed = new EmbedBuilder()
       .setAuthor({
         name: formatUserIdentity(
@@ -333,26 +310,18 @@ export class StaffThreadView {
       .setFooter({
         text: `Message ID: ${userMessage.id}`,
       })
-      .setFields(fields)
       .setTimestamp();
-
-    // Set sticker as image -- attachments are handled in message itself, not
-    // in embed
-    if (userMessage.stickers.size > 0) {
-      const sticker = userMessage.stickers.first()!;
-
-      embed.setImage(sticker.url);
-
-      const stickerDisplay = `[${sticker.name}](${sticker.url})`;
-      embed.addFields({
-        name: "Sticker",
-        value: stickerDisplay,
-      });
-    }
 
     if (userMessage.content) {
       embed.setDescription(userMessage.content);
     }
+
+    const attachmentField = createAttachmentListField(userMessage.attachments);
+    if (attachmentField) {
+      embed.addFields(attachmentField);
+    }
+
+    applyStickerToEmbed(embed, userMessage.stickers);
 
     return embed;
   }

@@ -9,11 +9,7 @@ import {
 } from "services/MessageRelayService";
 import { Color } from "./Color";
 import type { RelayMessageCreate } from "./StaffThreadView";
-import {
-  createAttachmentField,
-  createStickerField,
-  downloadAttachments,
-} from "./util";
+import { applyStickerToEmbed, downloadAttachments } from "./util";
 
 export interface UserThreadViewGuild {
   name: string;
@@ -53,6 +49,7 @@ export class UserThreadView {
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<MessageCreateOptions> {
     // Re-upload attachments
+    // TODO: components v2 don't need to be re-uploaded
     const files = await downloadAttachments(msg.attachments);
 
     // TODO: Stickers aren't relayed for plain text
@@ -63,7 +60,10 @@ export class UserThreadView {
       };
     }
 
-    const embed = new EmbedBuilder();
+    const embed = new EmbedBuilder()
+      .setDescription(msg.content)
+      .setColor(Color.Blue)
+      .setTimestamp();
 
     if (options.anonymous) {
       embed.setAuthor({
@@ -77,20 +77,8 @@ export class UserThreadView {
       });
     }
 
-    embed.setDescription(msg.content).setColor(Color.Blue).setTimestamp();
-
-    // Relay stickers
-    if (msg.stickers.size > 0) {
-      const sticker = msg.stickers.first()!;
-
-      embed.setImage(sticker.url);
-
-      const stickerDisplay = `[${sticker.name}](${sticker.url})`;
-      embed.addFields({
-        name: "Sticker",
-        value: stickerDisplay,
-      });
-    }
+    // Creates field + image
+    applyStickerToEmbed(embed, msg.stickers);
 
     return {
       embeds: [embed],

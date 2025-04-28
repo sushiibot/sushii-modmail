@@ -1,4 +1,9 @@
-import { AttachmentBuilder, Collection, type EmbedField } from "discord.js";
+import {
+  AttachmentBuilder,
+  Collection,
+  type EmbedBuilder,
+  type EmbedField,
+} from "discord.js";
 import { fetch } from "bun";
 
 interface Attachment {
@@ -18,7 +23,7 @@ interface Sticker {
  * @param attachments Collection of attachments
  * @returns EmbedField for attachments or null if no attachments
  */
-export function createAttachmentField(
+export function createAttachmentListField(
   attachments: Collection<string, Attachment>
 ): EmbedField | null {
   if (attachments.size === 0) {
@@ -34,31 +39,6 @@ export function createAttachmentField(
   return {
     name: `Original ${name}`,
     value: attachmentLinks,
-    inline: false,
-  };
-}
-
-/**
- * Creates an embed field for stickers
- * @param stickers Collection of stickers
- * @returns EmbedField for stickers or null if no stickers
- */
-export function createStickerField(
-  stickers: Collection<string, Sticker>
-): EmbedField | null {
-  if (stickers.size === 0) {
-    return null;
-  }
-
-  const stickerLinks = Array.from(stickers.values())
-    .map((sticker) => `[${sticker.name}](${sticker.url})`)
-    .join("\n");
-
-  const name = stickers.size > 1 ? "Stickers" : "Sticker";
-
-  return {
-    name,
-    value: stickerLinks,
     inline: false,
   };
 }
@@ -87,4 +67,27 @@ export async function downloadAttachments(
 
   // Download files in parallel
   return Promise.all(fileDownloads);
+}
+
+/**
+ * Applies the first sticker from a collection to an embed.
+ * Sets the embed's image and adds a field with the sticker details.
+ * Does nothing if the collection is empty.
+ * @param embed The EmbedBuilder to modify.
+ * @param stickers The collection of stickers.
+ */
+export function applyStickerToEmbed(
+  embed: EmbedBuilder,
+  stickers: Collection<string, Sticker>
+): void {
+  if (stickers.size > 0) {
+    const sticker = stickers.first()!;
+    embed.setImage(sticker.url);
+
+    const stickerDisplay = `[${sticker.name}](${sticker.url})`;
+    embed.addFields({
+      name: "Sticker",
+      value: stickerDisplay,
+    });
+  }
 }
