@@ -10,7 +10,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -21,7 +21,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -32,7 +32,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -43,7 +43,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -56,7 +56,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -69,7 +69,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -84,7 +84,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -99,7 +99,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -110,7 +110,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -121,7 +121,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -134,7 +134,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -147,7 +147,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -160,7 +160,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -173,7 +173,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -184,7 +184,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 
@@ -199,7 +199,7 @@ export class SnippetCommandView {
       )
       .setFooter({ text: `Total snippets: ${snippets.length}` });
 
-    return { embeds: [embed], allowedMentions: {} };
+    return { embeds: [embed], allowedMentions: { parse: [] } };
   }
 
   static snippetNameReserved(name: string): MessageCreateOptions {
@@ -211,7 +211,7 @@ export class SnippetCommandView {
 
     return {
       embeds: [embed],
-      allowedMentions: {},
+      allowedMentions: { parse: [] },
     };
   }
 }

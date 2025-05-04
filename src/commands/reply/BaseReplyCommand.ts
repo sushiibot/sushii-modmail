@@ -1,4 +1,9 @@
-import { DiscordAPIError, RESTJSONErrorCodes, type Message } from "discord.js";
+import {
+  DiscordAPIError,
+  MessageFlags,
+  RESTJSONErrorCodes,
+  type Message,
+} from "discord.js";
 import TextCommandHandler from "../CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type {
@@ -94,11 +99,16 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
 
       const relayedMsgId = relay.msgId;
 
-      // Re-send as embed to show the message was sent and how it looks
-      const embed = StaffThreadView.staffReplyEmbed(msg, this.replyOptions);
+      // Re-send to show the message was sent and how it looks
+      const components = StaffThreadView.staffReplyComponents(
+        msg,
+        this.replyOptions
+      );
 
       const threadStaffMsg = await msg.channel.send({
-        embeds: [embed],
+        components,
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] },
       });
 
       await this.messageService.saveStaffMessage({

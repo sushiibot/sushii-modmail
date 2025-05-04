@@ -1,8 +1,15 @@
 import {
   AttachmentBuilder,
   Collection,
+  ContainerBuilder,
   EmbedBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItem,
+  MediaGalleryItemBuilder,
   MessageFlags,
+  SeparatorBuilder,
+  TextDisplayBuilder,
+  type BaseMessageOptions,
   type GuildForumThreadCreateOptions,
   type MessageCreateOptions,
   type Snowflake,
@@ -13,7 +20,7 @@ import {
   type StaffMessageOptions,
 } from "services/MessageRelayService";
 import { formatUserIdentity } from "./user";
-import { Color } from "./Color";
+import { Color, HexColor } from "./Color";
 import { fetch, file } from "bun";
 import {
   applyStickerToEmbed,
@@ -178,49 +185,86 @@ export class StaffThreadView {
     };
   }
 
-  /**
-   * Creates an embed to display how a staff reply will appear to the user
-   * @param staffUser The staff member who sent the reply
-   * @param content The message content
-   * @param options Options for formatting the reply
-   * @returns A Discord MessageEmbed representing the staff reply
-   */
-  static staffReplyEmbed(
+  static staffReplyComponents(
     msg: RelayMessageCreate,
-    options: StaffMessageOptions = defaultStaffMessageOptions
-  ): EmbedBuilder {
+    options: StaffMessageOptions = defaultStaffMessageOptions,
+    displayOptions: {
+      editedById?: string;
+      deletedById?: string;
+    } = {}
+  ): BaseMessageOptions["components"] {
+    const container = new ContainerBuilder();
+
+    if (displayOptions.editedById || displayOptions.deletedById) {
+      container.setAccentColor(HexColor.Green);
+    } else {
+      container.setAccentColor(HexColor.Green);
+    }
+
     // Set the author field based on anonymous option
-    let authorName = msg.author.username;
+    let authorName = `### Reply from <@${msg.author.id}>`;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
 
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: authorName,
-        iconURL: msg.author.displayAvatarURL(),
-      })
-      .setColor(Color.Green)
-      .setDescription(msg.content)
-      .setTimestamp();
+    if (displayOptions.editedById) {
+      authorName += ` (Edited by <@${displayOptions.editedById}>)`;
+    }
 
-    // Apply sticker to embed if any
-    applyStickerToEmbed(embed, msg.stickers);
+    if (displayOptions.deletedById) {
+      authorName += ` (Deleted by <@${displayOptions.deletedById}>)`;
+    }
 
+    const authorText = new TextDisplayBuilder().setContent(authorName);
+    container.addTextDisplayComponents(authorText);
+
+    // Add content
     if (msg.content) {
-      embed.setDescription(msg.content);
+      container.addSeparatorComponents(new SeparatorBuilder());
+      const contentText = new TextDisplayBuilder().setContent(msg.content);
+      container.addTextDisplayComponents(contentText);
+    }
+
+    // Add attachments
+    if (msg.attachments.size > 0) {
+      const attachmentItems = Array.from(msg.attachments.values()).map(
+        // Reference file links
+        (attachment) => new MediaGalleryItemBuilder().setURL(attachment.url)
+      );
+      const attachmentText = new MediaGalleryBuilder().addItems(
+        attachmentItems
+      );
+
+      container.addMediaGalleryComponents(attachmentText);
+    }
+
+    // Add stickers
+    if (msg.stickers.size > 0) {
+      const stickerItems = Array.from(msg.stickers.values()).map((sticker) =>
+        new MediaGalleryItemBuilder().setURL(sticker.url)
+      );
+      const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
+
+      container.addMediaGalleryComponents(stickerText);
+    }
+
+    // Add metadata
+    container.addSeparatorComponents(new SeparatorBuilder());
+    let metadataStr = "";
+
+    if (options.plainText) {
+      metadataStr += `Sent as plain text\n`;
     }
 
     if (options.snippet) {
-      embed.setFooter({ text: "Sent from snippet" });
+      metadataStr += `Sent from snippet\n`;
     }
 
-    // Indicate if message is sent as plain text
-    if (options.plainText) {
-      embed.setFooter({ text: "Sent as plain text" });
-    }
+    metadataStr += `Message ID: \`${msg.id}\`\n`;
+    const metadataText = new TextDisplayBuilder().setContent(metadataStr);
+    container.addTextDisplayComponents(metadataText);
 
-    return embed;
+    return [container];
   }
 
   static systemMessage(
@@ -254,7 +298,7 @@ export class StaffThreadView {
     const embed = new EmbedBuilder()
       .setTitle("Message deleted")
       .setDescription(`Message ID: ${messageId}`)
-      .setColor(Color.Pink)
+      .setColor(Color.Purple)
       .setTimestamp();
 
     const msg: MessageCreateOptions = {
@@ -277,12 +321,14 @@ export class StaffThreadView {
     // Edited messages just do the same thing as new messages but reply to the
     // original message
 
-    const embed = StaffThreadView.userReplyEmbed(newUserMessage)
-      .setTitle("Message edited")
-      .setColor(Color.Purple);
+    const components = this.userReplyComponents(newUserMessage, [], true);
 
     let msg: MessageCreateOptions = {
-      embeds: [embed],
+      components: components,
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: {
+        parse: [],
+      },
     };
 
     if (previousMessageId) {
@@ -295,48 +341,111 @@ export class StaffThreadView {
   }
 
   /**
-   * Creates an embed for a user's message without handling attachments
+   * Creates v2 components for a user reply message, created or edited. Message
+   * edits can only change the content, so attachments and stickers are excluded
+   * when isEdited is true.
+   *
+   * @param userMessage
+   * @param attachments
+   * @param isEdited
+   * @returns
    */
-  static userReplyEmbed(userMessage: RelayMessageCreate): EmbedBuilder {
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: formatUserIdentity(
-          userMessage.author.id,
-          userMessage.author.username
-        ),
-        iconURL: userMessage.author.displayAvatarURL() || undefined,
-      })
-      .setColor(Color.Blue)
-      .setFooter({
-        text: `Message ID: ${userMessage.id}`,
-      })
-      .setTimestamp();
+  static userReplyComponents(
+    userMessage: RelayMessageCreate,
+    attachments: AttachmentBuilder[],
+    isEdited: boolean
+  ): BaseMessageOptions["components"] {
+    const container = new ContainerBuilder();
 
+    if (isEdited) {
+      container.setAccentColor(HexColor.Purple);
+    } else {
+      container.setAccentColor(HexColor.Blue);
+    }
+
+    // 1. Author
+    // 2. Content
+    // 3. Attachments, stickers
+    // 4. Metadata (links to attachments, stickers, timestamps, ID)
+
+    // 1. Author
+    const author = `**Message from <@${userMessage.author.id}>** (ID: \`${userMessage.author.id})\``;
+    const authorText = new TextDisplayBuilder().setContent(author);
+    container.addTextDisplayComponents(authorText);
+
+    // 2. Content (optional)
     if (userMessage.content) {
-      embed.setDescription(userMessage.content);
+      container.addSeparatorComponents(new SeparatorBuilder());
+      const contentText = new TextDisplayBuilder().setContent(
+        userMessage.content
+      );
+      container.addTextDisplayComponents(contentText);
     }
 
-    const attachmentField = createAttachmentListField(userMessage.attachments);
-    if (attachmentField) {
-      embed.addFields(attachmentField);
+    // 3. Attachments - use reuploaded attachments
+    if (!isEdited && attachments.length > 0) {
+      const attachmentItems = attachments.map((attachment) =>
+        // Reference file attachments
+        new MediaGalleryItemBuilder().setURL(`attachment://` + attachment.name)
+      );
+      const attachmentText = new MediaGalleryBuilder().addItems(
+        attachmentItems
+      );
+
+      container.addMediaGalleryComponents(attachmentText);
     }
 
-    applyStickerToEmbed(embed, userMessage.stickers);
+    if (userMessage.stickers.size > 0) {
+      const stickerItems = userMessage.stickers.map((sticker) =>
+        new MediaGalleryItemBuilder().setURL(sticker.url)
+      );
+      const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
 
-    return embed;
+      container.addMediaGalleryComponents(stickerText);
+    }
+
+    // 4. Metadata
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    let metadataStr = "";
+
+    if (!isEdited && userMessage.attachments.size > 0) {
+      const attachmentLinks = Array.from(userMessage.attachments.values())
+        .map((attachment) => `[${attachment.name}](${attachment.url})`)
+        .join("\n");
+
+      metadataStr += `**Attachment links:**\n${attachmentLinks}\n`;
+    }
+
+    if (!isEdited && userMessage.stickers.size > 0) {
+      const stickerLinks = Array.from(userMessage.stickers.values())
+        .map((sticker) => `[${sticker.name}](${sticker.url})`)
+        .join("\n");
+
+      metadataStr += `**Stickers:**\n${stickerLinks}\n`;
+    }
+
+    metadataStr += `Message ID: \`${userMessage.id}\``;
+
+    const metadataText = new TextDisplayBuilder().setContent(metadataStr);
+    container.addTextDisplayComponents(metadataText);
+
+    return [container];
   }
 
   static async userReplyMessage(
     userMessage: RelayMessageCreate
   ): Promise<MessageCreateOptions> {
-    const embed = StaffThreadView.userReplyEmbed(userMessage);
-
-    // Re-upload attachments
     const files = await downloadAttachments(userMessage.attachments);
 
+    const components = this.userReplyComponents(userMessage, files, false);
     return {
-      embeds: [embed],
       files: files,
+      components: components,
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: {
+        parse: [],
+      },
     };
   }
 }

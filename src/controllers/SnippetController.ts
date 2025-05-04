@@ -1,4 +1,4 @@
-import { Client, Message } from "discord.js";
+import { Client, Message, MessageFlags } from "discord.js";
 import { getLogger } from "../utils/logger";
 import type { Logger } from "pino";
 import type { StaffMessageOptions } from "../services/MessageRelayService";
@@ -150,18 +150,16 @@ export class SnippetController {
         options
       );
 
-      // Re-send as embed to show the message was sent and how it looks
-      const embed = StaffThreadView.staffReplyEmbed(
-        message.author,
-        snippet.content,
-        options
-      );
+      // Re-send to show the message was sent and how it looks
+      const components = StaffThreadView.staffReplyComponents(message, options);
 
       await Promise.allSettled([
         // Delete the original message
         message.delete(),
         message.channel.send({
-          embeds: [embed],
+          components,
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] },
         }),
       ]);
     } catch (err) {

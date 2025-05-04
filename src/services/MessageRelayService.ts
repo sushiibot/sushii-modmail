@@ -1,4 +1,10 @@
-import { Client, Collection, Colors, type Snowflake } from "discord.js";
+import {
+  Client,
+  Collection,
+  Colors,
+  MessageFlags,
+  type Snowflake,
+} from "discord.js";
 import type { Message } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
@@ -89,6 +95,8 @@ export class MessageRelayService {
       {
         user: message.author.username,
         content: message.content,
+        attachments: message.attachments.size,
+        stickers: message.stickers.size,
       },
       "Relaying user message to staff"
     );
@@ -324,7 +332,7 @@ export class MessageRelayService {
     }
 
     const staffFullUser = await this.client.users.fetch(messageData.authorId);
-    const editedEmbed = StaffThreadView.staffReplyEmbed(
+    const components = StaffThreadView.staffReplyComponents(
       {
         author: staffFullUser,
         // message
@@ -338,19 +346,16 @@ export class MessageRelayService {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,
         snippet: messageData.isSnippet,
+      },
+      {
+        editedById: msg.author.id,
       }
     );
 
-    // Set the footer to indicate the message was deleted
-    editedEmbed
-      .setFooter({
-        text: `Deleted by ${msg.author.username}`,
-      })
-      .setColor(Colors.Grey);
-
     // Edit the message
     await threadChannel.messages.edit(messageData.messageId, {
-      embeds: [editedEmbed],
+      components,
+      // No flags when editing
     });
 
     return true;
@@ -358,18 +363,19 @@ export class MessageRelayService {
 
   /**
    * Delete a relayed message from staff
-   * @param userId The Discord user ID to delete a message from
+   * @param recipientUserId The Discord user ID to delete a message from
    * @param messageId The ID of the deleted message
    */
   async deleteStaffMessage(
-    userId: string,
-    staffViewMessageId: string
+    recipientUserId: string,
+    staffViewMessageId: string,
+    deletedById: string
   ): Promise<boolean> {
     // -------------------------------------------------------------------------
     // DATA REQUIREMENTS
 
     // Fetch the user to DM
-    const user = await this.client.users.fetch(userId);
+    const user = await this.client.users.fetch(recipientUserId);
 
     // Fetch the original message from the database
     const messageData = await this.messageRepository.getByThreadMessageId(
@@ -415,7 +421,7 @@ export class MessageRelayService {
 
     // Re-build staff message
     const staffUser = await this.client.users.fetch(messageData.authorId);
-    const editedEmbed = StaffThreadView.staffReplyEmbed(
+    const components = StaffThreadView.staffReplyComponents(
       {
         author: staffUser,
         id: messageData.messageId,
@@ -430,19 +436,15 @@ export class MessageRelayService {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,
         snippet: messageData.isSnippet,
+      },
+      {
+        deletedById: deletedById,
       }
     );
 
-    // Set the footer to indicate the message was deleted
-    editedEmbed
-      .setFooter({
-        text: `Deleted by ${staffUser.username}`,
-      })
-      .setColor(Color.Gray);
-
     // Edit the message
     await threadChannel.messages.edit(messageData.messageId, {
-      embeds: [editedEmbed],
+      components,
     });
 
     return true;

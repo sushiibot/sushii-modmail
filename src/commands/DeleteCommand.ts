@@ -77,7 +77,8 @@ export class DeleteCommand extends TextCommandHandler {
       // Delete the message to the user
       const success = await this.messageService.deleteStaffMessage(
         thread.userId,
-        repliedToMessage
+        repliedToMessage,
+        msg.author.id
       );
 
       if (!success) {

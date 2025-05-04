@@ -1,5 +1,11 @@
 import {
+  ContainerBuilder,
   EmbedBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
+  SeparatorBuilder,
+  TextDisplayBuilder,
   type ImageURLOptions,
   type MessageCreateOptions,
 } from "discord.js";
@@ -7,7 +13,7 @@ import {
   defaultStaffMessageOptions,
   type StaffMessageOptions,
 } from "services/MessageRelayService";
-import { Color } from "./Color";
+import { Color, HexColor } from "./Color";
 import type { RelayMessageCreate } from "./StaffThreadView";
 import { applyStickerToEmbed, downloadAttachments } from "./util";
 
@@ -48,41 +54,60 @@ export class UserThreadView {
     msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<MessageCreateOptions> {
-    // Re-upload attachments
-    // TODO: components v2 don't need to be re-uploaded
-    const files = await downloadAttachments(msg.attachments);
-
     // TODO: Stickers aren't relayed for plain text
     if (options.plainText) {
+      // Re-upload attachments, only for plain text
+      const files = await downloadAttachments(msg.attachments);
+
       return {
         content: msg.content,
         files,
       };
     }
 
-    const embed = new EmbedBuilder()
-      .setDescription(msg.content)
-      .setColor(Color.Blue)
-      .setTimestamp();
+    const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
 
+    let authorText = "";
     if (options.anonymous) {
-      embed.setAuthor({
-        name: guild.name,
-        iconURL: guild.iconURL() || undefined,
-      });
+      authorText = `### Message from ${guild.name}`;
     } else {
-      embed.setAuthor({
-        name: msg.author.displayName,
-        iconURL: msg.author.displayAvatarURL(),
-      });
+      authorText = `### Message from ${guild.name} - ${msg.author.displayName}`;
     }
 
-    // Creates field + image
-    applyStickerToEmbed(embed, msg.stickers);
+    const authorTextComponent = new TextDisplayBuilder().setContent(authorText);
+    container.addTextDisplayComponents(authorTextComponent);
+
+    if (msg.content) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+      const contentText = new TextDisplayBuilder().setContent(msg.content);
+      container.addTextDisplayComponents(contentText);
+    }
+
+    if (msg.attachments.size > 0) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+      const attachmentItems = msg.attachments.map((attachment) =>
+        new MediaGalleryItemBuilder().setURL(attachment.url)
+      );
+      const attachmentText = new MediaGalleryBuilder().addItems(
+        attachmentItems
+      );
+
+      container.addMediaGalleryComponents(attachmentText);
+    }
+
+    if (msg.stickers.size > 0) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+      const stickerItems = msg.stickers.map((sticker) =>
+        new MediaGalleryItemBuilder().setURL(sticker.url)
+      );
+      const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
+
+      container.addMediaGalleryComponents(stickerText);
+    }
 
     return {
-      embeds: [embed],
-      files,
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
     };
   }
 }
