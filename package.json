@@ -17,7 +17,7 @@
   "dependencies": {
     "@libsql/client": "^0.15.0",
     "discord-api-types": "^0.37.119",
-    "discord.js": "^14.19.1",
+    "discord.js": "^14.19.3",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.40.1",
     "pino": "^9.6.0",
