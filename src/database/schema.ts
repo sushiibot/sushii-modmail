@@ -23,7 +23,10 @@ export const threads = sqliteTable(
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
     check("thread_id_check", sql`${table.threadId} NOT GLOB '*[^0-9]*'`),
     check("recipient_id_check", sql`${table.recipientId} NOT GLOB '*[^0-9]*'`),
-    check("closedby_id_check", sql`${table.closedBy} NOT GLOB '*[^0-9]*'`),
+    check(
+      "closedby_id_check",
+      sql`${table.closedBy} IS NULL OR ${table.closedBy} NOT GLOB '*[^0-9]*'`
+    ),
   ]
 );
 
@@ -47,13 +50,13 @@ export const messages = sqliteTable(
 
     // Metadata, mostly useful for re-building the message in staff thread
     // Staff only fields.
-    content: text(),
+    content: text(), // Can be null if attachment
     forwarded: integer({ mode: "boolean" }).notNull().default(false),
 
     // Flags
-    isAnonymous: integer({ mode: "boolean" }),
-    isPlainText: integer({ mode: "boolean" }),
-    isSnippet: integer({ mode: "boolean" }),
+    isAnonymous: integer({ mode: "boolean" }).default(false),
+    isPlainText: integer({ mode: "boolean" }).default(false),
+    isSnippet: integer({ mode: "boolean" }).default(false),
   },
   (table) => [
     // IDs
@@ -95,7 +98,6 @@ export const messages = sqliteTable(
         OR
         (
           ${table.isStaff} = 1
-          AND ${table.content} IS NOT NULL
           AND ${table.isAnonymous} IS NOT NULL
           AND ${table.isPlainText} IS NOT NULL
           AND ${table.isSnippet} IS NOT NULL

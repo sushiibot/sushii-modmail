@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "71bd5d1e-149b-49ee-9998-4e8427830dad",
+  "id": "f940513f-3953-46f1-9c9f-f95682900ba0",
   "prevId": "827f541e-e162-4a4e-95c6-ca08761c956e",
   "tables": {
     "messages": {
@@ -131,7 +131,7 @@
         },
         "staff_metadata_check": {
           "name": "staff_metadata_check",
-          "value": "\n        \"messages\".\"is_staff\" = 0\n        OR\n        (\n          \"messages\".\"is_staff\" = 1\n          AND \"messages\".\"content\" IS NOT NULL\n          AND \"messages\".\"is_anonymous\" IS NOT NULL\n          AND \"messages\".\"is_plain_text\" IS NOT NULL\n          AND \"messages\".\"is_snippet\" IS NOT NULL\n        )"
+          "value": "\n        \"messages\".\"is_staff\" = 0\n        OR\n        (\n          \"messages\".\"is_staff\" = 1\n          AND \"messages\".\"is_anonymous\" IS NOT NULL\n          AND \"messages\".\"is_plain_text\" IS NOT NULL\n          AND \"messages\".\"is_snippet\" IS NOT NULL\n        )"
         }
       }
     },
@@ -241,7 +241,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'\"2025-04-27T18:47:13.680Z\"'"
+          "default": "'\"2025-05-04T22:09:03.070Z\"'"
         },
         "closed_at": {
           "name": "closed_at",
@@ -277,7 +277,7 @@
         },
         "closedby_id_check": {
           "name": "closedby_id_check",
-          "value": "\"threads\".\"closed_by\" NOT GLOB '*[^0-9]*'"
+          "value": "\"threads\".\"closed_by\" IS NULL OR \"threads\".\"closed_by\" NOT GLOB '*[^0-9]*'"
         }
       }
     }
