@@ -161,6 +161,14 @@ export default class CommandRouter {
 
     // Check if user has required role
     if (!msg.member.roles.cache.has(this.config.requiredRoleId)) {
+      this.logger.debug(
+        {
+          userId: msg.author.id,
+          guildId: msg.guildId,
+          requiredRoleId: this.config.requiredRoleId,
+        },
+        `User does not have required role to use commands`
+      );
       return;
     }
 
