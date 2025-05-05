@@ -54,14 +54,34 @@ export class UserThreadView {
     msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<MessageCreateOptions> {
-    // TODO: Stickers aren't relayed for plain text
     if (options.plainText) {
-      // Re-upload attachments, only for plain text
-      const files = await downloadAttachments(msg.attachments);
+      let content = "";
+      if (options.anonymous) {
+        content = `### Message from ${guild.name}**`;
+      } else {
+        content = `### Message from ${guild.name} - ${msg.author.username}`;
+      }
+
+      if (msg.content) {
+        content += `\n${msg.content}`;
+      }
+
+      if (msg.attachments.size > 0) {
+        content += "\n#### Attachments\n";
+        content += msg.attachments
+          .map((attachment) => `[${attachment.name}](${attachment.url})`)
+          .join("\n");
+      }
+
+      if (msg.stickers.size > 0) {
+        content += "\n#### Stickers\n";
+        content += msg.stickers
+          .map((sticker) => `[${sticker.name}](${sticker.url})`)
+          .join("\n");
+      }
 
       return {
         content: msg.content,
-        files,
       };
     }
 

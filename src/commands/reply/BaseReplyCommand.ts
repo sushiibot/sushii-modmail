@@ -91,36 +91,12 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
 
       // Send the reply to the user
       const relay = await this.messageService.relayStaffMessageToUser(
+        msg.channelId,
         thread.userId,
         msg.guild,
         msg,
         this.replyOptions
       );
-
-      const relayedMsgId = relay.msgId;
-
-      // Re-send to show the message was sent and how it looks
-      const components = StaffThreadView.staffReplyComponents(
-        msg,
-        this.replyOptions
-      );
-
-      const threadStaffMsg = await msg.channel.send({
-        components,
-        flags: MessageFlags.IsComponentsV2,
-        allowedMentions: { parse: [] },
-      });
-
-      await this.messageService.saveStaffMessage({
-        threadId: thread.channelId,
-        threadMessageId: threadStaffMsg.id,
-        relayedMessageId: relayedMsgId,
-        authorId: msg.author.id,
-        content: replyContent,
-        isAnonymous: this.replyOptions.anonymous,
-        isPlainText: this.replyOptions.plainText,
-        isSnippet: this.replyOptions.snippet,
-      });
 
       // TODO: Clear error for if bot missing MANAGE_MESSAGES permission
       try {

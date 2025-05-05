@@ -56,7 +56,7 @@ interface UserThreadInfo {
   previousThreads?: Thread[];
 }
 
-interface Attachment {
+export interface RelayAttachment {
   id: string;
   name: string;
   url: string;
@@ -73,7 +73,7 @@ export interface RelayMessageCreate {
   author: User;
   content: string;
   // List of IDs for edits
-  attachments: Collection<string, Attachment>;
+  attachments: Collection<string, RelayAttachment>;
   stickers: Collection<string, Sticker>;
   forwarded?: boolean;
 }
@@ -207,14 +207,6 @@ export class StaffThreadView {
       authorName += " (Anonymous)";
     }
 
-    if (displayOptions.editedById) {
-      authorName += ` (Edited by <@${displayOptions.editedById}>)`;
-    }
-
-    if (displayOptions.deletedById) {
-      authorName += ` (Deleted by <@${displayOptions.deletedById}>)`;
-    }
-
     const authorText = new TextDisplayBuilder().setContent(authorName);
     container.addTextDisplayComponents(authorText);
 
@@ -250,17 +242,25 @@ export class StaffThreadView {
 
     // Add metadata
     container.addSeparatorComponents(new SeparatorBuilder());
-    let metadataStr = "";
+    let metadataStr = "\n";
+
+    if (displayOptions.editedById) {
+      metadataStr += `\nEdited by <@${displayOptions.editedById}>`;
+    }
+
+    if (displayOptions.deletedById) {
+      metadataStr += `\nDeleted by <@${displayOptions.deletedById}>`;
+    }
 
     if (options.plainText) {
-      metadataStr += `Sent as plain text\n`;
+      metadataStr += `\nSent as plain text`;
     }
 
     if (options.snippet) {
-      metadataStr += `Sent from snippet\n`;
+      metadataStr += `\nSent from snippet`;
     }
 
-    metadataStr += `Message ID: \`${msg.id}\`\n`;
+    metadataStr += `\nMessage ID: \`${msg.id}\``;
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     container.addTextDisplayComponents(metadataText);
 

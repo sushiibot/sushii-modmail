@@ -2,6 +2,8 @@ import {
   Client,
   Collection,
   Colors,
+  ComponentType,
+  ContainerComponent,
   MessageFlags,
   type Snowflake,
 } from "discord.js";
@@ -11,6 +13,7 @@ import { getLogger } from "utils/logger";
 import { Color } from "views/Color";
 import {
   StaffThreadView,
+  type RelayAttachment,
   type RelayMessageCreate,
 } from "views/StaffThreadView";
 import {
@@ -18,6 +21,10 @@ import {
   type UserThreadViewGuild,
   type UserThreadViewUser,
 } from "views/UserThreadView";
+import {
+  downloadAttachments,
+  extractImageURLsFromComponents,
+} from "views/util";
 
 interface Config {
   initialMessage: string;
@@ -120,6 +127,10 @@ export class MessageRelayService {
       isAnonymous: null,
       isPlainText: null,
       isSnippet: null,
+      attachmentUrls: Array.from(
+        message.attachments.values().map((a) => a.url)
+      ),
+      stickerUrls: Array.from(message.stickers.values().map((s) => s.url)),
     });
 
     // TODO: Blocked return false OR if more than 2 options, return an emoji
@@ -206,33 +217,77 @@ export class MessageRelayService {
    * @returns The ID of the relayed message
    */
   async relayStaffMessageToUser(
+    threadId: string,
     userId: string,
     guild: UserThreadViewGuild,
     msg: RelayMessageCreate,
     options: StaffMessageOptions = defaultStaffMessageOptions
-  ): Promise<{ msgId: string; dmChannelId: string }> {
+  ): Promise<void> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
-    // Format the message to include staff member information
-    const message = await UserThreadView.staffMessage(guild, msg, options);
-
+    // Attachments are re-uploaded to the staff thread.
+    // DM message attachments use the URLs from the original message
     this.logger.debug(
       {
         recipient: user.username,
-        content: message.content,
-        attachments: message.files?.length || 0,
+        content: msg.content,
+        attachments: msg.attachments.size,
       },
       "Relaying staff message to user"
     );
 
-    // Send the DM
+    // -------------------------------------------------------------------------
+    // STAFF THREAD
+    // Download the attachments and re-upload them to the staff thread
+    const files = await downloadAttachments(msg.attachments);
+
+    // Re-send to show the message was sent and how it looks
+    const components = StaffThreadView.staffReplyComponents(msg, options);
+
+    const staffThread = await this.client.channels.fetch(threadId);
+    if (!staffThread) {
+      throw new Error(`Thread channel not found: ${threadId}`);
+    }
+
+    if (!staffThread.isSendable()) {
+      throw new Error(`Cannot send to channel: ${threadId}`);
+    }
+
+    // Need to send the message with attachments first to the staff thread.
+    // We use the attachments in this message to send to the user.
+    const threadStaffMsg = await staffThread.send({
+      components,
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
+      // New staff messages with attachments, need to be uploaded.
+      files,
+    });
+
+    // Extract the attachment URLs from the message
+    const attachmentUrls = extractImageURLsFromComponents(threadStaffMsg);
+
+    // -------------------------------------------------
+    // USER DM
+    // Format the message for user facing DM
+    const message = await UserThreadView.staffMessage(guild, msg, options);
     const relayedMsg = await user.send(message);
 
-    return {
-      msgId: relayedMsg.id,
-      dmChannelId: relayedMsg.channel.id,
-    };
+    // ------------------------------------------------
+    // Persist message
+    await this.saveStaffMessage({
+      threadId: threadId,
+      threadMessageId: threadStaffMsg.id,
+      relayedMessageId: relayedMsg.id,
+      authorId: msg.author.id,
+      content: msg.content,
+      isAnonymous: options.anonymous,
+      isPlainText: options.plainText,
+      isSnippet: options.snippet,
+      attachmentUrls: attachmentUrls,
+      // Ignore stickers for now
+      stickerUrls: [],
+    });
   }
 
   async saveStaffMessage(options: {
@@ -244,6 +299,8 @@ export class MessageRelayService {
     isAnonymous: boolean;
     isPlainText: boolean;
     isSnippet: boolean;
+    attachmentUrls: string[];
+    stickerUrls: string[];
   }): Promise<void> {
     await this.messageRepository.saveMessage({
       threadId: options.threadId,
@@ -257,6 +314,8 @@ export class MessageRelayService {
       isAnonymous: options.isAnonymous,
       isPlainText: options.isPlainText,
       isSnippet: options.isSnippet,
+      attachmentUrls: options.attachmentUrls,
+      stickerUrls: options.stickerUrls,
     });
   }
 
@@ -297,31 +356,6 @@ export class MessageRelayService {
       return false;
     }
 
-    this.logger.debug(messageData, "Editing relayed staff message");
-
-    // Re-build staff message with new content
-    // Exclude flags since they are incompatible with editing
-    const { flags, ...newMessage } = await UserThreadView.staffMessage(
-      guild,
-      msg,
-      {
-        anonymous: messageData.isAnonymous,
-        plainText: messageData.isPlainText,
-        snippet: messageData.isSnippet,
-      }
-    );
-
-    // USER DM
-    // Edit the message
-    const dmChannel = await user.createDM();
-    await dmChannel.messages.edit(
-      messageData.staffRelayedMessageId,
-      newMessage
-    );
-
-    // ----
-    // STAFF MODMAIL THREAd
-    // Send a staff view of the edited message
     const threadChannel = await this.client.channels.fetch(
       messageData.threadId
     );
@@ -334,6 +368,39 @@ export class MessageRelayService {
       throw new Error(`Not thread: ${messageData.threadId}`);
     }
 
+    const originalMessage = await threadChannel.messages.fetch(
+      staffViewMessageId
+    );
+
+    const originalGalleryComponent = (
+      originalMessage.components[0] as ContainerComponent
+    ).components.find((c) => c.type === ComponentType.MediaGallery);
+    const originalAttachmentURLS =
+      originalGalleryComponent?.items.map((item) => item.media.url) || [];
+
+    const originalAttachments = new Collection(
+      originalAttachmentURLS.map((url): [string, RelayAttachment] => [
+        "dummy",
+        {
+          id: "",
+          name: "",
+          url,
+        },
+      ])
+    );
+
+    this.logger.debug(
+      {
+        originalAttachments,
+        originalStaffMessage: originalMessage,
+        messageData,
+      },
+      "Editing relayed staff message"
+    );
+
+    // ----
+    // STAFF MODMAIL THREAd
+    // Send a staff view of the edited message
     const staffFullUser = await this.client.users.fetch(messageData.authorId);
     const components = StaffThreadView.staffReplyComponents(
       {
@@ -341,7 +408,7 @@ export class MessageRelayService {
         // message
         id: messageData.messageId,
         content: msg.content,
-        attachments: msg.attachments,
+        attachments: originalAttachments,
         stickers: msg.stickers,
         forwarded: msg.forwarded,
       },
@@ -355,11 +422,36 @@ export class MessageRelayService {
       }
     );
 
-    // Edit the message
+    // Edit the staff message
     await threadChannel.messages.edit(messageData.messageId, {
       components,
       // No flags when editing
     });
+
+    // Update the attachments
+    // TODO: Do the attachment URLs change if the message is edited?
+    msg.attachments = originalAttachments;
+
+    // -------------------------------------------------------------------------
+    // USER DM
+    // Re-build staff message with new content
+    // Exclude flags since they are incompatible with editing
+    const { flags, ...newMessage } = await UserThreadView.staffMessage(
+      guild,
+      msg,
+      {
+        anonymous: messageData.isAnonymous,
+        plainText: messageData.isPlainText,
+        snippet: messageData.isSnippet,
+      }
+    );
+
+    // Edit user dm message
+    const dmChannel = await user.createDM();
+    await dmChannel.messages.edit(
+      messageData.staffRelayedMessageId,
+      newMessage
+    );
 
     return true;
   }

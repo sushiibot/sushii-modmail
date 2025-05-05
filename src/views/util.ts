@@ -1,6 +1,8 @@
 import {
   AttachmentBuilder,
   Collection,
+  ComponentType,
+  Message,
   type EmbedBuilder,
   type EmbedField,
 } from "discord.js";
@@ -90,4 +92,26 @@ export function applyStickerToEmbed(
       value: stickerDisplay,
     });
   }
+}
+
+export function extractImageURLsFromComponents(msg: Message): string[] {
+  const containerComponent = msg.components.find(
+    (c) => c.type === ComponentType.Container
+  );
+  if (!containerComponent) {
+    throw new Error("No container component found");
+  }
+
+  const mediaGalleryComponents = containerComponent.components.find(
+    (c) => c.type === ComponentType.MediaGallery
+  );
+  if (!mediaGalleryComponents) {
+    throw new Error("No media gallery component found");
+  }
+
+  const imageUrls = mediaGalleryComponents.items.map((item) => {
+    return item.media.url;
+  });
+
+  return imageUrls;
 }
