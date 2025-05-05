@@ -273,8 +273,7 @@ export class MessageRelayService {
     staffViewMessageId: string,
     userId: string,
     guild: UserThreadViewGuild,
-    msg: RelayMessageCreate,
-    options: StaffMessageOptions = defaultStaffMessageOptions
+    msg: RelayMessageCreate
   ): Promise<boolean> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
@@ -305,7 +304,11 @@ export class MessageRelayService {
     const { flags, ...newMessage } = await UserThreadView.staffMessage(
       guild,
       msg,
-      options
+      {
+        anonymous: messageData.isAnonymous,
+        plainText: messageData.isPlainText,
+        snippet: messageData.isSnippet,
+      }
     );
 
     // USER DM

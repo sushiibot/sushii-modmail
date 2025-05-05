@@ -92,20 +92,6 @@ export class EditCommand extends TextCommandHandler {
         return;
       }
 
-      // Extract the message options from the original message embed
-      const originalEmbed = targetMessage.embeds[0];
-      const isAnonymous =
-        originalEmbed.author?.name?.includes("Anonymous") || false;
-      const isPlainText =
-        !originalEmbed.description && targetMessage.content.length > 0;
-      const isSnippet = originalEmbed.title?.includes("Snippet") || false;
-
-      const messageOptions: StaffMessageOptions = {
-        anonymous: isAnonymous,
-        plainText: isPlainText,
-        snippet: isSnippet,
-      };
-
       // Set the new content for the message
       msg.content = editContent;
 
@@ -114,8 +100,7 @@ export class EditCommand extends TextCommandHandler {
         repliedToMessage,
         thread.userId,
         msg.guild,
-        msg,
-        messageOptions
+        msg
       );
 
       // React to the command message to indicate success
