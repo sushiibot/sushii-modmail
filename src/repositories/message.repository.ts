@@ -15,6 +15,8 @@ export type NewMessage = {
   isAnonymous?: boolean | null;
   isPlainText?: boolean | null;
   isSnippet?: boolean | null;
+  attachmentUrls: string[];
+  stickerUrls: string[];
 };
 
 export class MessageRepository {
@@ -43,6 +45,8 @@ export class MessageRepository {
         isAnonymous: msg.isAnonymous,
         isPlainText: msg.isPlainText,
         isSnippet: msg.isSnippet,
+        attachmentUrls: JSON.stringify(msg.attachmentUrls),
+        stickerUrls: JSON.stringify(msg.stickerUrls),
       })
       .returning();
 

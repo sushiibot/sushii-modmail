@@ -15,6 +15,8 @@ export class BaseMessage {
   protected readonly _userDmMessageId: string | null;
   public readonly content: string | null;
   public readonly forwarded: boolean;
+  public readonly attachmentUrls: string[];
+  public readonly stickerUrls: string[];
 
   constructor(
     threadId: string,
@@ -24,7 +26,9 @@ export class BaseMessage {
     staffRelayedMessageId: string | null = null,
     userDmMessageId: string | null = null,
     content: string | null = null,
-    forwarded: boolean = false
+    forwarded: boolean = false,
+    attachmentUrls: string[],
+    stickerUrls: string[]
   ) {
     this.threadId = threadId;
     this.messageId = messageId;
@@ -34,6 +38,8 @@ export class BaseMessage {
     this._userDmMessageId = userDmMessageId;
     this.content = content;
     this.forwarded = forwarded;
+    this.attachmentUrls = attachmentUrls;
+    this.stickerUrls = stickerUrls;
   }
 
   isUser(): this is UserMessage {
@@ -59,6 +65,9 @@ export class StaffMessage extends BaseMessage {
     staffRelayedMessageId: string,
     content: string,
     forwarded: boolean = false,
+    attachmentUrls: string[],
+    stickerUrls: string[],
+    // Options
     options: StaffMessageOptions
   ) {
     super(
@@ -69,7 +78,9 @@ export class StaffMessage extends BaseMessage {
       staffRelayedMessageId,
       null,
       content,
-      forwarded
+      forwarded,
+      attachmentUrls,
+      stickerUrls
     );
 
     this.content = content;
@@ -97,7 +108,9 @@ export class UserMessage extends BaseMessage {
     authorId: string,
     userDmMessageId: string,
     content: string | null = null,
-    forwarded: boolean = false
+    forwarded: boolean = false,
+    attachmentUrls: string[],
+    stickerUrls: string[]
   ) {
     super(
       threadId,
@@ -107,7 +120,9 @@ export class UserMessage extends BaseMessage {
       null,
       userDmMessageId,
       content,
-      forwarded
+      forwarded,
+      attachmentUrls,
+      stickerUrls
     );
   }
 
@@ -165,6 +180,8 @@ export const Message = {
         row.staffRelayedMessageId,
         row.content,
         row.forwarded,
+        JSON.parse(row.attachmentUrls),
+        JSON.parse(row.stickerUrls),
         {
           isAnonymous: row.isAnonymous,
           isPlainText: row.isPlainText,
@@ -189,7 +206,9 @@ export const Message = {
         row.authorId,
         row.userDmMessageId,
         row.content || null,
-        row.forwarded
+        row.forwarded,
+        JSON.parse(row.attachmentUrls),
+        JSON.parse(row.stickerUrls)
       );
     }
   },

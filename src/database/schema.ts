@@ -50,8 +50,14 @@ export const messages = sqliteTable(
 
     // Metadata, mostly useful for re-building the message in staff thread
     // Staff only fields.
-    content: text(), // Can be null if attachment
+    content: text(), // Can be null if attachment only
     forwarded: integer({ mode: "boolean" }).notNull().default(false),
+
+    // Attachments / Stickers
+    // Need to save them to edit component v2 images without needing to parse
+    // the fields
+    attachmentUrls: text().notNull().default("[]"), // JSON string of attachment URLs
+    stickerUrls: text().notNull().default("[]"), // JSON string of sticker URLs
 
     // Flags
     isAnonymous: integer({ mode: "boolean" }).default(false),
