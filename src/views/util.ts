@@ -2,11 +2,17 @@ import {
   AttachmentBuilder,
   Collection,
   ComponentType,
+  MediaGalleryComponent,
   Message,
   type EmbedBuilder,
   type EmbedField,
 } from "discord.js";
 import { fetch } from "bun";
+import {
+  MediaGalleryAttachmentsID,
+  MediaGalleryStickersID,
+} from "./StaffThreadView";
+import type { MessageSticker } from "models/message.model";
 
 interface Attachment {
   id: string;
@@ -94,6 +100,19 @@ export function applyStickerToEmbed(
   }
 }
 
+export function extractComponentImages(msg: Message): {
+  attachmentURLs: string[];
+  stickers: MessageSticker[];
+} {
+  const attachmentURLs = extractImageURLsFromComponents(msg);
+  const stickerURLs = extractStickersFromComponents(msg);
+
+  return {
+    attachmentURLs: attachmentURLs,
+    stickers: stickerURLs,
+  };
+}
+
 export function extractImageURLsFromComponents(msg: Message): string[] {
   const containerComponent = msg.components.find(
     (c) => c.type === ComponentType.Container
@@ -102,16 +121,47 @@ export function extractImageURLsFromComponents(msg: Message): string[] {
     throw new Error("No container component found");
   }
 
-  const mediaGalleryComponents = containerComponent.components.find(
-    (c) => c.type === ComponentType.MediaGallery
+  const mediaGalleryComponent = containerComponent.components.find(
+    (c): c is MediaGalleryComponent =>
+      c.type === ComponentType.MediaGallery &&
+      c.id === MediaGalleryAttachmentsID
   );
-  if (!mediaGalleryComponents) {
-    throw new Error("No media gallery component found");
+
+  if (!mediaGalleryComponent) {
+    return [];
   }
 
-  const imageUrls = mediaGalleryComponents.items.map((item) => {
+  const imageUrls = mediaGalleryComponent.items.map((item) => {
     return item.media.url;
   });
 
   return imageUrls;
+}
+
+export function extractStickersFromComponents(msg: Message): MessageSticker[] {
+  const containerComponent = msg.components.find(
+    (c) => c.type === ComponentType.Container
+  );
+  if (!containerComponent) {
+    throw new Error("No container component found");
+  }
+
+  const mediaGalleryComponents = containerComponent.components.find(
+    (c): c is MediaGalleryComponent =>
+      c.type === ComponentType.MediaGallery && c.id === MediaGalleryStickersID
+  );
+  if (!mediaGalleryComponents) {
+    return [];
+  }
+
+  const stickers: MessageSticker[] = mediaGalleryComponents.items.map(
+    (item) => {
+      return {
+        name: item.description || "Unknown Sticker",
+        url: item.media.url,
+      };
+    }
+  );
+
+  return stickers;
 }

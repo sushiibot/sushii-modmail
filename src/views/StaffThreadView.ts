@@ -27,6 +27,10 @@ import {
   createAttachmentListField,
   downloadAttachments,
 } from "./util";
+import type { MessageSticker } from "models/message.model";
+
+export const MediaGalleryAttachmentsID = 1;
+export const MediaGalleryStickersID = 2;
 
 interface MemberRole {
   id: string;
@@ -62,21 +66,26 @@ export interface RelayAttachment {
   url: string;
 }
 
-interface Sticker {
-  id: string;
-  name: string;
-  url: string;
-}
-
 export interface RelayMessageCreate {
   id: string;
   author: User;
   content: string;
-  // List of IDs for edits
   attachments: RelayAttachment[];
-  stickers: Sticker[];
+  stickers: MessageSticker[];
   forwarded?: boolean;
 }
+
+export interface RelayMessageEdit {
+  id: string;
+  author: User;
+  content: string;
+  // Array of URLs (media gallery attachments become URLs, not attachments)
+  attachments: string[];
+  stickers: MessageSticker[];
+  forwarded?: boolean;
+}
+
+export type RelayMessage = RelayMessageCreate | RelayMessageEdit;
 
 export class StaffThreadView {
   /**
@@ -186,7 +195,7 @@ export class StaffThreadView {
   }
 
   static staffReplyComponents(
-    msg: RelayMessageCreate,
+    msg: RelayMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions,
     displayOptions: {
       editedById?: string;
@@ -221,21 +230,33 @@ export class StaffThreadView {
     if (msg.attachments.length > 0) {
       const attachmentItems = msg.attachments.map(
         // Reference file links
-        (attachment) => new MediaGalleryItemBuilder().setURL(attachment.url)
+        (attachment) => {
+          if (typeof attachment === "string") {
+            return new MediaGalleryItemBuilder().setURL(attachment);
+          }
+
+          return new MediaGalleryItemBuilder().setURL(attachment.url);
+        }
       );
-      const attachmentText = new MediaGalleryBuilder().addItems(
-        attachmentItems
-      );
+      const attachmentText = new MediaGalleryBuilder()
+        .setId(MediaGalleryAttachmentsID)
+        .addItems(attachmentItems);
 
       container.addMediaGalleryComponents(attachmentText);
     }
 
     // Add stickers
     if (msg.stickers.length > 0) {
-      const stickerItems = msg.stickers.map((sticker) =>
-        new MediaGalleryItemBuilder().setURL(sticker.url)
-      );
-      const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
+      const stickerItems = msg.stickers.map((sticker) => {
+        if (typeof sticker === "string") {
+          return new MediaGalleryItemBuilder().setURL(sticker);
+        }
+
+        return new MediaGalleryItemBuilder().setURL(sticker.url);
+      });
+      const stickerText = new MediaGalleryBuilder()
+        .setId(MediaGalleryStickersID)
+        .addItems(stickerItems);
 
       container.addMediaGalleryComponents(stickerText);
     }

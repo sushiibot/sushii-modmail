@@ -1,7 +1,7 @@
 import { type DB } from "../database/db";
 import { messages } from "../database/schema";
 import { eq } from "drizzle-orm";
-import { Message } from "../models/message.model";
+import { Message, type MessageSticker } from "../models/message.model";
 import { getLogger } from "utils/logger";
 
 export type NewMessage = {
@@ -16,7 +16,7 @@ export type NewMessage = {
   isPlainText?: boolean | null;
   isSnippet?: boolean | null;
   attachmentUrls: string[];
-  stickerUrls: string[];
+  stickers: MessageSticker[];
 };
 
 export class MessageRepository {
@@ -46,7 +46,7 @@ export class MessageRepository {
         isPlainText: msg.isPlainText,
         isSnippet: msg.isSnippet,
         attachmentUrls: JSON.stringify(msg.attachmentUrls),
-        stickerUrls: JSON.stringify(msg.stickerUrls),
+        stickers: JSON.stringify(msg.stickers),
       })
       .returning();
 

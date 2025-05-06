@@ -8,7 +8,7 @@ import {
   MessageFlags,
   type Snowflake,
 } from "discord.js";
-import type { Message } from "models/message.model";
+import type { Message, MessageSticker } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
 import { Color } from "views/Color";
@@ -24,6 +24,7 @@ import {
 } from "views/UserThreadView";
 import {
   downloadAttachments,
+  extractComponentImages,
   extractImageURLsFromComponents,
 } from "views/util";
 
@@ -131,7 +132,12 @@ export class MessageRelayService {
       attachmentUrls: Array.from(
         message.attachments.values().map((a) => a.url)
       ),
-      stickerUrls: Array.from(message.stickers.values().map((s) => s.url)),
+      stickers: Array.from(
+        message.stickers.values().map((s) => ({
+          name: s.name,
+          url: s.url,
+        }))
+      ),
     });
 
     // TODO: Blocked return false OR if more than 2 options, return an emoji
@@ -287,7 +293,7 @@ export class MessageRelayService {
       isSnippet: options.snippet,
       attachmentUrls: attachmentUrls,
       // Ignore stickers for now
-      stickerUrls: [],
+      stickers: [],
     });
   }
 
@@ -301,7 +307,7 @@ export class MessageRelayService {
     isPlainText: boolean;
     isSnippet: boolean;
     attachmentUrls: string[];
-    stickerUrls: string[];
+    stickers: MessageSticker[];
   }): Promise<void> {
     await this.messageRepository.saveMessage({
       threadId: options.threadId,
@@ -316,7 +322,7 @@ export class MessageRelayService {
       isPlainText: options.isPlainText,
       isSnippet: options.isSnippet,
       attachmentUrls: options.attachmentUrls,
-      stickerUrls: options.stickerUrls,
+      stickers: options.stickers,
     });
   }
 
@@ -373,20 +379,19 @@ export class MessageRelayService {
       staffViewMessageId
     );
 
-    const attachmentUrls = extractImageURLsFromComponents(originalMessage);
-    const attachments: RelayAttachment[] = originalMessage.attachments.map(
-      (a) => {
-        return {
-          id: a.id,
-          name: a.name,
-          url: a.url,
-        };
-      }
-    );
+    const { attachmentURLs, stickers } =
+      extractComponentImages(originalMessage);
+    const attachments: RelayAttachment[] = attachmentURLs.map((url) => {
+      return {
+        id: "id",
+        name: "name",
+        url: url,
+      };
+    });
 
     this.logger.debug(
       {
-        attachmentUrls,
+        attachmentURLs,
         originalStaffMessage: originalMessage,
         messageData,
       },
@@ -403,8 +408,8 @@ export class MessageRelayService {
         // message
         id: messageData.messageId,
         content: msg.content,
-        attachments: attachments,
-        stickers: msg.stickers,
+        attachments: attachmentURLs,
+        stickers: stickers,
         forwarded: msg.forwarded,
       },
       {

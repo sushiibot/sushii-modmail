@@ -6,6 +6,12 @@ interface StaffMessageOptions {
   isSnippet: boolean;
 }
 
+export type MessageSticker = {
+  // Keep name for alt text
+  name: string;
+  url: string;
+};
+
 export class BaseMessage {
   public readonly threadId: string;
   public readonly messageId: string;
@@ -16,7 +22,7 @@ export class BaseMessage {
   public readonly content: string | null;
   public readonly forwarded: boolean;
   public readonly attachmentUrls: string[];
-  public readonly stickerUrls: string[];
+  public readonly stickers: MessageSticker[];
 
   constructor(
     threadId: string,
@@ -28,7 +34,7 @@ export class BaseMessage {
     content: string | null = null,
     forwarded: boolean = false,
     attachmentUrls: string[],
-    stickerUrls: string[]
+    stickers: MessageSticker[]
   ) {
     this.threadId = threadId;
     this.messageId = messageId;
@@ -39,7 +45,7 @@ export class BaseMessage {
     this.content = content;
     this.forwarded = forwarded;
     this.attachmentUrls = attachmentUrls;
-    this.stickerUrls = stickerUrls;
+    this.stickers = stickers;
   }
 
   isUser(): this is UserMessage {
@@ -66,7 +72,7 @@ export class StaffMessage extends BaseMessage {
     content: string,
     forwarded: boolean = false,
     attachmentUrls: string[],
-    stickerUrls: string[],
+    stickers: MessageSticker[],
     // Options
     options: StaffMessageOptions
   ) {
@@ -80,7 +86,7 @@ export class StaffMessage extends BaseMessage {
       content,
       forwarded,
       attachmentUrls,
-      stickerUrls
+      stickers
     );
 
     this.content = content;
@@ -110,7 +116,7 @@ export class UserMessage extends BaseMessage {
     content: string | null = null,
     forwarded: boolean = false,
     attachmentUrls: string[],
-    stickerUrls: string[]
+    stickers: MessageSticker[]
   ) {
     super(
       threadId,
@@ -122,7 +128,7 @@ export class UserMessage extends BaseMessage {
       content,
       forwarded,
       attachmentUrls,
-      stickerUrls
+      stickers
     );
   }
 
@@ -181,7 +187,7 @@ export const Message = {
         row.content,
         row.forwarded,
         JSON.parse(row.attachmentUrls),
-        JSON.parse(row.stickerUrls),
+        JSON.parse(row.stickers),
         {
           isAnonymous: row.isAnonymous,
           isPlainText: row.isPlainText,
@@ -208,7 +214,7 @@ export const Message = {
         row.content || null,
         row.forwarded,
         JSON.parse(row.attachmentUrls),
-        JSON.parse(row.stickerUrls)
+        JSON.parse(row.stickers)
       );
     }
   },

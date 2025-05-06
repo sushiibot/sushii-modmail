@@ -57,7 +57,7 @@ export const messages = sqliteTable(
     // Need to save them to edit component v2 images without needing to parse
     // the fields
     attachmentUrls: text().notNull().default("[]"), // JSON string of attachment URLs
-    stickerUrls: text().notNull().default("[]"), // JSON string of sticker URLs
+    stickers: text().notNull().default("[]"), // JSON string of sticker.name, sticker.url
 
     // Flags
     isAnonymous: integer({ mode: "boolean" }).default(false),
