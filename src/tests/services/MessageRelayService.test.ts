@@ -5,6 +5,7 @@ import {
   TextChannel,
   User,
   Guild,
+  MessageFlags,
 } from "discord.js";
 import {
   MessageRelayService,
@@ -15,10 +16,11 @@ import {
   type UserThreadViewGuild,
   type UserThreadViewUser,
 } from "views/UserThreadView";
-import {
-  StaffThreadView,
-  type RelayMessageCreate,
-} from "views/StaffThreadView";
+import { StaffThreadView } from "views/StaffThreadView";
+import type {
+  UserToStaffMessage,
+  StaffToUserMessage,
+} from "../../model/relayMessage";
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
@@ -48,7 +50,7 @@ describe("MessageRelayService", () => {
   describe("relayUserMessageToStaff", () => {
     it("should relay user message to staff", async () => {
       const channelId = randomSnowflakeID();
-      const message: RelayMessageCreate = {
+      const message: UserToStaffMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -57,8 +59,8 @@ describe("MessageRelayService", () => {
           displayAvatarURL: () => "https://example.com/avatar.png",
         },
         content: "Hello, staff!",
-        attachments: new Collection<string, Attachment>(),
-        stickers: new Collection(),
+        attachments: [],
+        stickers: [],
       };
 
       const threadChannel = {
@@ -68,17 +70,15 @@ describe("MessageRelayService", () => {
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
       spyOn(StaffThreadView, "userReplyMessage").mockResolvedValue({
-        embeds: [],
-        files: [],
+        components: [],
       });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
       expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(message);
-      expect(threadChannel.send).toHaveBeenCalledWith({
-        embeds: [],
-        files: [],
+      expect(threadChannel.send).lastCalledWith({
+        components: [],
       });
       expect(messageRepository.saveMessage).toHaveBeenCalledWith({
         threadId: channelId,
@@ -91,6 +91,8 @@ describe("MessageRelayService", () => {
         isAnonymous: null,
         isPlainText: null,
         isSnippet: null,
+        attachmentUrls: [],
+        stickers: [],
       });
       expect(result).toBe(true);
     });
@@ -98,7 +100,7 @@ describe("MessageRelayService", () => {
     it("should relay attachments to staff", async () => {
       const channelId = randomSnowflakeID();
 
-      const message: RelayMessageCreate = {
+      const message: UserToStaffMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -107,18 +109,14 @@ describe("MessageRelayService", () => {
           displayAvatarURL: () => "https://example.com/avatar.png",
         },
         content: "Hello, staff!",
-        attachments: new Collection<string, Attachment>([
-          [
-            "attachment1",
-            {
-              id: "attachment1",
-              name: "file1.txt",
-              size: 123,
-              url: "https://example.com/file1.txt",
-            },
-          ],
-        ]),
-        stickers: new Collection(),
+        attachments: [
+          {
+            id: "attachment1",
+            name: "file1.txt",
+            url: "https://example.com/file1.txt",
+          },
+        ],
+        stickers: [],
       };
 
       const threadChannel = {
@@ -134,9 +132,9 @@ describe("MessageRelayService", () => {
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
-      expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
-      expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(message);
-      expect(threadChannel.send).toHaveBeenCalledWith({
+      expect(client.channels.fetch).lastCalledWith(channelId);
+      expect(StaffThreadView.userReplyMessage).lastCalledWith(message);
+      expect(threadChannel.send).lastCalledWith({
         embeds: [],
         files: ["https://example.com/file1.txt"],
       });
@@ -151,13 +149,15 @@ describe("MessageRelayService", () => {
         isAnonymous: null,
         isPlainText: null,
         isSnippet: null,
+        attachmentUrls: ["https://example.com/file1.txt"],
+        stickers: [],
       });
       expect(result).toBe(true);
     });
 
     it("should throw an error if channel is not found", async () => {
       const channelId = randomSnowflakeID();
-      const message: RelayMessageCreate = {
+      const message: UserToStaffMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -166,8 +166,8 @@ describe("MessageRelayService", () => {
           displayAvatarURL: () => "https://example.com/avatar.png",
         },
         content: "Hello, staff!",
-        attachments: new Collection<string, Attachment>(),
-        stickers: new Collection(),
+        attachments: [],
+        stickers: [],
       };
 
       spyOn(client.channels, "fetch").mockResolvedValue(null);
@@ -179,7 +179,7 @@ describe("MessageRelayService", () => {
 
     it("should throw an error if channel is not sendable", async () => {
       const channelId = randomSnowflakeID();
-      const message: RelayMessageCreate = {
+      const message: UserToStaffMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -188,8 +188,8 @@ describe("MessageRelayService", () => {
           displayAvatarURL: () => "https://example.com/avatar.png",
         },
         content: "Hello, staff!",
-        attachments: new Collection<string, Attachment>(),
-        stickers: new Collection(),
+        attachments: [],
+        stickers: [],
       };
 
       const threadChannel = {
@@ -206,13 +206,14 @@ describe("MessageRelayService", () => {
 
   describe("relayStaffMessageToUser", () => {
     it("should relay staff message to user", async () => {
+      const threadId = randomSnowflakeID();
       const userId = randomSnowflakeID();
       const guild = {} as UserThreadViewGuild;
       const content = "Hello, user!";
       const options = { anonymous: true, plainText: false, snippet: false };
 
       // Create a RelayMessage object instead of separate staffUser and content
-      const msg: RelayMessageCreate = {
+      const msg: StaffToUserMessage = {
         id: randomSnowflakeID(),
         author: {
           id: randomSnowflakeID(),
@@ -221,8 +222,8 @@ describe("MessageRelayService", () => {
           displayAvatarURL: () => "https://example.com/staff-avatar.png",
         },
         content,
-        attachments: new Collection<string, Attachment>(),
-        stickers: new Collection(),
+        attachments: [],
+        stickers: [],
       };
 
       const relayedMsg = {
@@ -236,12 +237,36 @@ describe("MessageRelayService", () => {
         send: mock().mockResolvedValue(relayedMsg),
       } as unknown as User;
 
+      // --- Additional mocks for staff thread ---
+      const staffThreadChannel = {
+        send: mock().mockResolvedValue({
+          id: "staff-thread-message-id",
+          // Simulate Discord.js message object for extractComponentImages
+          attachments: { values: () => [] },
+          stickers: [],
+        }),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
       spyOn(client.users, "fetch").mockResolvedValue(user);
+
+      // Mock StaffThreadView.staffReplyComponents
+      spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
+      // Mock downloadAttachments and extractComponentImages utilities
+      const util = await import("views/util");
+      spyOn(util, "downloadAttachments").mockResolvedValue([]);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentURLs: [],
+        stickers: [],
+      });
+
       spyOn(UserThreadView, "staffMessage").mockResolvedValue({
         content: "Formatted message",
       });
 
-      const result = await service.relayStaffMessageToUser(
+      await service.relayStaffMessageToUser(
+        threadId,
         userId,
         guild,
         msg,
@@ -259,10 +284,8 @@ describe("MessageRelayService", () => {
       expect(user.send).toHaveBeenCalledWith({
         content: "Formatted message",
       });
-      expect(result).toEqual({
-        msgId: "relayed-message-id",
-        dmChannelId: "dm-channel-id",
-      });
+      expect(client.channels.fetch).toHaveBeenCalledWith(threadId);
+      expect(staffThreadChannel.send).toHaveBeenCalled();
     });
   });
 
