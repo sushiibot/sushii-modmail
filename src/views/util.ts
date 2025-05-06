@@ -51,13 +51,13 @@ export function createAttachmentListField(
  * @returns Promise resolving to an array of AttachmentBuilder objects
  */
 export async function downloadAttachments(
-  attachments: Collection<string, Attachment>
+  attachments: Attachment[]
 ): Promise<AttachmentBuilder[]> {
-  if (attachments.size === 0) {
+  if (attachments.length === 0) {
     return [];
   }
 
-  const fileDownloads = Array.from(attachments.values()).map(async (file) => {
+  const fileDownloads = attachments.map(async (file) => {
     const res = await fetch(file.url);
     const arrBuf = await res.arrayBuffer();
     const attachment = new AttachmentBuilder(Buffer.from(arrBuf)).setName(

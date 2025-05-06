@@ -136,3 +136,10 @@ export const runtimeConfig = sqliteTable(
     check("open_tag_id_check", sql`${table.openTagId} NOT GLOB '*[^0-9]*'`),
   ]
 );
+
+/*
+export const botEmojis = sqliteTable("bot_emojis", {
+  name: text().notNull().unique(),
+  id: text().notNull().primaryKey(),
+});
+*/

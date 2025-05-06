@@ -92,15 +92,20 @@ export class EditCommand extends TextCommandHandler {
         return;
       }
 
-      // Set the new content for the message
-      msg.content = editContent;
-
       // Edit the message with the new content
       await this.messageService.editStaffMessage(
         repliedToMessage,
         thread.userId,
         msg.guild,
-        msg
+        {
+          id: msg.id,
+          author: msg.author,
+          // Set the new content for the message
+          content: editContent,
+          attachments: Array.from(msg.attachments.values()),
+          stickers: Array.from(msg.stickers.values()),
+          forwarded: false,
+        }
       );
 
       // React to the command message to indicate success

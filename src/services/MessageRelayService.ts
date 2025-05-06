@@ -1,4 +1,5 @@
 import {
+  AttachmentBuilder,
   Client,
   Collection,
   Colors,
@@ -102,8 +103,8 @@ export class MessageRelayService {
       {
         user: message.author.username,
         content: message.content,
-        attachments: message.attachments.size,
-        stickers: message.stickers.size,
+        attachments: message.attachments.length,
+        stickers: message.stickers.length,
       },
       "Relaying user message to staff"
     );
@@ -232,7 +233,7 @@ export class MessageRelayService {
       {
         recipient: user.username,
         content: msg.content,
-        attachments: msg.attachments.size,
+        attachments: msg.attachments.length,
       },
       "Relaying staff message to user"
     );
@@ -372,26 +373,20 @@ export class MessageRelayService {
       staffViewMessageId
     );
 
-    const originalGalleryComponent = (
-      originalMessage.components[0] as ContainerComponent
-    ).components.find((c) => c.type === ComponentType.MediaGallery);
-    const originalAttachmentURLS =
-      originalGalleryComponent?.items.map((item) => item.media.url) || [];
-
-    const originalAttachments = new Collection(
-      originalAttachmentURLS.map((url): [string, RelayAttachment] => [
-        "dummy",
-        {
-          id: "",
-          name: "",
-          url,
-        },
-      ])
+    const attachmentUrls = extractImageURLsFromComponents(originalMessage);
+    const attachments: RelayAttachment[] = originalMessage.attachments.map(
+      (a) => {
+        return {
+          id: a.id,
+          name: a.name,
+          url: a.url,
+        };
+      }
     );
 
     this.logger.debug(
       {
-        originalAttachments,
+        attachmentUrls,
         originalStaffMessage: originalMessage,
         messageData,
       },
@@ -408,7 +403,7 @@ export class MessageRelayService {
         // message
         id: messageData.messageId,
         content: msg.content,
-        attachments: originalAttachments,
+        attachments: attachments,
         stickers: msg.stickers,
         forwarded: msg.forwarded,
       },
@@ -430,7 +425,7 @@ export class MessageRelayService {
 
     // Update the attachments
     // TODO: Do the attachment URLs change if the message is edited?
-    msg.attachments = originalAttachments;
+    msg.attachments = attachments;
 
     // -------------------------------------------------------------------------
     // USER DM
@@ -523,8 +518,8 @@ export class MessageRelayService {
         content: messageData.content,
         // TODO: What to do when deleted? doesn't really make sense to store them
         // just for deleted messages
-        attachments: new Collection(),
-        stickers: new Collection(),
+        attachments: [],
+        stickers: [],
         forwarded: messageData.forwarded,
       },
       {

@@ -146,12 +146,23 @@ export class SnippetController {
       await this.messageService.relayStaffMessageToUser(
         thread.userId,
         guild,
-        message,
+        {
+          ...message,
+          attachments: Array.from(message.attachments.values()),
+          stickers: Array.from(message.stickers.values()),
+        },
         options
       );
 
       // Re-send to show the message was sent and how it looks
-      const components = StaffThreadView.staffReplyComponents(message, options);
+      const components = StaffThreadView.staffReplyComponents(
+        {
+          ...message,
+          attachments: Array.from(message.attachments.values()),
+          stickers: Array.from(message.stickers.values()),
+        },
+        options
+      );
 
       await Promise.allSettled([
         // Delete the original message

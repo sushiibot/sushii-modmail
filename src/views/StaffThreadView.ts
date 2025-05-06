@@ -73,8 +73,8 @@ export interface RelayMessageCreate {
   author: User;
   content: string;
   // List of IDs for edits
-  attachments: Collection<string, RelayAttachment>;
-  stickers: Collection<string, Sticker>;
+  attachments: RelayAttachment[];
+  stickers: Sticker[];
   forwarded?: boolean;
 }
 
@@ -202,7 +202,7 @@ export class StaffThreadView {
     }
 
     // Set the author field based on anonymous option
-    let authorName = `### Reply from <@${msg.author.id}>`;
+    let authorName = `### Staff reply from <@${msg.author.id}>`;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
@@ -218,8 +218,8 @@ export class StaffThreadView {
     }
 
     // Add attachments
-    if (msg.attachments.size > 0) {
-      const attachmentItems = Array.from(msg.attachments.values()).map(
+    if (msg.attachments.length > 0) {
+      const attachmentItems = msg.attachments.map(
         // Reference file links
         (attachment) => new MediaGalleryItemBuilder().setURL(attachment.url)
       );
@@ -231,8 +231,8 @@ export class StaffThreadView {
     }
 
     // Add stickers
-    if (msg.stickers.size > 0) {
-      const stickerItems = Array.from(msg.stickers.values()).map((sticker) =>
+    if (msg.stickers.length > 0) {
+      const stickerItems = msg.stickers.map((sticker) =>
         new MediaGalleryItemBuilder().setURL(sticker.url)
       );
       const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
@@ -395,7 +395,7 @@ export class StaffThreadView {
       container.addMediaGalleryComponents(attachmentText);
     }
 
-    if (userMessage.stickers.size > 0) {
+    if (userMessage.stickers.length > 0) {
       const stickerItems = userMessage.stickers.map((sticker) =>
         new MediaGalleryItemBuilder().setURL(sticker.url)
       );
@@ -409,16 +409,16 @@ export class StaffThreadView {
 
     let metadataStr = "";
 
-    if (!isEdited && userMessage.attachments.size > 0) {
-      const attachmentLinks = Array.from(userMessage.attachments.values())
+    if (!isEdited && userMessage.attachments.length > 0) {
+      const attachmentLinks = userMessage.attachments
         .map((attachment) => `[${attachment.name}](${attachment.url})`)
         .join("\n");
 
       metadataStr += `**Attachment links:**\n${attachmentLinks}\n`;
     }
 
-    if (!isEdited && userMessage.stickers.size > 0) {
-      const stickerLinks = Array.from(userMessage.stickers.values())
+    if (!isEdited && userMessage.stickers.length > 0) {
+      const stickerLinks = userMessage.stickers
         .map((sticker) => `[${sticker.name}](${sticker.url})`)
         .join("\n");
 

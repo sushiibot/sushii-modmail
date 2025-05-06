@@ -66,14 +66,14 @@ export class UserThreadView {
         content += `\n${msg.content}`;
       }
 
-      if (msg.attachments.size > 0) {
+      if (msg.attachments.length > 0) {
         content += "\n#### Attachments\n";
         content += msg.attachments
           .map((attachment) => `[${attachment.name}](${attachment.url})`)
           .join("\n");
       }
 
-      if (msg.stickers.size > 0) {
+      if (msg.stickers.length > 0) {
         content += "\n#### Stickers\n";
         content += msg.stickers
           .map((sticker) => `[${sticker.name}](${sticker.url})`)
@@ -103,7 +103,7 @@ export class UserThreadView {
       container.addTextDisplayComponents(contentText);
     }
 
-    if (msg.attachments.size > 0) {
+    if (msg.attachments.length > 0) {
       container.addSeparatorComponents(new SeparatorBuilder());
       const attachmentItems = msg.attachments.map((attachment) =>
         new MediaGalleryItemBuilder().setURL(attachment.url)
@@ -115,7 +115,7 @@ export class UserThreadView {
       container.addMediaGalleryComponents(attachmentText);
     }
 
-    if (msg.stickers.size > 0) {
+    if (msg.stickers.length > 0) {
       container.addSeparatorComponents(new SeparatorBuilder());
       const stickerItems = msg.stickers.map((sticker) =>
         new MediaGalleryItemBuilder().setURL(sticker.url)
