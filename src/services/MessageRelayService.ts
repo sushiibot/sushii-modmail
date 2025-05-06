@@ -272,7 +272,12 @@ export class MessageRelayService {
     });
 
     // Extract the attachment URLs from the message
-    const attachmentUrls = extractImageURLsFromComponents(threadStaffMsg);
+    const { attachmentURLs, stickers } = extractComponentImages(threadStaffMsg);
+
+    this.logger.debug(
+      { attachmentURLs, stickers },
+      "Extracted attachment URLs and stickers from staff message"
+    );
 
     // -------------------------------------------------
     // USER DM
@@ -291,9 +296,8 @@ export class MessageRelayService {
       isAnonymous: options.anonymous,
       isPlainText: options.plainText,
       isSnippet: options.snippet,
-      attachmentUrls: attachmentUrls,
-      // Ignore stickers for now
-      stickers: [],
+      attachmentUrls: attachmentURLs,
+      stickers: stickers,
     });
   }
 
@@ -392,6 +396,7 @@ export class MessageRelayService {
     this.logger.debug(
       {
         attachmentURLs,
+        stickers,
         originalStaffMessage: originalMessage,
         messageData,
       },
@@ -428,17 +433,18 @@ export class MessageRelayService {
       // No flags when editing
     });
 
-    // Update the attachments
-    // TODO: Do the attachment URLs change if the message is edited?
-    msg.attachments = attachments;
-
     // -------------------------------------------------------------------------
     // USER DM
     // Re-build staff message with new content
     // Exclude flags since they are incompatible with editing
     const { flags, ...newMessage } = await UserThreadView.staffMessage(
       guild,
-      msg,
+      {
+        ...msg,
+        // Update the attachments and stickers from msg URLs
+        attachments: attachments,
+        stickers: stickers,
+      },
       {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,

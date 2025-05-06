@@ -36,6 +36,13 @@
       "when": 1746419659607,
       "tag": "0004_gigantic_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1746544348212,
+      "tag": "0005_serious_grandmaster",
+      "breakpoints": true
     }
   ]
 }

@@ -157,7 +157,7 @@ export function extractStickersFromComponents(msg: Message): MessageSticker[] {
   const stickers: MessageSticker[] = mediaGalleryComponents.items.map(
     (item) => {
       return {
-        name: item.description || "Unknown Sticker",
+        name: item.description || "Sticker",
         url: item.media.url,
       };
     }

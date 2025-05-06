@@ -29,8 +29,8 @@ import {
 } from "./util";
 import type { MessageSticker } from "models/message.model";
 
-export const MediaGalleryAttachmentsID = 1;
-export const MediaGalleryStickersID = 2;
+export const MediaGalleryAttachmentsID = 101;
+export const MediaGalleryStickersID = 102;
 
 interface MemberRole {
   id: string;
@@ -228,6 +228,8 @@ export class StaffThreadView {
 
     // Add attachments
     if (msg.attachments.length > 0) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+
       const attachmentItems = msg.attachments.map(
         // Reference file links
         (attachment) => {
@@ -247,12 +249,12 @@ export class StaffThreadView {
 
     // Add stickers
     if (msg.stickers.length > 0) {
-      const stickerItems = msg.stickers.map((sticker) => {
-        if (typeof sticker === "string") {
-          return new MediaGalleryItemBuilder().setURL(sticker);
-        }
+      container.addSeparatorComponents(new SeparatorBuilder());
 
-        return new MediaGalleryItemBuilder().setURL(sticker.url);
+      const stickerItems = msg.stickers.map((sticker) => {
+        return new MediaGalleryItemBuilder()
+          .setURL(sticker.url)
+          .setDescription(sticker.name);
       });
       const stickerText = new MediaGalleryBuilder()
         .setId(MediaGalleryStickersID)
@@ -390,7 +392,7 @@ export class StaffThreadView {
     // 4. Metadata (links to attachments, stickers, timestamps, ID)
 
     // 1. Author
-    const author = `**Message from <@${userMessage.author.id}>** (ID: \`${userMessage.author.id})\``;
+    const author = `### User message from <@${userMessage.author.id}>`;
     const authorText = new TextDisplayBuilder().setContent(author);
     container.addTextDisplayComponents(authorText);
 
@@ -405,6 +407,8 @@ export class StaffThreadView {
 
     // 3. Attachments - use reuploaded attachments
     if (!isEdited && attachments.length > 0) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+
       const attachmentItems = attachments.map((attachment) =>
         // Reference file attachments
         new MediaGalleryItemBuilder().setURL(`attachment://` + attachment.name)
@@ -417,8 +421,12 @@ export class StaffThreadView {
     }
 
     if (userMessage.stickers.length > 0) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+
       const stickerItems = userMessage.stickers.map((sticker) =>
-        new MediaGalleryItemBuilder().setURL(sticker.url)
+        new MediaGalleryItemBuilder()
+          .setURL(sticker.url)
+          .setDescription(sticker.name)
       );
       const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
 
@@ -435,7 +443,7 @@ export class StaffThreadView {
         .map((attachment) => `[${attachment.name}](${attachment.url})`)
         .join("\n");
 
-      metadataStr += `**Attachment links:**\n${attachmentLinks}\n`;
+      metadataStr += `\n**Attachment links:**\n${attachmentLinks}`;
     }
 
     if (!isEdited && userMessage.stickers.length > 0) {
@@ -443,10 +451,11 @@ export class StaffThreadView {
         .map((sticker) => `[${sticker.name}](${sticker.url})`)
         .join("\n");
 
-      metadataStr += `**Stickers:**\n${stickerLinks}\n`;
+      metadataStr += `\n**Stickers:**\n${stickerLinks}`;
     }
 
-    metadataStr += `Message ID: \`${userMessage.id}\``;
+    metadataStr += `\n\nUser ID: \`${userMessage.author.id})\``;
+    metadataStr += `\nMessage ID: \`${userMessage.id}\``;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     container.addTextDisplayComponents(metadataText);

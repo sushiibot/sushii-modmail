@@ -118,7 +118,9 @@ export class UserThreadView {
     if (msg.stickers.length > 0) {
       container.addSeparatorComponents(new SeparatorBuilder());
       const stickerItems = msg.stickers.map((sticker) =>
-        new MediaGalleryItemBuilder().setURL(sticker.url)
+        new MediaGalleryItemBuilder()
+          .setURL(sticker.url)
+          .setDescription(sticker.name)
       );
       const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
 
@@ -128,6 +130,7 @@ export class UserThreadView {
     return {
       components: [container],
       flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
     };
   }
 }

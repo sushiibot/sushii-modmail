@@ -107,8 +107,8 @@ export class DMController {
             author: message.author,
             // Only use snapshot for the content itself
             content: snapshot.content,
-            attachments: snapshot.attachments,
-            stickers: snapshot.stickers,
+            attachments: Array.from(snapshot.attachments.values()),
+            stickers: Array.from(snapshot.stickers.values()),
             // Mark as forwarded
             forwarded: true,
           }
@@ -117,7 +117,11 @@ export class DMController {
         // Normal message
         success = await this.messageService.relayUserMessageToStaff(
           thread.channelId,
-          message
+          {
+            ...message,
+            attachments: Array.from(message.attachments.values()),
+            stickers: Array.from(message.stickers.values()),
+          }
         );
       }
 
@@ -179,7 +183,11 @@ export class DMController {
       // Relay the edited message to staff
       await this.messageService.relayUserEditedMessageToStaff(
         thread.channelId,
-        newMessage
+        {
+          ...newMessage,
+          attachments: Array.from(newMessage.attachments.values()),
+          stickers: Array.from(newMessage.stickers.values()),
+        }
       );
     } catch (err) {
       const contextMsg = `Error handling DM edit from ${
