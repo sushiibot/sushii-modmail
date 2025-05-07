@@ -25,6 +25,7 @@ import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
 import { MessageRepository } from "repositories/message.repository";
 import { EditCommand } from "commands/EditCommand";
 import { DeleteCommand } from "commands/DeleteCommand";
+import { SettingsCommand } from "commands/SettingsCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -83,7 +84,10 @@ function buildCommandRouter(
     // Other
     new CloseCommand(threadService, runtimeConfigRepository),
     new LogsCommand(threadService, messageService, runtimeConfigRepository),
-    new ContactCommand(threadService, messageService)
+    new ContactCommand(threadService, messageService),
+
+    // Settings
+    new SettingsCommand(runtimeConfigRepository)
   );
 
   snippetService.setReservedNames(router.getCommandNames());

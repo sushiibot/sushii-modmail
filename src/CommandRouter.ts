@@ -153,6 +153,42 @@ export default class CommandRouter {
     return [commandName, subCommandName, args];
   }
 
+  async hasPermission(msg: Message): Promise<boolean> {
+    if (!msg.inGuild() || !msg.member) {
+      return false;
+    }
+
+    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
+      msg.guildId
+    );
+
+    if (runtimeConfig.requiredRoleIds.length === 0) {
+      // Default requirement is Moderate Members permission
+      return msg.member.permissions.has(
+        PermissionsBitField.Flags.ModerateMembers
+      );
+    }
+
+    // Check if user has ANY of the required roles
+    for (const roleId of runtimeConfig.requiredRoleIds) {
+      if (msg.member.roles.cache.has(roleId)) {
+        return true;
+      }
+    }
+
+    this.logger.debug(
+      {
+        userId: msg.author.id,
+        guildId: msg.guildId,
+        requiredRoleIds: runtimeConfig.requiredRoleIds,
+        userRoles: msg.member.roles.cache.map((r) => r.id),
+      },
+      `User does not have required role to use commands`
+    );
+
+    return false;
+  }
+
   async handleMessage(msg: Message) {
     if (msg.author.bot) {
       return;
@@ -166,42 +202,8 @@ export default class CommandRouter {
       return;
     }
 
-    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
-      msg.guildId
-    );
-
-    if (runtimeConfig.requiredRoleIds.length === 0) {
-      // Default requirement is Moderate Members permission
-      const hasPermission = msg.member.permissions.has(
-        PermissionsBitField.Flags.ModerateMembers
-      );
-
-      if (!hasPermission) {
-        return;
-      }
-    }
-
-    // Check if user has ANY of the required roles
-    let hasPermission = false;
-
-    for (const roleId of runtimeConfig.requiredRoleIds) {
-      if (msg.member.roles.cache.has(roleId)) {
-        hasPermission = true;
-        break;
-      }
-    }
-
+    const hasPermission = await this.hasPermission(msg);
     if (!hasPermission) {
-      this.logger.debug(
-        {
-          userId: msg.author.id,
-          guildId: msg.guildId,
-          memberRoleIds: msg.member.roles.cache.map((r) => r.id),
-          requiredRoleId: runtimeConfig.requiredRoleIds,
-        },
-        `User does not have required role to use commands`
-      );
-
       return;
     }
 
