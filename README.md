@@ -8,22 +8,29 @@ needing a custom web UI.
 
 Feature set is fairly minimal, focusing on essential and frequently used.
 
-- **Built-in Organization** - ModMail threads are Forum channel threads.
-- **Snippets** - Re-usable messages.
+- **Built-in Organization and Archive** - ModMail threads are Forum channel
+  threads. Forum tags are used so you can only show the threads that are
+  currently open. No more worrying about losing modmail history if the bot goes
+  offline, or if you need to change to a different bot.
+- **Configurable Message** - Initial message sent to the user when they open a
+  thread.
+- **Snippets** - Re-usable messages for common responses. Snippets can be
+  configured to be anonymous or not.
 - **Anonymous Replies** - Keep staff members anonymous when replying.
 - **Easy Setup** - No need for a web server or separate database.
 
 ## Commands
 
-This bot intentionally does not use slash commands for ease of use.
+General
+- `settings` - Setup, view, and change bot settings.
 
 Respond to a thread
 - `reply` - Reply to a thread.
 - `areply` - Anonymously reply to a thread.
 - `preply` - Plain text reply to a thread.
 - `apreply` - Anonymous plain text reply to a thread.
-- `edit` - Edit a previous thread message.
-- `delete` - Delete a previous thread message.
+- `edit` - Edit a previous thread message, reply to the message you want to edit.
+- `delete` - Delete a previous thread message, reply to the message you want to delete.
 
 Threads
 - `contact` - Open a new thread with a user.
@@ -36,6 +43,14 @@ Snippets
 - `snippet edit [name] [content]` - Modify an existing snippet
 - `snippet list` - List all available snippets
 - `snippet delete [name]` - Delete a snippet
+
+## Notes on bot choices
+
+- This bot intentionally does not use slash commands for ease of use.
+- Closing threads does **not** send anything to the user. Since the user only
+  sees a DM with the bot, there isn't anything being "closed" or changed for
+  them. Closing threads only changes things on the staff side, so it doesn't
+  make sense to show the user anything.
 
 ## Usage
 
