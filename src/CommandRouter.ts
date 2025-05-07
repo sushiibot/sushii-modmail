@@ -159,6 +159,17 @@ export default class CommandRouter {
       return;
     }
 
+    if (!this.config.requiredRoleId) {
+      // Default requirement is Moderate Members permission
+      const hasPermission = msg.member.permissions.has(
+        PermissionsBitField.Flags.ModerateMembers
+      );
+
+      if (!hasPermission) {
+        return;
+      }
+    }
+
     // Check if user has required role
     if (!msg.member.roles.cache.has(this.config.requiredRoleId)) {
       this.logger.debug(
