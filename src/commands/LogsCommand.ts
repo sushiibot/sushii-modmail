@@ -4,32 +4,48 @@ import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
 import { StaffThreadView } from "../views/StaffThreadView";
+import type { RuntimeConfig } from "models/runtimeConfig.model";
+
+interface ConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
+}
 
 export class LogsCommand extends TextCommandHandler {
   commandName = "logs";
   subCommandName = null;
   aliases = [];
 
-  protected forumChannelId: string;
   protected threadService: ThreadService;
   protected messageService: MessageRelayService;
+
+  protected configRepository: ConfigRepository;
 
   protected logger = getLogger(this.constructor.name);
 
   constructor(
-    forumChannelId: string,
     threadService: ThreadService,
-    messageService: MessageRelayService
+    messageService: MessageRelayService,
+    configRepository: ConfigRepository
   ) {
     super();
 
-    this.forumChannelId = forumChannelId;
     this.threadService = threadService;
     this.messageService = messageService;
+    this.configRepository = configRepository;
   }
 
   async handler(msg: Message, args: string[]): Promise<void> {
     if (!msg.inGuild()) {
+      return;
+    }
+
+    const config = await this.configRepository.getConfig(msg.guildId);
+
+    if (!config.forumChannelId) {
+      await msg.channel.send(
+        "Not configured yet! Please set up the modmail forum channel first."
+      );
+
       return;
     }
 
@@ -56,7 +72,7 @@ export class LogsCommand extends TextCommandHandler {
     }
 
     // Check if the message is in a modmail thread
-    if (msg.channel.parentId !== this.forumChannelId) {
+    if (msg.channel.parentId !== config.forumChannelId) {
       return;
     }
 

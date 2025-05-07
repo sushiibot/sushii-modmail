@@ -42,31 +42,36 @@ function buildCommandRouter(
   const threadService = new ThreadService(
     config,
     client,
-    threadRepository,
-    runtimeConfigRepository
+    runtimeConfigRepository,
+    threadRepository
   );
   const messageService = new MessageRelayService(
     config,
     client,
+    runtimeConfigRepository,
     messageRepository
   );
   const snippetService = new SnippetService(config, client, snippetRepository);
 
   // Commands
-  const router = new CommandRouter(config);
+  const router = new CommandRouter(runtimeConfigRepository);
 
   router.addCommands(
     // Reply commands
-    new ReplyCommand(config.forumChannelId, threadService, messageService),
+    new ReplyCommand(threadService, messageService, runtimeConfigRepository),
     new AnonymousReplyCommand(
-      config.forumChannelId,
       threadService,
-      messageService
+      messageService,
+      runtimeConfigRepository
     ),
-    new PlainReplyCommand(config.forumChannelId, threadService, messageService),
+    new PlainReplyCommand(
+      threadService,
+      messageService,
+      runtimeConfigRepository
+    ),
 
     // Thread message commands
-    new EditCommand(config.forumChannelId, threadService, messageService),
+    new EditCommand(threadService, messageService, runtimeConfigRepository),
     new DeleteCommand(threadService, messageService),
 
     // Snippets
@@ -76,8 +81,8 @@ function buildCommandRouter(
     new ListSnippetsCommand(snippetService),
 
     // Other
-    new CloseCommand(config.forumChannelId, threadService),
-    new LogsCommand(config.forumChannelId, threadService, messageService),
+    new CloseCommand(threadService, runtimeConfigRepository),
+    new LogsCommand(threadService, messageService, runtimeConfigRepository),
     new ContactCommand(threadService, messageService)
   );
 

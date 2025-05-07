@@ -2,20 +2,30 @@ import type { Message } from "discord.js";
 import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import { getLogger } from "utils/logger";
+import type { RuntimeConfig } from "models/runtimeConfig.model";
+
+interface ConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
+}
 
 export class CloseCommand extends TextCommandHandler {
   commandName = "close";
   subCommandName = null;
   aliases = ["c"];
 
-  private forumChannelId: string;
   private threadService: ThreadService;
+  private configRepository: ConfigRepository;
+
   private logger = getLogger("CloseCommand");
 
-  constructor(forumChannelId: string, threadService: ThreadService) {
+  constructor(
+    threadService: ThreadService,
+    configRepository: ConfigRepository
+  ) {
     super();
-    this.forumChannelId = forumChannelId;
+
     this.threadService = threadService;
+    this.configRepository = configRepository;
   }
 
   async handler(msg: Message, args: string[]): Promise<void> {
@@ -23,10 +33,20 @@ export class CloseCommand extends TextCommandHandler {
       return;
     }
 
+    const config = await this.configRepository.getConfig(msg.guildId);
+
+    if (!config.forumChannelId) {
+      await msg.channel.send(
+        "Not configured yet! Please set up the modmail forum channel first."
+      );
+
+      return;
+    }
+
     // Check if the message is in a modmail thread
     if (
       !msg.channel.isThread() ||
-      msg.channel.parentId !== this.forumChannelId
+      msg.channel.parentId !== config.forumChannelId
     ) {
       await msg.channel.send(
         "This command can only be used in a modmail thread channel."

@@ -7,12 +7,8 @@ import type {
   UserThreadViewUser,
 } from "views/UserThreadView";
 import { StaffThreadView } from "views/StaffThreadView";
-
-interface Config {
-  prefix: string;
-  forumChannelId: string;
-  anonymousSnippets: boolean;
-}
+import type { StaffToUserMessage } from "../models/relayMessage";
+import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 export interface Thread {
   userId: string;
@@ -34,54 +30,64 @@ export interface ThreadService {
   getThreadByChannelId(channelId: string): Promise<Thread | null>;
 }
 
-import type { StaffToUserMessage } from "../models/relayMessage";
-
 export interface MessageRelayService {
   relayStaffMessageToUser(
+    threadId: string,
     userId: string,
     guild: UserThreadViewGuild,
     msg: StaffToUserMessage,
     options?: StaffMessageOptions
-  ): Promise<{ msgId: string; dmChannelId: string }>;
+  ): Promise<void>;
+}
+
+interface ConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
 }
 
 export class SnippetController {
-  private config: Config;
-
   private snippetService: SnippetService;
   private threadService: ThreadService;
   private messageService: MessageRelayService;
 
+  private configRepository: ConfigRepository;
+
   private logger: Logger = getLogger(this.constructor.name);
 
   constructor(
-    config: Config,
     snippetService: SnippetService,
     threadService: ThreadService,
-    messageService: MessageRelayService
+    messageService: MessageRelayService,
+    configRepository: ConfigRepository
   ) {
-    this.config = config;
     this.snippetService = snippetService;
     this.threadService = threadService;
     this.messageService = messageService;
+    this.configRepository = configRepository;
   }
 
   async handleThreadMessage(client: Client, message: Message): Promise<void> {
     try {
+      if (!message.inGuild()) {
+        return;
+      }
+
       if (!message.channel.isThread()) {
         return;
       }
 
+      const config = await this.configRepository.getConfig(message.guildId);
+
+      if (!config.forumChannelId) {
+        return;
+      }
+
       // Check if this is the modmail channel
-      if (message.channel.parentId !== this.config.forumChannelId) {
+      if (message.channel.parentId !== config.forumChannelId) {
         return;
       }
 
       // Skip if not starting with the snippet prefix '-'
-      if (
-        !message.content.startsWith(this.config.prefix) ||
-        message.author.bot
-      ) {
+      if (!message.content.startsWith(config.prefix) || message.author.bot) {
         return;
       }
 
@@ -125,7 +131,7 @@ export class SnippetController {
 
       // Relay the snippet content to the user
       const options: StaffMessageOptions = {
-        anonymous: this.config.anonymousSnippets,
+        anonymous: config.anonymousSnippets,
         plainText: message.content.includes("-p"),
         snippet: true,
       };
@@ -143,6 +149,7 @@ export class SnippetController {
       message.content = snippet.content;
 
       await this.messageService.relayStaffMessageToUser(
+        message.channelId,
         thread.userId,
         guild,
         {

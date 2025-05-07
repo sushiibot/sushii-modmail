@@ -31,21 +31,39 @@ describe("MessageRelayService", () => {
   let client: Client;
   let service: MessageRelayService;
   let config: BotConfig;
+  let configRepository: any;
   let messageRepository: any;
   const guildId = "123456789";
 
   beforeEach(() => {
     client = new Client({ intents: [] });
+
+    configRepository = {
+      getConfig: mock().mockResolvedValue({
+        guildId,
+        forumChannelId: randomSnowflakeID(),
+        openTagId: randomSnowflakeID(),
+        initialMessage: "Welcome to modmail!",
+      }),
+    } as unknown as {
+      getConfig: () => Promise<BotConfig>;
+    };
+
     messageRepository = {
       saveMessage: mock().mockResolvedValue({}),
       getByThreadMessageId: mock().mockResolvedValue(null),
       getByUserDMMessageId: mock().mockResolvedValue(null),
     };
+
     config = {
-      initialMessage: "Welcome to modmail!",
       guildId,
     } as unknown as BotConfig;
-    service = new MessageRelayService(config, client, messageRepository);
+    service = new MessageRelayService(
+      config,
+      client,
+      configRepository,
+      messageRepository
+    );
   });
 
   describe("relayUserMessageToStaff", () => {
@@ -313,7 +331,7 @@ describe("MessageRelayService", () => {
       expect(client.users.fetch).toHaveBeenCalledWith(userId);
       expect(client.guilds.cache.get).toHaveBeenCalledWith(guildId);
 
-      expect(UserThreadView.initialMessage).toHaveBeenCalledWith(
+      expect(UserThreadView.initialMessage).lastCalledWith(
         guild,
         initialMessage
       );

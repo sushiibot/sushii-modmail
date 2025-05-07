@@ -23,41 +23,29 @@ export class BotConfig {
   public readonly discordClientId: string;
 
   public readonly mailGuildId: string;
-  public readonly forumChannelId: string;
-  public readonly logsChannelId: string;
-  public readonly requiredRoleId: string;
-
   public readonly databaseUri: string;
 
+  // public readonly forumChannelId: string;
+  // public readonly logsChannelId: string;
+  // public readonly requiredRoleId: string;
+
   // Runtime configuration
-  public readonly prefix: string;
-  public readonly initialMessage: string;
-  public readonly anonymousSnippets: boolean;
+  // public readonly prefix: string;
+  // public readonly initialMessage: string;
+  // public readonly anonymousSnippets: boolean;
 
   constructor(
     logLevel: string,
     discordToken: string,
     discordClientId: string,
-    mailGuildId: string,
-    forumChannelId: string,
-    logsChannelId: string,
-    requiredRoleId: string,
     databaseUri: string,
-    prefix: string | undefined = "-",
-    initialMessage: string | undefined = defaultInitialMessage,
-    anonymousSnippets: boolean | undefined = false
+    mailGuildId: string
   ) {
     this.logLevel = logLevel;
     this.discordToken = discordToken;
     this.discordClientId = discordClientId;
-    this.mailGuildId = mailGuildId;
-    this.forumChannelId = forumChannelId;
-    this.logsChannelId = logsChannelId;
-    this.requiredRoleId = requiredRoleId;
     this.databaseUri = databaseUri;
-    this.prefix = prefix;
-    this.initialMessage = initialMessage;
-    this.anonymousSnippets = anonymousSnippets;
+    this.mailGuildId = mailGuildId;
   }
 
   /**
@@ -68,14 +56,8 @@ export class BotConfig {
       config.LOG_LEVEL,
       config.DISCORD_TOKEN,
       config.DISCORD_CLIENT_ID,
-      config.MAIL_GUILD_ID,
-      config.FORUM_CHANNEL_ID,
-      config.LOGS_CHANNEL_ID,
-      config.REQUIRED_ROLE_ID,
       config.DATABASE_URI,
-      config.PREFIX,
-      config.INITIAL_MESSAGE,
-      config.ANONYMOUS_SNIPPETS
+      config.MAIL_GUILD_ID
     );
   }
 

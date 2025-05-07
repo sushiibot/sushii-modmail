@@ -17,7 +17,6 @@ const OPEN_TAG_NAME = "Open";
 
 interface Config {
   guildId: string;
-  forumChannelId: string;
 }
 
 interface ThreadRepository {
@@ -33,7 +32,7 @@ interface ThreadRepository {
 }
 
 interface RuntimeConfigRepository {
-  getConfig(guildId: string): Promise<RuntimeConfig | null>;
+  getConfig(guildId: string): Promise<RuntimeConfig>;
   setOpenTagId(
     guildId: string,
     openTagId: string | null
@@ -44,21 +43,23 @@ export class ThreadService {
   private config: Config;
 
   private client: Client;
-  private threadRepository: ThreadRepository;
+
   private runtimeConfigRepository: RuntimeConfigRepository;
+  private threadRepository: ThreadRepository;
 
   private logger = getLogger("ThreadService");
 
   constructor(
     config: Config,
     client: Client,
-    threadRepository: ThreadRepository,
-    runtimeConfigRepository: RuntimeConfigRepository
+    runtimeConfigRepository: RuntimeConfigRepository,
+    threadRepository: ThreadRepository
   ) {
     this.config = config;
     this.client = client;
-    this.threadRepository = threadRepository;
+
     this.runtimeConfigRepository = runtimeConfigRepository;
+    this.threadRepository = threadRepository;
   }
 
   async getOpenTagId(): Promise<string | null> {
@@ -67,7 +68,7 @@ export class ThreadService {
     );
 
     // Check if there's an ID stored in the runtime config
-    if (runtimeConfig?.openTagId) {
+    if (runtimeConfig.openTagId) {
       return runtimeConfig.openTagId;
     }
 
@@ -75,15 +76,21 @@ export class ThreadService {
       `Did not find open tag ID in runtime config, checking existing tags`
     );
 
+    if (!runtimeConfig.forumChannelId) {
+      throw new Error(
+        `Not initialized yet: Forum channel ID not set in runtime config: ${this.config.guildId}`
+      );
+    }
+
     // If no ID is stored, check if there's already a tag named "Open" in the forum channel
     const forumChannel = await this.client.channels.fetch(
-      this.config.forumChannelId
+      runtimeConfig.forumChannelId
     );
 
     if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
       // Oop
       throw new Error(
-        `Invalid forum channel: ${this.config.forumChannelId} (${forumChannel?.type})`
+        `Invalid forum channel: ${runtimeConfig.forumChannelId} (${forumChannel?.type})`
       );
     }
 
@@ -201,19 +208,29 @@ export class ThreadService {
       throw new Error(`Guild not found: ${this.config.guildId}`);
     }
 
+    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
+      this.config.guildId
+    );
+
+    if (!runtimeConfig.forumChannelId) {
+      throw new Error(
+        `Not initialized yet: Forum channel ID not set in runtime config: ${this.config.guildId}`
+      );
+    }
+
     const modmailForumChannel = await this.client.channels.fetch(
-      this.config.forumChannelId
+      runtimeConfig.forumChannelId
     );
 
     if (!modmailForumChannel) {
       throw new Error(
-        `Modmail forum channel not found: ${this.config.forumChannelId}`
+        `Modmail forum channel not found: ${runtimeConfig.forumChannelId}`
       );
     }
 
     if (modmailForumChannel.type !== ChannelType.GuildForum) {
       throw new Error(
-        `Invalid modmail forum channel: ${this.config.forumChannelId}`
+        `Invalid modmail forum channel: ${runtimeConfig.forumChannelId}`
       );
     }
 

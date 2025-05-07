@@ -5,10 +5,7 @@ import {
   type PartialUser,
 } from "discord.js";
 import { getLogger } from "../utils/logger";
-
-interface Config {
-  forumChannelId: string;
-}
+import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 export interface StaffReactionRelayService {
   relayStaffReactionToUser(
@@ -21,15 +18,22 @@ export interface StaffReactionRelayService {
   ): Promise<void>;
 }
 
+interface ConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
+}
+
 export class StaffReactionController {
-  private config: Config;
   private reactionService: StaffReactionRelayService;
+  private configRepository: ConfigRepository;
 
   private logger = getLogger(this.constructor.name);
 
-  constructor(config: Config, reactionService: StaffReactionRelayService) {
-    this.config = config;
+  constructor(
+    reactionService: StaffReactionRelayService,
+    configRepository: ConfigRepository
+  ) {
     this.reactionService = reactionService;
+    this.configRepository = configRepository;
   }
 
   async handleStaffReactionAdd(
@@ -37,12 +41,24 @@ export class StaffReactionController {
     user: User | PartialUser
   ): Promise<void> {
     try {
+      if (!reaction.message.inGuild()) {
+        return;
+      }
+
       if (!reaction.message.channel.isThread()) {
         return;
       }
 
+      const config = await this.configRepository.getConfig(
+        reaction.message.guildId
+      );
+
+      if (!config.forumChannelId) {
+        return;
+      }
+
       // Ignore unrelated threads
-      if (reaction.message.channel.parentId !== this.config.forumChannelId) {
+      if (reaction.message.channel.parentId !== config.forumChannelId) {
         return;
       }
 
@@ -60,12 +76,24 @@ export class StaffReactionController {
     user: User | PartialUser
   ): Promise<void> {
     try {
+      if (!reaction.message.inGuild()) {
+        return;
+      }
+
       if (!reaction.message.channel.isThread()) {
         return;
       }
 
+      const config = await this.configRepository.getConfig(
+        reaction.message.guildId
+      );
+
+      if (!config.forumChannelId) {
+        return;
+      }
+
       // Ignore unrelated threads
-      if (reaction.message.channel.parentId !== this.config.forumChannelId) {
+      if (reaction.message.channel.parentId !== config.forumChannelId) {
         return;
       }
 

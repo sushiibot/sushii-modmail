@@ -33,13 +33,14 @@ export function registerEventHandlers(
   const threadService = new ThreadService(
     config,
     client,
-    threadRepository,
-    runtimeConfigRepository
+    runtimeConfigRepository,
+    threadRepository
   );
   const snippetService = new SnippetService(config, client, snippetRepository);
   const messageService = new MessageRelayService(
     config,
     client,
+    runtimeConfigRepository,
     messageRepository
   );
   const reactionService = new ReactionRelayService(
@@ -47,7 +48,11 @@ export function registerEventHandlers(
     client,
     messageRepository
   );
-  const logService = new DiscordLogService(config, client);
+  const logService = new DiscordLogService(
+    client,
+    runtimeConfigRepository,
+    config.guildId
+  );
 
   const dmController = new DMController(
     threadService,
@@ -60,14 +65,14 @@ export function registerEventHandlers(
     logService
   );
   const staffReactionController = new StaffReactionController(
-    config,
-    reactionService
+    reactionService,
+    runtimeConfigRepository
   );
   const snippetController = new SnippetController(
-    config,
     snippetService,
     threadService,
-    messageService
+    messageService,
+    runtimeConfigRepository
   );
 
   client.once(Events.ClientReady, () => {

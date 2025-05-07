@@ -132,7 +132,23 @@ export const runtimeConfig = sqliteTable(
   "config",
   {
     guildId: text().notNull().primaryKey(),
+
+    // Internal config -- not user facing
     openTagId: text(),
+
+    // Base
+    prefix: text(),
+
+    // Channel IDs
+    forumChannelId: text(),
+    logsChannelId: text(),
+
+    // Permission requirement - JSON array of role IDs
+    requiredRoleIds: text().notNull().default("[]"),
+
+    // Threads
+    initialMessage: text(),
+    anonymousSnippets: integer({ mode: "boolean" }).notNull().default(true),
   },
   (table) => [
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),

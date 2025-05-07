@@ -28,9 +28,9 @@ import {
   extractComponentImages,
   extractImageURLsFromComponents,
 } from "views/util";
+import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 interface Config {
-  initialMessage: string;
   guildId: string;
 }
 
@@ -68,6 +68,10 @@ type DeleteStaffMessageResult =
       message: string;
     };
 
+interface ConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
+}
+
 interface MessageRepository {
   saveMessage(msg: NewMessage): Promise<Message>;
   deleteMessage(messageId: string): Promise<void>;
@@ -79,6 +83,7 @@ export class MessageRelayService {
   private config: Config;
   private client: Client;
 
+  private configRepository: ConfigRepository;
   private messageRepository: MessageRepository;
 
   private logger = getLogger("MessageRelayService");
@@ -86,10 +91,13 @@ export class MessageRelayService {
   constructor(
     config: Config,
     client: Client,
+    configRepository: ConfigRepository,
     messageRepository: MessageRepository
   ) {
     this.config = config;
     this.client = client;
+
+    this.configRepository = configRepository;
     this.messageRepository = messageRepository;
   }
 
@@ -593,18 +601,18 @@ export class MessageRelayService {
       throw new Error(`Guild not found: ${this.config.guildId}`);
     }
 
-    const initialMessageContent = this.config.initialMessage;
+    const guildConfig = await this.configRepository.getConfig(guild.id);
 
     // Generate initial message
     const initialMessage = UserThreadView.initialMessage(
       guild,
-      initialMessageContent
+      guildConfig.initialMessage
     );
 
     // Send to user
     await user.send(initialMessage);
 
-    return initialMessageContent;
+    return guildConfig.initialMessage;
   }
 
   async sendInitialMessageToStaff(

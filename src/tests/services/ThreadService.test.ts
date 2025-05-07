@@ -50,7 +50,6 @@ describe("ThreadService", () => {
   beforeEach(() => {
     config = {
       guildId: randomSnowflakeID(),
-      forumChannelId: randomSnowflakeID(),
     } as unknown as BotConfig;
 
     client = {
@@ -77,8 +76,8 @@ describe("ThreadService", () => {
     threadService = new ThreadService(
       config,
       client,
-      mockThreadRepository,
-      mockRuntimeConfigRepository
+      mockRuntimeConfigRepository,
+      mockThreadRepository
     );
   });
 
@@ -86,6 +85,7 @@ describe("ThreadService", () => {
     it("should return the open tag ID from runtime config", async () => {
       const runtimeConfig = {
         openTagId: "openTagId123",
+        forumChannelId: randomSnowflakeID(),
       } as RuntimeConfig;
 
       mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
@@ -98,8 +98,27 @@ describe("ThreadService", () => {
       );
     });
 
-    it("should return null if runtime config is not found", async () => {
-      mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
+    it("should throw if forumChannelId is not set in runtime config", async () => {
+      const runtimeConfig = {
+        openTagId: null,
+        forumChannelId: null,
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
+
+      await expect(threadService.getOpenTagId()).rejects.toThrow(
+        `Not initialized yet: Forum channel ID not set in runtime config: ${config.guildId}`
+      );
+    });
+
+    it("should return null if no open tag and no tag found in forum channel", async () => {
+      const forumChannelId = randomSnowflakeID();
+      const runtimeConfig = {
+        openTagId: null,
+        forumChannelId,
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
 
       // Mock forum channel fetch
       const mockForumChannel = {
@@ -115,12 +134,18 @@ describe("ThreadService", () => {
       expect(mockRuntimeConfigRepository.getConfig).toHaveBeenCalledWith(
         config.guildId
       );
-      expect(client.channels.fetch).toHaveBeenCalledWith(config.forumChannelId);
+      expect(client.channels.fetch).toHaveBeenCalledWith(forumChannelId);
     });
 
     it("should find and return existing Open tag ID from forum channel", async () => {
+      const forumChannelId = randomSnowflakeID();
       const existingTagId = randomSnowflakeID();
-      mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
+      const runtimeConfig = {
+        openTagId: null,
+        forumChannelId,
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
 
       // Mock forum channel fetch with existing Open tag
       const mockForumChannel = {
@@ -136,7 +161,7 @@ describe("ThreadService", () => {
       const result = await threadService.getOpenTagId();
 
       expect(result).toBe(existingTagId);
-      expect(client.channels.fetch).toHaveBeenCalledWith(config.forumChannelId);
+      expect(client.channels.fetch).toHaveBeenCalledWith(forumChannelId);
       expect(mockRuntimeConfigRepository.setOpenTagId).toHaveBeenCalledWith(
         config.guildId,
         existingTagId
@@ -144,7 +169,13 @@ describe("ThreadService", () => {
     });
 
     it("should handle invalid forum channel", async () => {
-      mockRuntimeConfigRepository.getConfig.mockResolvedValue(null);
+      const forumChannelId = randomSnowflakeID();
+      const runtimeConfig = {
+        openTagId: null,
+        forumChannelId,
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
 
       // Mock invalid channel type
       const invalidChannel = {
@@ -153,8 +184,8 @@ describe("ThreadService", () => {
 
       spyOn(client.channels, "fetch").mockResolvedValue(invalidChannel);
 
-      expect(threadService.getOpenTagId()).rejects.toThrow(
-        `Invalid forum channel: ${config.forumChannelId} (${ChannelType.GuildText})`
+      await expect(threadService.getOpenTagId()).rejects.toThrow(
+        `Invalid forum channel: ${forumChannelId} (${ChannelType.GuildText})`
       );
     });
   });
@@ -247,15 +278,17 @@ describe("ThreadService", () => {
     it("should throw an error if modmail forum channel is not found", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
+      const forumChannelId = randomSnowflakeID();
 
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
       spyOn(client.channels, "fetch").mockResolvedValue(null);
 
-      expect(
+      await expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(
-        `Modmail forum channel not found: ${config.forumChannelId}`
-      );
+      ).rejects.toThrow(`Modmail forum channel not found: ${forumChannelId}`);
     });
 
     it("should throw an error if guild is not found", async () => {
@@ -264,7 +297,7 @@ describe("ThreadService", () => {
 
       spyOn(client.guilds.cache, "get").mockReturnValue(undefined);
 
-      expect(
+      await expect(
         threadService["createNewThread"](userId, username)
       ).rejects.toThrow(`Guild not found: ${config.guildId}`);
     });
@@ -272,22 +305,25 @@ describe("ThreadService", () => {
     it("should throw an error if modmail forum channel is not a GuildForum", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
+      const forumChannelId = randomSnowflakeID();
       const invalidChannel = { type: ChannelType.GuildText } as TextChannel;
 
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
       spyOn(client.channels, "fetch").mockResolvedValue(invalidChannel);
 
-      expect(
+      await expect(
         threadService["createNewThread"](userId, username)
-      ).rejects.toThrow(
-        `Invalid modmail forum channel: ${config.forumChannelId}`
-      );
+      ).rejects.toThrow(`Invalid modmail forum channel: ${forumChannelId}`);
     });
 
     it("should create a new thread and return it", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
       const openTagId = randomSnowflakeID();
+      const forumChannelId = randomSnowflakeID();
 
       const modmailForumChannel = {
         type: ChannelType.GuildForum,
@@ -304,6 +340,9 @@ describe("ThreadService", () => {
       } as unknown as User;
 
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
       spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
       spyOn(threadService, "getOpenTagId").mockResolvedValue(openTagId);
@@ -344,6 +383,7 @@ describe("ThreadService", () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
       const newOpenTagId = randomSnowflakeID();
+      const forumChannelId = randomSnowflakeID();
 
       const modmailForumChannel = {
         type: ChannelType.GuildForum,
@@ -360,6 +400,9 @@ describe("ThreadService", () => {
       } as unknown as User;
 
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
       spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
       spyOn(threadService, "getOpenTagId").mockResolvedValue(null);
@@ -400,7 +443,7 @@ describe("ThreadService", () => {
       const thread = { channelId: "channelId" } as Thread;
       spyOn(client.channels, "fetch").mockResolvedValue(null);
 
-      expect(threadService.closeThread(thread, "userId")).rejects.toThrow(
+      await expect(threadService.closeThread(thread, "userId")).rejects.toThrow(
         `Thread channel not found: ${thread.channelId}`
       );
     });
@@ -410,7 +453,7 @@ describe("ThreadService", () => {
       const invalidChannel = { isThread: () => false } as ForumChannel;
       spyOn(client.channels, "fetch").mockResolvedValue(invalidChannel);
 
-      expect(threadService.closeThread(thread, "userId")).rejects.toThrow(
+      await expect(threadService.closeThread(thread, "userId")).rejects.toThrow(
         `Not thread: ${thread.channelId}`
       );
     });

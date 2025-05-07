@@ -1,23 +1,32 @@
 import { Client, Colors, EmbedBuilder } from "discord.js";
 import { getLogger } from "../utils/logger";
 import type { Logger } from "pino";
-
-export interface LogConfig {
-  logsChannelId: string;
-}
+import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 export interface LogService {
   logError(error: Error | any, context: string, source: string): Promise<void>;
 }
 
+interface ConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
+}
+
 export class DiscordLogService implements LogService {
-  private config: LogConfig;
   private client: Client;
+  private configRepository: ConfigRepository;
+  private guildId: string;
+
   private logger: Logger;
 
-  constructor(config: LogConfig, client: Client) {
-    this.config = config;
+  constructor(
+    client: Client,
+    configRepository: ConfigRepository,
+    guildId: string
+  ) {
     this.client = client;
+    this.configRepository = configRepository;
+    this.guildId = guildId;
+
     this.logger = getLogger("LogService");
   }
 
@@ -35,8 +44,8 @@ export class DiscordLogService implements LogService {
     // Always log to console first
     this.logger.error(error, `[${source}] ${context}`);
 
-    // Skip Discord logging if no logs channel is configured
-    if (!this.config.logsChannelId) {
+    const config = await this.configRepository.getConfig(this.guildId);
+    if (!config.logsChannelId) {
       this.logger.warn(
         "No logs channel configured, skipping Discord error log"
       );
@@ -44,12 +53,10 @@ export class DiscordLogService implements LogService {
     }
 
     try {
-      const channel = await this.client.channels.fetch(
-        this.config.logsChannelId
-      );
+      const channel = await this.client.channels.fetch(config.logsChannelId);
 
       if (!channel || !channel.isSendable()) {
-        this.logger.warn(`Invalid logs channel: ${this.config.logsChannelId}`);
+        this.logger.warn(`Invalid logs channel: ${config.logsChannelId}`);
 
         return;
       }

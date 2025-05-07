@@ -2,11 +2,7 @@ import { Message, PermissionsBitField } from "discord.js";
 import type TextCommandHandler from "./commands/CommandHandler";
 import parentLogger from "./utils/logger";
 import type { Logger } from "pino";
-
-interface Config {
-  prefix: string;
-  requiredRoleId: string;
-}
+import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 interface CommandEntry {
   handler: TextCommandHandler | null;
@@ -15,13 +11,22 @@ interface CommandEntry {
   subcommands: Map<string, TextCommandHandler>;
 }
 
+interface RuntimeConfigRepository {
+  getConfig(guildId: string): Promise<RuntimeConfig>;
+}
+
 export default class CommandRouter {
-  config: Config;
   commands: Map<string, CommandEntry>;
   logger: Logger;
 
-  constructor(config: Config, commands?: TextCommandHandler[]) {
-    this.config = config;
+  private runtimeConfigRepository: RuntimeConfigRepository;
+
+  constructor(
+    runtimeConfigRepository: RuntimeConfigRepository,
+    commands?: TextCommandHandler[]
+  ) {
+    this.runtimeConfigRepository = runtimeConfigRepository;
+
     this.commands = new Map();
     this.logger = parentLogger.child({ module: "CommandRouter" });
 
@@ -103,11 +108,13 @@ export default class CommandRouter {
     return commandNames;
   }
 
-  async getPrefix(msg: Message): Promise<string> {
-    return this.config.prefix;
+  async getPrefix(msg: Message<true>): Promise<string> {
+    const config = await this.runtimeConfigRepository.getConfig(msg.guildId);
+
+    return config.prefix;
   }
 
-  async isCommand(msg: Message): Promise<boolean> {
+  async isCommand(msg: Message<true>): Promise<boolean> {
     const prefix = await this.getPrefix(msg);
     return msg.content.startsWith(prefix);
   }
@@ -159,7 +166,11 @@ export default class CommandRouter {
       return;
     }
 
-    if (!this.config.requiredRoleId) {
+    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
+      msg.guildId
+    );
+
+    if (runtimeConfig.requiredRoleIds.length === 0) {
       // Default requirement is Moderate Members permission
       const hasPermission = msg.member.permissions.has(
         PermissionsBitField.Flags.ModerateMembers
@@ -170,16 +181,27 @@ export default class CommandRouter {
       }
     }
 
-    // Check if user has required role
-    if (!msg.member.roles.cache.has(this.config.requiredRoleId)) {
+    // Check if user has ANY of the required roles
+    let hasPermission = false;
+
+    for (const roleId of runtimeConfig.requiredRoleIds) {
+      if (msg.member.roles.cache.has(roleId)) {
+        hasPermission = true;
+        break;
+      }
+    }
+
+    if (!hasPermission) {
       this.logger.debug(
         {
           userId: msg.author.id,
           guildId: msg.guildId,
-          requiredRoleId: this.config.requiredRoleId,
+          memberRoleIds: msg.member.roles.cache.map((r) => r.id),
+          requiredRoleId: runtimeConfig.requiredRoleIds,
         },
         `User does not have required role to use commands`
       );
+
       return;
     }
 
