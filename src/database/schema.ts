@@ -63,6 +63,9 @@ export const messages = sqliteTable(
     isAnonymous: integer({ mode: "boolean" }).default(false),
     isPlainText: integer({ mode: "boolean" }).default(false),
     isSnippet: integer({ mode: "boolean" }).default(false),
+
+    // State
+    isDeleted: integer({ mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     // IDs

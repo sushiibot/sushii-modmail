@@ -61,8 +61,16 @@ export interface MessageRelayServiceMessage {
   attachments: Collection<Snowflake, Attachment>;
 }
 
+type DeleteStaffMessageResult =
+  | { ok: true }
+  | {
+      ok: false;
+      message: string;
+    };
+
 interface MessageRepository {
   saveMessage(msg: NewMessage): Promise<Message>;
+  deleteMessage(messageId: string): Promise<void>;
   getByThreadMessageId(messageId: string): Promise<Message | null>;
   getByUserDMMessageId(dmMessageId: string): Promise<Message | null>;
 }
@@ -273,7 +281,8 @@ export class MessageRelayService {
     });
 
     // Extract the attachment URLs from the message
-    const { attachmentURLs, stickers } = extractComponentImages(threadStaffMsg);
+    const { attachmentUrls: attachmentURLs, stickers } =
+      extractComponentImages(threadStaffMsg);
 
     this.logger.debug(
       { attachmentURLs, stickers },
@@ -384,19 +393,12 @@ export class MessageRelayService {
       staffViewMessageId
     );
 
-    const { attachmentURLs, stickers } =
+    const { attachmentUrls, stickers } =
       extractComponentImages(originalMessage);
-    const attachments: RelayAttachment[] = attachmentURLs.map((url) => {
-      return {
-        id: "id",
-        name: "name",
-        url: url,
-      };
-    });
 
     this.logger.debug(
       {
-        attachmentURLs,
+        attachmentUrls,
         stickers,
         originalStaffMessage: originalMessage,
         messageData,
@@ -414,7 +416,7 @@ export class MessageRelayService {
         // message
         id: messageData.messageId,
         content: msg.content,
-        attachments: attachmentURLs,
+        attachments: attachmentUrls,
         stickers: stickers,
         forwarded: msg.forwarded,
       },
@@ -443,7 +445,7 @@ export class MessageRelayService {
       {
         ...msg,
         // Update the attachments and stickers from msg URLs
-        attachments: attachments,
+        attachments: attachmentUrls,
         stickers: stickers,
       },
       {
@@ -472,7 +474,7 @@ export class MessageRelayService {
     recipientUserId: string,
     staffViewMessageId: string,
     deletedById: string
-  ): Promise<boolean> {
+  ): Promise<DeleteStaffMessageResult> {
     // -------------------------------------------------------------------------
     // DATA REQUIREMENTS
 
@@ -493,7 +495,18 @@ export class MessageRelayService {
         "Cannot delete relayed staff message: is a user message"
       );
 
-      return false;
+      return {
+        ok: false,
+        message:
+          "You can only delete staff messages. Make sure to reply to the bot message you want to delete.",
+      };
+    }
+
+    if (messageData.isDeleted) {
+      return {
+        ok: false,
+        message: "Message is already deleted",
+      };
     }
 
     this.logger.debug(messageData, "Deleting relayed staff message");
@@ -521,6 +534,16 @@ export class MessageRelayService {
       throw new Error(`Not thread: ${messageData.threadId}`);
     }
 
+    const originalMessage = await threadChannel.messages.fetch(
+      messageData.messageId
+    );
+    if (!originalMessage) {
+      throw new Error(`Message not found: ${messageData.messageId}`);
+    }
+
+    const { attachmentUrls: attachmentURLs, stickers } =
+      extractComponentImages(originalMessage);
+
     // Re-build staff message
     const staffUser = await this.client.users.fetch(messageData.authorId);
     const components = StaffThreadView.staffReplyComponents(
@@ -528,10 +551,8 @@ export class MessageRelayService {
         author: staffUser,
         id: messageData.messageId,
         content: messageData.content,
-        // TODO: What to do when deleted? doesn't really make sense to store them
-        // just for deleted messages
-        attachments: [],
-        stickers: [],
+        attachments: attachmentURLs,
+        stickers: stickers,
         forwarded: messageData.forwarded,
       },
       {
@@ -549,7 +570,11 @@ export class MessageRelayService {
       components,
     });
 
-    return true;
+    await this.messageRepository.deleteMessage(messageData.messageId);
+
+    return {
+      ok: true,
+    };
   }
 
   /**

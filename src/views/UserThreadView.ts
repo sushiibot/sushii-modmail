@@ -14,7 +14,11 @@ import {
   type StaffMessageOptions,
 } from "services/MessageRelayService";
 import { Color, HexColor } from "./Color";
-import type { StaffToUserMessage } from "../model/relayMessage";
+import type {
+  StaffRelayMessage,
+  StaffToUserMessage,
+  StaffToUserMessageEdit,
+} from "../model/relayMessage";
 
 export interface UserThreadViewGuild {
   name: string;
@@ -50,7 +54,7 @@ export class UserThreadView {
 
   static async staffMessage(
     guild: UserThreadViewGuild,
-    msg: StaffToUserMessage,
+    msg: StaffRelayMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<MessageCreateOptions> {
     if (options.plainText) {
@@ -68,7 +72,13 @@ export class UserThreadView {
       if (msg.attachments.length > 0) {
         content += "\n#### Attachments\n";
         content += msg.attachments
-          .map((attachment) => `[${attachment.name}](${attachment.url})`)
+          .map((attachment) => {
+            if (typeof attachment === "string") {
+              return attachment;
+            }
+
+            return `[${attachment.name}](${attachment.url})`;
+          })
           .join("\n");
       }
 
@@ -104,9 +114,13 @@ export class UserThreadView {
 
     if (msg.attachments.length > 0) {
       container.addSeparatorComponents(new SeparatorBuilder());
-      const attachmentItems = msg.attachments.map((attachment) =>
-        new MediaGalleryItemBuilder().setURL(attachment.url)
-      );
+      const attachmentItems = msg.attachments.map((attachment) => {
+        if (typeof attachment === "string") {
+          return new MediaGalleryItemBuilder().setURL(attachment);
+        }
+
+        return new MediaGalleryItemBuilder().setURL(attachment.url);
+      });
       const attachmentText = new MediaGalleryBuilder().addItems(
         attachmentItems
       );

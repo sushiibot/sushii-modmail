@@ -20,7 +20,10 @@ import {
 import { formatUserIdentity } from "./user";
 import { Color, HexColor } from "./Color";
 import { downloadAttachments } from "./util";
-import type { UserToStaffMessage, RelayMessage } from "../model/relayMessage";
+import type {
+  UserToStaffMessage,
+  StaffRelayMessage,
+} from "../model/relayMessage";
 
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
@@ -161,7 +164,7 @@ export class StaffThreadView {
   }
 
   static staffReplyComponents(
-    msg: RelayMessage,
+    msg: StaffRelayMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions,
     displayOptions: {
       editedById?: string;

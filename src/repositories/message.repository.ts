@@ -53,6 +53,20 @@ export class MessageRepository {
     return Message.fromDatabaseRow(inserted[0]);
   }
 
+  async deleteMessage(messageId: string): Promise<void> {
+    this.logger.debug({ messageId }, "Marking message as deleted");
+
+    // Doesn't actually delete, just marks it as deleted since we still want to
+    // track it
+    await this.db
+      .update(messages)
+      .set({
+        isDeleted: true,
+      })
+      .where(eq(messages.messageId, messageId))
+      .execute();
+  }
+
   /**
    * Get a message by the message ID of a bot message in a staff thread.
    * E.g. From the bot's message in a modmail thread:

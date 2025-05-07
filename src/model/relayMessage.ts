@@ -36,7 +36,7 @@ export interface StaffToUserMessage {
 }
 
 // For edits (can be further split if needed)
-export interface RelayMessageEdit {
+export interface StaffToUserMessageEdit {
   id: string;
   author: RelayUser;
   content: string;
@@ -45,8 +45,4 @@ export interface RelayMessageEdit {
   forwarded?: boolean;
 }
 
-// Union type for relayed messages
-export type RelayMessage =
-  | UserToStaffMessage
-  | StaffToUserMessage
-  | RelayMessageEdit;
+export type StaffRelayMessage = StaffToUserMessage | StaffToUserMessageEdit;

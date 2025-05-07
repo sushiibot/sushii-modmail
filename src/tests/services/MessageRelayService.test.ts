@@ -25,6 +25,7 @@ import type {
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
 import type { BotConfig } from "models/botConfig.model";
+import * as util from "views/util";
 
 describe("MessageRelayService", () => {
   let client: Client;
@@ -254,10 +255,9 @@ describe("MessageRelayService", () => {
       // Mock StaffThreadView.staffReplyComponents
       spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
       // Mock downloadAttachments and extractComponentImages utilities
-      const util = await import("views/util");
       spyOn(util, "downloadAttachments").mockResolvedValue([]);
       spyOn(util, "extractComponentImages").mockReturnValue({
-        attachmentURLs: [],
+        attachmentUrls: [],
         stickers: [],
       });
 

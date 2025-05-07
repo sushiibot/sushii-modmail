@@ -63,6 +63,7 @@ export class StaffMessage extends BaseMessage {
   public readonly isSnippet: boolean;
   // Override the content type to be non-null
   public readonly content: string;
+  public readonly isDeleted: boolean;
 
   constructor(
     threadId: string,
@@ -74,7 +75,9 @@ export class StaffMessage extends BaseMessage {
     attachmentUrls: string[],
     stickers: MessageSticker[],
     // Options
-    options: StaffMessageOptions
+    options: StaffMessageOptions,
+    // State
+    isDeleted: boolean
   ) {
     super(
       threadId,
@@ -94,6 +97,8 @@ export class StaffMessage extends BaseMessage {
     this.isAnonymous = options.isAnonymous;
     this.isPlainText = options.isPlainText;
     this.isSnippet = options.isSnippet;
+
+    this.isDeleted = isDeleted;
   }
 
   get staffRelayedMessageId(): string {
@@ -192,7 +197,8 @@ export const Message = {
           isAnonymous: row.isAnonymous,
           isPlainText: row.isPlainText,
           isSnippet: row.isSnippet,
-        }
+        },
+        row.isDeleted
       );
     } else {
       if (row.userDmMessageId === null) {

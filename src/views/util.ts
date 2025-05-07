@@ -101,14 +101,14 @@ export function applyStickerToEmbed(
 }
 
 export function extractComponentImages(msg: Message): {
-  attachmentURLs: string[];
+  attachmentUrls: string[];
   stickers: MessageSticker[];
 } {
   const attachmentURLs = extractImageURLsFromComponents(msg);
   const stickerURLs = extractStickersFromComponents(msg);
 
   return {
-    attachmentURLs: attachmentURLs,
+    attachmentUrls: attachmentURLs,
     stickers: stickerURLs,
   };
 }

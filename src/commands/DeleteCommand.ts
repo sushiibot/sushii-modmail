@@ -75,17 +75,14 @@ export class DeleteCommand extends TextCommandHandler {
       }
 
       // Delete the message to the user
-      const success = await this.messageService.deleteStaffMessage(
+      const result = await this.messageService.deleteStaffMessage(
         thread.userId,
         repliedToMessage,
         msg.author.id
       );
 
-      if (!success) {
-        // Tried to delete user message
-        await msg.channel.send(
-          "You can only delete staff messages. Make sure to reply to the bot message you want to delete."
-        );
+      if (!result.ok) {
+        await msg.channel.send(result.message);
 
         return;
       }
