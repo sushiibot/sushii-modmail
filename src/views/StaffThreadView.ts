@@ -173,8 +173,8 @@ export class StaffThreadView {
   ): BaseMessageOptions["components"] {
     const container = new ContainerBuilder();
 
-    if (displayOptions.editedById || displayOptions.deletedById) {
-      container.setAccentColor(HexColor.Green);
+    if (displayOptions.deletedById) {
+      container.setAccentColor(HexColor.Gray);
     } else {
       container.setAccentColor(HexColor.Green);
     }
