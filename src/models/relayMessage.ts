@@ -1,4 +1,4 @@
-import type { MessageSticker } from "../models/message.model";
+import type { MessageSticker } from "./message.model";
 
 // User that's being relayed, either staff or user
 export interface RelayUser {

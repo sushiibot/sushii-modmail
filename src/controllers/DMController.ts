@@ -6,7 +6,7 @@ import {
   type PartialMessage,
 } from "discord.js";
 import { getLogger } from "../utils/logger";
-import type { UserToStaffMessage } from "../model/relayMessage";
+import type { UserToStaffMessage } from "../models/relayMessage";
 import type { LogService } from "../services/LogService";
 
 export interface MessageRelayService {

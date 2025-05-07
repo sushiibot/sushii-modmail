@@ -23,7 +23,7 @@ import { downloadAttachments } from "./util";
 import type {
   UserToStaffMessage,
   StaffRelayMessage,
-} from "../model/relayMessage";
+} from "../models/relayMessage";
 
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;

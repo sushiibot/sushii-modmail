@@ -34,7 +34,7 @@ export interface ThreadService {
   getThreadByChannelId(channelId: string): Promise<Thread | null>;
 }
 
-import type { StaffToUserMessage } from "../model/relayMessage";
+import type { StaffToUserMessage } from "../models/relayMessage";
 
 export interface MessageRelayService {
   relayStaffMessageToUser(

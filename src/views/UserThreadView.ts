@@ -18,7 +18,7 @@ import type {
   StaffRelayMessage,
   StaffToUserMessage,
   StaffToUserMessageEdit,
-} from "../model/relayMessage";
+} from "../models/relayMessage";
 
 export interface UserThreadViewGuild {
   name: string;

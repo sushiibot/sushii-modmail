@@ -20,7 +20,7 @@ import { StaffThreadView } from "views/StaffThreadView";
 import type {
   UserToStaffMessage,
   StaffToUserMessage,
-} from "../../model/relayMessage";
+} from "../../models/relayMessage";
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";

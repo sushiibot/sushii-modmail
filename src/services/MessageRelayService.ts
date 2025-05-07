@@ -17,7 +17,7 @@ import type {
   UserToStaffMessage,
   StaffToUserMessage,
   RelayAttachment,
-} from "../model/relayMessage";
+} from "../models/relayMessage";
 import {
   UserThreadView,
   type UserThreadViewGuild,
