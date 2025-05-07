@@ -4,7 +4,6 @@ import {
   ContainerBuilder,
   EmbedBuilder,
   MediaGalleryBuilder,
-  MediaGalleryItem,
   MediaGalleryItemBuilder,
   MessageFlags,
   SeparatorBuilder,
@@ -12,7 +11,6 @@ import {
   type BaseMessageOptions,
   type GuildForumThreadCreateOptions,
   type MessageCreateOptions,
-  type Snowflake,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
 import {
@@ -21,13 +19,8 @@ import {
 } from "services/MessageRelayService";
 import { formatUserIdentity } from "./user";
 import { Color, HexColor } from "./Color";
-import { fetch, file } from "bun";
-import {
-  applyStickerToEmbed,
-  createAttachmentListField,
-  downloadAttachments,
-} from "./util";
-import type { MessageSticker } from "models/message.model";
+import { downloadAttachments } from "./util";
+import type { UserToStaffMessage, RelayMessage } from "../model/relayMessage";
 
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
@@ -59,33 +52,6 @@ interface UserThreadInfo {
   mutualGuilds?: { id: string; name: string }[];
   previousThreads?: Thread[];
 }
-
-export interface RelayAttachment {
-  id: string;
-  name: string;
-  url: string;
-}
-
-export interface RelayMessageCreate {
-  id: string;
-  author: User;
-  content: string;
-  attachments: RelayAttachment[];
-  stickers: MessageSticker[];
-  forwarded?: boolean;
-}
-
-export interface RelayMessageEdit {
-  id: string;
-  author: User;
-  content: string;
-  // Array of URLs (media gallery attachments become URLs, not attachments)
-  attachments: string[];
-  stickers: MessageSticker[];
-  forwarded?: boolean;
-}
-
-export type RelayMessage = RelayMessageCreate | RelayMessageEdit;
 
 export class StaffThreadView {
   /**
@@ -338,7 +304,7 @@ export class StaffThreadView {
   }
 
   static async userReplyEditedMessage(
-    newUserMessage: RelayMessageCreate,
+    newUserMessage: UserToStaffMessage,
     previousMessageId?: string
   ): Promise<MessageCreateOptions> {
     // Edited messages just do the same thing as new messages but reply to the
@@ -374,7 +340,7 @@ export class StaffThreadView {
    * @returns
    */
   static userReplyComponents(
-    userMessage: RelayMessageCreate,
+    userMessage: UserToStaffMessage,
     attachments: AttachmentBuilder[],
     isEdited: boolean
   ): BaseMessageOptions["components"] {
@@ -464,7 +430,7 @@ export class StaffThreadView {
   }
 
   static async userReplyMessage(
-    userMessage: RelayMessageCreate
+    userMessage: UserToStaffMessage
   ): Promise<MessageCreateOptions> {
     const files = await downloadAttachments(userMessage.attachments);
 

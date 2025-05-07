@@ -12,11 +12,12 @@ import type { Message, MessageSticker } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
 import { Color } from "views/Color";
-import {
-  StaffThreadView,
-  type RelayAttachment,
-  type RelayMessageCreate,
-} from "views/StaffThreadView";
+import { StaffThreadView } from "views/StaffThreadView";
+import type {
+  UserToStaffMessage,
+  StaffToUserMessage,
+  RelayAttachment,
+} from "../model/relayMessage";
 import {
   UserThreadView,
   type UserThreadViewGuild,
@@ -89,7 +90,7 @@ export class MessageRelayService {
 
   async relayUserMessageToStaff(
     threadId: string,
-    message: RelayMessageCreate
+    message: UserToStaffMessage
   ): Promise<boolean> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
@@ -146,7 +147,7 @@ export class MessageRelayService {
 
   async relayUserEditedMessageToStaff(
     threadId: string,
-    message: RelayMessageCreate
+    message: UserToStaffMessage
   ): Promise<void> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
@@ -227,7 +228,7 @@ export class MessageRelayService {
     threadId: string,
     userId: string,
     guild: UserThreadViewGuild,
-    msg: RelayMessageCreate,
+    msg: StaffToUserMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<void> {
     // Fetch the user to DM
@@ -343,7 +344,7 @@ export class MessageRelayService {
     staffViewMessageId: string,
     userId: string,
     guild: UserThreadViewGuild,
-    msg: RelayMessageCreate
+    msg: StaffToUserMessage
   ): Promise<boolean> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);

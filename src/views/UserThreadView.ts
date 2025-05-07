@@ -14,8 +14,7 @@ import {
   type StaffMessageOptions,
 } from "services/MessageRelayService";
 import { Color, HexColor } from "./Color";
-import type { RelayMessageCreate } from "./StaffThreadView";
-import { applyStickerToEmbed, downloadAttachments } from "./util";
+import type { StaffToUserMessage } from "../model/relayMessage";
 
 export interface UserThreadViewGuild {
   name: string;
@@ -51,7 +50,7 @@ export class UserThreadView {
 
   static async staffMessage(
     guild: UserThreadViewGuild,
-    msg: RelayMessageCreate,
+    msg: StaffToUserMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<MessageCreateOptions> {
     if (options.plainText) {
