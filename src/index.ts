@@ -26,6 +26,7 @@ import { MessageRepository } from "repositories/message.repository";
 import { EditCommand } from "commands/EditCommand";
 import { DeleteCommand } from "commands/DeleteCommand";
 import { SettingsCommand } from "commands/SettingsCommand";
+import { BotEmojiRepository } from "repositories/botEmoji.repository";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -39,6 +40,7 @@ function buildCommandRouter(
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(db);
   const messageRepository = new MessageRepository(db);
+  const botEmojiRepository = new BotEmojiRepository(db);
 
   const threadService = new ThreadService(
     config,
@@ -87,7 +89,7 @@ function buildCommandRouter(
     new ContactCommand(threadService, messageService),
 
     // Settings
-    new SettingsCommand(runtimeConfigRepository)
+    new SettingsCommand(runtimeConfigRepository, botEmojiRepository)
   );
 
   snippetService.setReservedNames(router.getCommandNames());

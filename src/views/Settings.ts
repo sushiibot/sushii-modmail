@@ -8,11 +8,13 @@ import {
   MessageFlags,
   RoleSelectMenuBuilder,
   SeparatorBuilder,
+  SeparatorSpacingSize,
   TextDisplayBuilder,
   type MessageCreateOptions,
 } from "discord.js";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import { HexColor } from "./Color";
+import type { BotEmojiName } from "models/botEmoji.model";
 
 const SettingsCustomID = {
   prefix: "prefix",
@@ -23,8 +25,29 @@ const SettingsCustomID = {
   anonymousSnippets: "anonymousSnippets",
 };
 
+type MessageEmojis<T extends BotEmojiName> = {
+  [K in T]: string;
+};
+
+export const SettingsEmojiNames = [
+  "logs",
+  "message",
+  "settings",
+  "snippet",
+  "tag",
+  "message_reply",
+  "prefix",
+  "channel",
+  "staff_user",
+] as const satisfies readonly BotEmojiName[];
+
+export type SettingsEmojis = MessageEmojis<(typeof SettingsEmojiNames)[number]>;
+
 export class SettingsCommandView {
-  static buildMessage(config: RuntimeConfig): MessageCreateOptions {
+  static buildMessage(
+    config: RuntimeConfig,
+    emojis: SettingsEmojis
+  ): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
 
     // Modals
@@ -41,10 +64,10 @@ export class SettingsCommandView {
 
     const headerText = new TextDisplayBuilder();
 
-    let generalSettingsContent = "## Bot Settings";
+    let generalSettingsContent = `## ${emojis.settings} Bot Settings`;
     generalSettingsContent += "\n### General Settings";
-    generalSettingsContent += `\n- **Prefix:** \`${config.prefix}\``;
-    generalSettingsContent += `\n- **Initial Message:**`;
+    generalSettingsContent += `\n${emojis.prefix} **Prefix:** \`${config.prefix}\``;
+    generalSettingsContent += `\n${emojis.message_reply} **Initial Message:**`;
     generalSettingsContent += `\n\`\`\`markdown\n${config.initialMessage}\n\`\`\``;
 
     headerText.setContent(generalSettingsContent);
@@ -71,22 +94,24 @@ export class SettingsCommandView {
     // -------------------------------------------------------------------------
     // Channel Settings
 
-    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
+    );
 
     const channelSettingsText = new TextDisplayBuilder();
 
-    let channelSettingsContent = "### Channel Settings";
+    let channelSettingsContent = `### ${emojis.channel} Channel Settings`;
 
     if (config.forumChannelId === null) {
-      channelSettingsContent += `\n- **ModMail Channel:** None`;
+      channelSettingsContent += `\n${emojis.message} **ModMail Channel:** None`;
     } else {
-      channelSettingsContent += `\n- **ModMail Channel:** <#${config.forumChannelId}>`;
+      channelSettingsContent += `\n${emojis.message} **ModMail Channel:** <#${config.forumChannelId}>`;
     }
 
     if (config.logsChannelId === null) {
-      channelSettingsContent += `\n- **Error Logs Channel:** None`;
+      channelSettingsContent += `\n${emojis.logs} **Error Logs Channel:** None`;
     } else {
-      channelSettingsContent += `\n- **Error Logs Channel:** <#${config.logsChannelId}>`;
+      channelSettingsContent += `\n${emojis.logs} **Error Logs Channel:** <#${config.logsChannelId}>`;
     }
 
     channelSettingsText.setContent(channelSettingsContent);
@@ -124,16 +149,20 @@ export class SettingsCommandView {
     // -------------------------------------------------------------------------
     // Permissions & Roles
 
-    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
+    );
     const permissionsText = new TextDisplayBuilder();
     let permissionsContent = "### Permissions";
 
     if (config.requiredRoleIds.length === 0) {
-      permissionsContent += `\n- **Required roles to use commands:** None. Default requires \`Moderate Members\` permission.`;
+      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands:** None. Default requires \`Moderate Members\` permission.`;
     } else {
-      permissionsContent += `\n- **Required roles to use commands (any)** ${config.requiredRoleIds
+      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands (any)**`;
+      permissionsContent += `\n`;
+      permissionsContent += config.requiredRoleIds
         .map((roleId) => `<@&${roleId}>`)
-        .join(", ")}`;
+        .join(", ");
     }
 
     permissionsText.setContent(permissionsContent);
@@ -153,7 +182,9 @@ export class SettingsCommandView {
     // -------------------------------------------------------------------------
     // Feature Toggles
 
-    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
+    );
     const featureText = new TextDisplayBuilder();
     let featureContent = "### Feature Toggles";
     featureContent += `\n- **Anonymous Snippets:** ${

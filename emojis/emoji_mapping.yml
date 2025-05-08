@@ -10,3 +10,5 @@ names:
   shield-user: staff_user
   tag: tag
   trash-2: delete
+  sparkles: prefix
+  hash: channel
