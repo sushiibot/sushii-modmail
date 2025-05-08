@@ -1,0 +1,12 @@
+names:
+  case-sensitive: plain_text
+  clipboard-paste: snippet
+  logs: logs
+  message-circle-code: message_id
+  message-circle-reply: message_repy
+  message-circle: message
+  pencil: edit
+  settings: settings
+  shield-user: staff_user
+  tag: tag
+  trash-2: delete
