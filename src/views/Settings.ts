@@ -95,12 +95,14 @@ export class SettingsCommandView {
     const forumChannelSelect = new ChannelSelectMenuBuilder()
       .setCustomId(SettingsCustomID.forumChannelId)
       .setChannelTypes(ChannelType.GuildForum)
+      .setDefaultChannels(config.forumChannelId ? [config.forumChannelId] : [])
       .setMinValues(1)
       .setMaxValues(1)
       .setPlaceholder("Select a ModMail channel");
 
     const logsChannelSelect = new ChannelSelectMenuBuilder()
       .setCustomId(SettingsCustomID.logsChannelId)
+      .setDefaultChannels(config.logsChannelId ? [config.logsChannelId] : [])
       .setChannelTypes(
         ChannelType.GuildText,
         ChannelType.PublicThread,
@@ -139,6 +141,7 @@ export class SettingsCommandView {
 
     const requiredRoleSelect = new RoleSelectMenuBuilder()
       .setCustomId(SettingsCustomID.requiredRoleIds)
+      .setDefaultRoles(config.requiredRoleIds)
       .setMinValues(0)
       .setMaxValues(10)
       .setPlaceholder("Select roles to allow using commands");

@@ -3,7 +3,7 @@ names:
   clipboard-paste: snippet
   logs: logs
   message-circle-code: message_id
-  message-circle-reply: message_repy
+  message-circle-reply: message_reply
   message-circle: message
   pencil: edit
   settings: settings

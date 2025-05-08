@@ -57,6 +57,13 @@
       "when": 1746593499129,
       "tag": "0007_secret_brood",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1746673365693,
+      "tag": "0008_perpetual_karma",
+      "breakpoints": true
     }
   ]
 }

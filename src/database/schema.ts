@@ -156,9 +156,8 @@ export const runtimeConfig = sqliteTable(
   ]
 );
 
-/*
 export const botEmojis = sqliteTable("bot_emojis", {
   name: text().notNull().unique(),
   id: text().notNull().primaryKey(),
+  sha256: text().notNull(),
 });
-*/

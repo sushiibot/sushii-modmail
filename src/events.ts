@@ -16,6 +16,9 @@ import { ReactionRelayService } from "services/ReactionRelayService";
 import { UserReactionController } from "controllers/UserReactionController";
 import { StaffReactionController } from "controllers/StaffReactionController";
 import { DiscordLogService } from "services/LogService";
+import { BotEmojiRepository } from "repositories/botEmoji.repository";
+import { DiscordBotEmojiService } from "services/BotEmojiService";
+import { BotEmojiController } from "controllers/BotEmojiController";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -29,6 +32,7 @@ export function registerEventHandlers(
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(db);
   const messageRepository = new MessageRepository(db);
+  const botEmojiRepository = new BotEmojiRepository(db);
 
   const threadService = new ThreadService(
     config,
@@ -53,6 +57,7 @@ export function registerEventHandlers(
     runtimeConfigRepository,
     config.guildId
   );
+  const botEmojiService = new DiscordBotEmojiService(botEmojiRepository);
 
   const dmController = new DMController(
     threadService,
@@ -74,13 +79,25 @@ export function registerEventHandlers(
     messageService,
     runtimeConfigRepository
   );
+  const botEmojiController = new BotEmojiController(
+    botEmojiService,
+    botEmojiRepository
+  );
 
-  client.once(Events.ClientReady, () => {
-    logger.info(`Bot is online! ${client.user?.tag}`);
+  client.once(Events.ClientReady, async (client) => {
+    logger.info(`Bot is online! ${client.user.tag}`);
     // https://discord.com/oauth2/authorize?client_id=1111130119566790758&permissions=563362270660672&integration_type=0&scope=applications.commands+bot
 
     const inviteLink = `https://discord.com/oauth2/authorize?client_id=${client.user?.id}&permissions=563362270660672&integration_type=0&scope=applications.commands+bot`;
     logger.info(`Invite link: ${inviteLink}`);
+
+    // Sync emojis on startup
+    try {
+      await botEmojiController.syncEmojis(client);
+      logger.info("Bot emojis synced on startup.");
+    } catch (err) {
+      logger.error(err, "Failed to sync bot emojis on startup");
+    }
   });
 
   client.on(Events.GuildCreate, (guild) => {
