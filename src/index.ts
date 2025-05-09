@@ -27,6 +27,7 @@ import { EditCommand } from "commands/EditCommand";
 import { DeleteCommand } from "commands/DeleteCommand";
 import { SettingsCommand } from "commands/SettingsCommand";
 import { BotEmojiRepository } from "repositories/botEmoji.repository";
+import { SettingsService } from "services/SettingsService";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -59,6 +60,12 @@ function buildCommandRouter(
   // Commands
   const router = new CommandRouter(runtimeConfigRepository);
 
+  // Settings service
+  const settingsService = new SettingsService(
+    runtimeConfigRepository,
+    botEmojiRepository
+  );
+
   router.addCommands(
     // Reply commands
     new ReplyCommand(threadService, messageService, runtimeConfigRepository),
@@ -89,7 +96,7 @@ function buildCommandRouter(
     new ContactCommand(threadService, messageService),
 
     // Settings
-    new SettingsCommand(runtimeConfigRepository, botEmojiRepository)
+    new SettingsCommand(settingsService)
   );
 
   snippetService.setReservedNames(router.getCommandNames());

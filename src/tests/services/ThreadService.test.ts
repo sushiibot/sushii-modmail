@@ -37,7 +37,7 @@ const mockThreadRepository = {
 
 const mockRuntimeConfigRepository = {
   getConfig: mock(),
-  setOpenTagId: mock(),
+  setConfig: mock(),
 };
 
 describe("ThreadService", () => {
@@ -154,7 +154,7 @@ describe("ThreadService", () => {
       } as unknown as ForumChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
-      mockRuntimeConfigRepository.setOpenTagId.mockResolvedValue(
+      mockRuntimeConfigRepository.setConfig.mockResolvedValue(
         {} as RuntimeConfig
       );
 
@@ -162,9 +162,9 @@ describe("ThreadService", () => {
 
       expect(result).toBe(existingTagId);
       expect(client.channels.fetch).toHaveBeenCalledWith(forumChannelId);
-      expect(mockRuntimeConfigRepository.setOpenTagId).toHaveBeenCalledWith(
+      expect(mockRuntimeConfigRepository.setConfig).toHaveBeenCalledWith(
         config.guildId,
-        existingTagId
+        { openTagId: existingTagId }
       );
     });
 
@@ -210,7 +210,7 @@ describe("ThreadService", () => {
         }),
       } as unknown as ForumChannel;
 
-      mockRuntimeConfigRepository.setOpenTagId.mockResolvedValue(
+      mockRuntimeConfigRepository.setConfig.mockResolvedValue(
         {} as RuntimeConfig
       );
 
@@ -218,9 +218,9 @@ describe("ThreadService", () => {
 
       expect(result).toBe(tagId);
       expect(forumChannel.setAvailableTags).toHaveBeenCalled();
-      expect(mockRuntimeConfigRepository.setOpenTagId).toHaveBeenCalledWith(
+      expect(mockRuntimeConfigRepository.setConfig).toHaveBeenCalledWith(
         config.guildId,
-        tagId
+        { openTagId: tagId }
       );
     });
   });

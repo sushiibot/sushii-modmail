@@ -84,6 +84,6 @@ export class RuntimeConfig {
   }
 
   static default(guildId: string): RuntimeConfig {
-    return new RuntimeConfig(guildId, null, null, null, null, [], null, false);
+    return new RuntimeConfig(guildId, null, null, null, null, [], null, true);
   }
 }

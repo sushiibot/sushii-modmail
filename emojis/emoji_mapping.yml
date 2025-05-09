@@ -7,8 +7,9 @@ names:
   message-circle: message
   pencil: edit
   settings: settings
-  shield-user: staff_user
+  shield: staff_user
   tag: tag
   trash-2: delete
-  sparkles: prefix
+  chevrons-right: prefix
   hash: channel
+  corner-down-right: arrow_down_right

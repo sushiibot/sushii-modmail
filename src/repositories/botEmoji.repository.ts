@@ -14,7 +14,7 @@ export class BotEmojiRepository {
   }
 
   async getEmoji(name: BotEmojiName): Promise<BotEmoji | null> {
-    this.logger.debug({ name }, "Getting emoji");
+    this.logger.trace({ name }, "Getting emoji");
 
     const rows = await this.db
       .select()
@@ -31,7 +31,7 @@ export class BotEmojiRepository {
   }
 
   async getEmojis(names: BotEmojiName[]): Promise<BotEmoji[]> {
-    this.logger.debug({ names }, "Getting emojis");
+    this.logger.trace({ names }, "Getting emojis");
 
     const rows = await this.db
       .select()

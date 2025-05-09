@@ -1,10 +1,17 @@
 import { type DB } from "../database/db";
 import { runtimeConfig } from "../database/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { RuntimeConfig } from "../models/runtimeConfig.model";
+import { getLogger } from "utils/logger";
+
+export type UpdateConfig = {
+  requiredRoleIds?: string[];
+} & Partial<Omit<typeof runtimeConfig.$inferInsert, "requiredRoleIds">>;
 
 export class RuntimeConfigRepository {
   private db: DB;
+
+  private logger = getLogger(this.constructor.name);
 
   constructor(db: DB) {
     this.db = db;
@@ -25,138 +32,57 @@ export class RuntimeConfigRepository {
     return RuntimeConfig.fromDatabaseRow(result[0]);
   }
 
-  async setOpenTagId(
+  async setConfig(
     guildId: string,
-    openTagId: string | null
+    changes: UpdateConfig
   ): Promise<RuntimeConfig> {
+    // Filter out any undefined values
+    const toSet: Omit<typeof runtimeConfig.$inferInsert, "guildId"> =
+      Object.fromEntries(
+        Object.entries(changes).filter(([, v]) => v !== undefined)
+      );
+
+    if (changes.requiredRoleIds !== undefined) {
+      toSet.requiredRoleIds = JSON.stringify(changes.requiredRoleIds);
+    }
+
+    this.logger.debug(
+      {
+        guildId,
+        changes,
+        toSet,
+      },
+      "Setting runtime config"
+    );
+
     const inserted = await this.db
       .insert(runtimeConfig)
-      .values({
-        guildId,
-        openTagId,
-      })
+      .values({ guildId, ...toSet })
       .onConflictDoUpdate({
         target: [runtimeConfig.guildId],
-        set: { openTagId },
+        set: toSet,
       })
       .returning();
 
     return RuntimeConfig.fromDatabaseRow(inserted[0]);
   }
 
-  async setPrefix(
-    guildId: string,
-    prefix: string | null
-  ): Promise<RuntimeConfig> {
-    const inserted = await this.db
+  async toggleAnonymousSnippets(guildId: string): Promise<RuntimeConfig> {
+    const rows = await this.db
       .insert(runtimeConfig)
       .values({
         guildId,
-        prefix,
+        // Opposite of default
+        anonymousSnippets: !RuntimeConfig.default(guildId).anonymousSnippets,
       })
       .onConflictDoUpdate({
         target: [runtimeConfig.guildId],
-        set: { prefix },
+        set: {
+          anonymousSnippets: sql`NOT ${runtimeConfig.anonymousSnippets}`,
+        },
       })
       .returning();
 
-    return RuntimeConfig.fromDatabaseRow(inserted[0]);
-  }
-
-  async setForumChannelId(
-    guildId: string,
-    forumChannelId: string | null
-  ): Promise<RuntimeConfig> {
-    const inserted = await this.db
-      .insert(runtimeConfig)
-      .values({
-        guildId,
-        forumChannelId,
-      })
-      .onConflictDoUpdate({
-        target: [runtimeConfig.guildId],
-        set: { forumChannelId },
-      })
-      .returning();
-
-    return RuntimeConfig.fromDatabaseRow(inserted[0]);
-  }
-
-  async setLogsChannelId(
-    guildId: string,
-    logsChannelId: string | null
-  ): Promise<RuntimeConfig> {
-    const inserted = await this.db
-      .insert(runtimeConfig)
-      .values({
-        guildId,
-        logsChannelId,
-      })
-      .onConflictDoUpdate({
-        target: [runtimeConfig.guildId],
-        set: { logsChannelId },
-      })
-      .returning();
-
-    return RuntimeConfig.fromDatabaseRow(inserted[0]);
-  }
-
-  async setRequiredRoleIds(
-    guildId: string,
-    requiredRoleIds: string[]
-  ): Promise<RuntimeConfig> {
-    const requiredRolesStr = JSON.stringify(requiredRoleIds);
-
-    const inserted = await this.db
-      .insert(runtimeConfig)
-      .values({
-        guildId,
-        requiredRoleIds: requiredRolesStr,
-      })
-      .onConflictDoUpdate({
-        target: [runtimeConfig.guildId],
-        set: { requiredRoleIds: requiredRolesStr },
-      })
-      .returning();
-
-    return RuntimeConfig.fromDatabaseRow(inserted[0]);
-  }
-
-  async setInitialMessage(
-    guildId: string,
-    initialMessage: string | null
-  ): Promise<RuntimeConfig> {
-    const inserted = await this.db
-      .insert(runtimeConfig)
-      .values({
-        guildId,
-        initialMessage,
-      })
-      .onConflictDoUpdate({
-        target: [runtimeConfig.guildId],
-        set: { initialMessage },
-      })
-      .returning();
-
-    return RuntimeConfig.fromDatabaseRow(inserted[0]);
-  }
-
-  async setAnonymousSnippets(
-    guildId: string,
-    anonymousSnippets: boolean
-  ): Promise<RuntimeConfig> {
-    const inserted = await this.db
-      .insert(runtimeConfig)
-      .values({
-        guildId,
-        anonymousSnippets,
-      })
-      .onConflictDoUpdate({
-        target: [runtimeConfig.guildId],
-        set: { anonymousSnippets },
-      })
-      .returning();
-
-    return RuntimeConfig.fromDatabaseRow(inserted[0]);
+    return RuntimeConfig.fromDatabaseRow(rows[0]);
   }
 }

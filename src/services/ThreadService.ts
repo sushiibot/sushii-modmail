@@ -11,6 +11,8 @@ import { Thread } from "../models/thread.model";
 import { StaffThreadView } from "../views/StaffThreadView";
 import { getLogger } from "utils/logger";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
+import type { runtimeConfig } from "database/schema";
+import type { UpdateConfig } from "repositories/runtimeConfig.repository";
 
 // Global constant for the open tag name
 const OPEN_TAG_NAME = "Open";
@@ -33,10 +35,7 @@ interface ThreadRepository {
 
 interface RuntimeConfigRepository {
   getConfig(guildId: string): Promise<RuntimeConfig>;
-  setOpenTagId(
-    guildId: string,
-    openTagId: string | null
-  ): Promise<RuntimeConfig>;
+  setConfig(guildId: string, changes: UpdateConfig): Promise<RuntimeConfig>;
 }
 
 export class ThreadService {
@@ -105,10 +104,9 @@ export class ThreadService {
       );
 
       // Save the found tag ID
-      await this.runtimeConfigRepository.setOpenTagId(
-        this.config.guildId,
-        openTag.id
-      );
+      await this.runtimeConfigRepository.setConfig(this.config.guildId, {
+        openTagId: openTag.id,
+      });
 
       return openTag.id;
     }
@@ -142,10 +140,9 @@ export class ThreadService {
     }
 
     // Save the open tag ID to the runtime config
-    await this.runtimeConfigRepository.setOpenTagId(
-      this.config.guildId,
-      openTag.id
-    );
+    await this.runtimeConfigRepository.setConfig(this.config.guildId, {
+      openTagId: openTag.id,
+    });
 
     return openTag.id;
   }

@@ -94,6 +94,7 @@ export function registerEventHandlers(
     // Sync emojis on startup
     try {
       await botEmojiController.syncEmojis(client);
+      await botEmojiController.verifyRegisteredEmojis();
       logger.info("Bot emojis synced.");
     } catch (err) {
       logger.error(err, "Failed to sync bot emojis on startup");

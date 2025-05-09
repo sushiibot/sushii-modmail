@@ -6,23 +6,36 @@ import {
   ChannelType,
   ContainerBuilder,
   MessageFlags,
+  ModalBuilder,
   RoleSelectMenuBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
   TextDisplayBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type MessageCreateOptions,
 } from "discord.js";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import { HexColor } from "./Color";
 import type { BotEmojiName } from "models/botEmoji.model";
 
-const SettingsCustomID = {
-  prefix: "prefix",
-  initialMessage: "initialMessage",
-  forumChannelId: "forumChannelId",
-  logsChannelId: "logsChannelId",
-  requiredRoleIds: "requiredRoleIds",
-  anonymousSnippets: "anonymousSnippets",
+const settingsCustomIDPrefix = "cmd.settings.";
+const id = (name: string) => `${settingsCustomIDPrefix}${name}`;
+
+const modalCustomPrefix = "modal.settings.";
+const modalId = (name: string) => `${modalCustomPrefix}${name}`;
+
+export const settingsCustomID = {
+  prefix: id("prefix"),
+  initialMessage: id("initialMessage"),
+  forumChannelId: id("forumChannelId"),
+  logsChannelId: id("logsChannelId"),
+  requiredRoleIds: id("requiredRoleIds"),
+  anonymousSnippets: id("anonymousSnippets"),
+
+  // Modals
+  modalPrefix: modalId("prefix"),
+  modalInitialMessage: modalId("initialMessage"),
 };
 
 type MessageEmojis<T extends BotEmojiName> = {
@@ -39,6 +52,7 @@ export const SettingsEmojiNames = [
   "prefix",
   "channel",
   "staff_user",
+  "arrow_down_right",
 ] as const satisfies readonly BotEmojiName[];
 
 export type SettingsEmojis = MessageEmojis<(typeof SettingsEmojiNames)[number]>;
@@ -46,21 +60,10 @@ export type SettingsEmojis = MessageEmojis<(typeof SettingsEmojiNames)[number]>;
 export class SettingsCommandView {
   static buildMessage(
     config: RuntimeConfig,
-    emojis: SettingsEmojis
+    emojis: SettingsEmojis,
+    disabled: boolean
   ): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
-
-    // Modals
-    // - prefix
-    // - initialMessage
-
-    // Select menus
-    // - forumChannelId
-    // - logsChannelId
-    // - requiredRoleIds
-
-    // Button
-    // - anonymousSnippets
 
     const headerText = new TextDisplayBuilder();
 
@@ -75,16 +78,18 @@ export class SettingsCommandView {
     container.addTextDisplayComponents(headerText);
 
     const prefixButton = new ButtonBuilder()
-      .setCustomId(SettingsCustomID.prefix)
+      .setCustomId(settingsCustomID.prefix)
       .setLabel("Change Prefix")
-      .setEmoji("💬")
-      .setStyle(ButtonStyle.Primary);
+      .setEmoji(emojis.prefix)
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled);
 
     const initialMessageButton = new ButtonBuilder()
-      .setCustomId(SettingsCustomID.initialMessage)
+      .setCustomId(settingsCustomID.initialMessage)
       .setLabel("Change Initial Message")
-      .setEmoji("📝")
-      .setStyle(ButtonStyle.Secondary);
+      .setEmoji(emojis.message_reply)
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled);
 
     const generalActionRow = new ActionRowBuilder<ButtonBuilder>();
     generalActionRow.addComponents(prefixButton, initialMessageButton);
@@ -100,7 +105,7 @@ export class SettingsCommandView {
 
     const channelSettingsText = new TextDisplayBuilder();
 
-    let channelSettingsContent = `### ${emojis.channel} Channel Settings`;
+    let channelSettingsContent = `### Channel Settings`;
 
     if (config.forumChannelId === null) {
       channelSettingsContent += `\n${emojis.message} **ModMail Channel:** None`;
@@ -118,15 +123,16 @@ export class SettingsCommandView {
     container.addTextDisplayComponents(channelSettingsText);
 
     const forumChannelSelect = new ChannelSelectMenuBuilder()
-      .setCustomId(SettingsCustomID.forumChannelId)
+      .setCustomId(settingsCustomID.forumChannelId)
       .setChannelTypes(ChannelType.GuildForum)
       .setDefaultChannels(config.forumChannelId ? [config.forumChannelId] : [])
       .setMinValues(1)
       .setMaxValues(1)
-      .setPlaceholder("Select a ModMail channel");
+      .setPlaceholder("Select a ModMail channel")
+      .setDisabled(disabled);
 
     const logsChannelSelect = new ChannelSelectMenuBuilder()
-      .setCustomId(SettingsCustomID.logsChannelId)
+      .setCustomId(settingsCustomID.logsChannelId)
       .setDefaultChannels(config.logsChannelId ? [config.logsChannelId] : [])
       .setChannelTypes(
         ChannelType.GuildText,
@@ -135,7 +141,8 @@ export class SettingsCommandView {
       )
       .setMinValues(1)
       .setMaxValues(1)
-      .setPlaceholder("Select an error logs channel");
+      .setPlaceholder("Select an error logs channel")
+      .setDisabled(disabled);
 
     // Only 1 select per row
     const forumChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>();
@@ -156,7 +163,8 @@ export class SettingsCommandView {
     let permissionsContent = "### Permissions";
 
     if (config.requiredRoleIds.length === 0) {
-      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands:** None. Default requires \`Moderate Members\` permission.`;
+      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands:** None.`;
+      permissionsContent += `\n${emojis.arrow_down_right} **Note:** Commands will requires \`Moderate Members\` permission without roles set.`;
     } else {
       permissionsContent += `\n${emojis.staff_user} **Required roles to use commands (any)**`;
       permissionsContent += `\n`;
@@ -169,11 +177,12 @@ export class SettingsCommandView {
     container.addTextDisplayComponents(permissionsText);
 
     const requiredRoleSelect = new RoleSelectMenuBuilder()
-      .setCustomId(SettingsCustomID.requiredRoleIds)
+      .setCustomId(settingsCustomID.requiredRoleIds)
       .setDefaultRoles(config.requiredRoleIds)
       .setMinValues(0)
       .setMaxValues(10)
-      .setPlaceholder("Select roles to allow using commands");
+      .setPlaceholder("Select roles to allow using commands")
+      .setDisabled(disabled);
 
     const requiredRoleRow = new ActionRowBuilder<RoleSelectMenuBuilder>();
     requiredRoleRow.addComponents(requiredRoleSelect);
@@ -194,10 +203,11 @@ export class SettingsCommandView {
     container.addTextDisplayComponents(featureText);
 
     const anonymousSnippetsButton = new ButtonBuilder()
-      .setCustomId(SettingsCustomID.anonymousSnippets)
+      .setCustomId(settingsCustomID.anonymousSnippets)
       .setLabel("Toggle Anonymous Snippets")
       .setEmoji("🕵️‍♀️")
-      .setStyle(ButtonStyle.Secondary);
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled);
 
     const featureActionRow = new ActionRowBuilder<ButtonBuilder>();
     featureActionRow.addComponents(anonymousSnippetsButton);
@@ -208,5 +218,52 @@ export class SettingsCommandView {
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] },
     };
+  }
+
+  static prefixModal(currentPrefix: string): ModalBuilder {
+    // Use the same custom id for modal and input since there's only 1 anyways
+    const modal = new ModalBuilder()
+      .setCustomId(settingsCustomID.modalPrefix)
+      .setTitle("Change Bot Prefix");
+
+    const prefixInput = new TextInputBuilder()
+      .setCustomId(settingsCustomID.modalPrefix)
+      .setMinLength(1)
+      .setMaxLength(1)
+      .setLabel("New Prefix")
+      .setRequired(true)
+      .setValue(currentPrefix)
+      .setPlaceholder("Enter a new prefix")
+      .setStyle(TextInputStyle.Short);
+
+    const row = new ActionRowBuilder<TextInputBuilder>();
+    row.addComponents(prefixInput);
+
+    modal.addComponents(row);
+
+    return modal;
+  }
+
+  static initialMessageModal(currentInitialMessage: string): ModalBuilder {
+    const modal = new ModalBuilder()
+      .setCustomId(settingsCustomID.modalInitialMessage)
+      .setTitle("Change Initial Message");
+
+    const initialMessageInput = new TextInputBuilder()
+      .setCustomId(settingsCustomID.modalInitialMessage)
+      .setMinLength(1)
+      .setMaxLength(2000)
+      .setLabel("New Initial Message")
+      .setRequired(true)
+      .setValue(currentInitialMessage)
+      .setPlaceholder("Enter a new initial message")
+      .setStyle(TextInputStyle.Paragraph);
+
+    const row = new ActionRowBuilder<TextInputBuilder>();
+    row.addComponents(initialMessageInput);
+
+    modal.addComponents(row);
+
+    return modal;
   }
 }

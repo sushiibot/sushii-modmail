@@ -113,7 +113,7 @@ export class BotEmojiController {
       }
 
       if (existing.sha256 === sha256) {
-        this.logger.debug(
+        this.logger.trace(
           {
             name,
           },
@@ -140,6 +140,32 @@ export class BotEmojiController {
         buffer,
         existing.id
       );
+    }
+  }
+
+  async verifyRegisteredEmojis(): Promise<void> {
+    // Check all emojis in enum exist in db. Enum just does type checking, but
+    // we want to check they are actually stored in the database.
+    const expectedEmojis = BotEmojiNameSchema.options;
+
+    const registeredEmojis = await this.emojiRepository.getEmojis(
+      BotEmojiNameSchema.options
+    );
+
+    // Check if all expected emojis are registered
+    const missingEmojis = expectedEmojis.filter(
+      (emoji) => !registeredEmojis.some((e) => e.name === emoji)
+    );
+
+    if (missingEmojis.length > 0) {
+      this.logger.error(
+        {
+          missingEmojis,
+        },
+        `Missing emojis: ${missingEmojis.join(", ")}`
+      );
+    } else {
+      this.logger.info("All emojis are registered");
     }
   }
 }
