@@ -195,12 +195,14 @@ export class SettingsCommandView {
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
     );
     const featureText = new TextDisplayBuilder();
-    let featureContent = "### Feature Toggles";
+    let featureContent = "### Snippets";
 
     if (config.anonymousSnippets) {
-      featureContent += `\n${emojis.snippet} **Anonymous Snippets:** Enabled. Moderator usernames will be hidden in messages.`;
+      featureContent += `\n${emojis.snippet} **Anonymous Snippets:** \`Enabled\``;
+      featureContent += `\n> Moderator usernames will be __hidden__ in messages`;
     } else {
-      featureContent += `\n${emojis.snippet} **Anonymous Snippets:** Disabled. Moderator usernames will be shown in messages.`;
+      featureContent += `\n${emojis.snippet} **Anonymous Snippets:** \`Disabled\``;
+      featureContent += `\n> Moderator usernames will be __shown__ in messages. Regular replies without snippets can still be anonymous via anonymous reply command`;
     }
     featureText.setContent(featureContent);
     container.addTextDisplayComponents(featureText);
