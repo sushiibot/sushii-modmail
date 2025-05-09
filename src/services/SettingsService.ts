@@ -74,7 +74,10 @@ export class SettingsService {
       const sentMsg = await msg.channel.send(settingsMsg);
 
       this.logger.debug(
-        { settingsMsg, sentMsg },
+        {
+          guildId: msg.guildId,
+          messageId: sentMsg.id,
+        },
         "Sent settings message, listening for interactions"
       );
 

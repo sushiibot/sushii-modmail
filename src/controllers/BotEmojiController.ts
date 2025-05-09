@@ -162,7 +162,7 @@ export class BotEmojiController {
         {
           missingEmojis,
         },
-        `Missing emojis: ${missingEmojis.join(", ")}`
+        "Emojis used but not registered in database, ensure emoji files exists"
       );
     } else {
       this.logger.info("All emojis are registered");
