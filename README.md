@@ -24,16 +24,15 @@ Feature set is fairly minimal, focusing on essential and frequently used.
 General
 - `settings` - Setup, view, and change bot settings.
 
-Respond to a thread
+Thread
+- `contact` - Open a new thread with a user (if staff wants to contact user)
 - `reply` - Reply to a thread.
 - `areply` - Anonymously reply to a thread.
 - `preply` - Plain text reply to a thread.
 - `apreply` - Anonymous plain text reply to a thread.
 - `edit` - Edit a previous thread message, reply to the message you want to edit.
 - `delete` - Delete a previous thread message, reply to the message you want to delete.
-
-Threads
-- `contact` - Open a new thread with a user.
+- `close` - Close the current thread.
 
 User information
 - `logs` - Links to previous threads by the same user.
@@ -44,7 +43,7 @@ Snippets
 - `snippet list` - List all available snippets
 - `snippet delete [name]` - Delete a snippet
 
-## Notes on bot choices
+## Notes on design choices
 
 - This bot intentionally does not use slash commands for ease of use.
 - Closing threads does **not** send anything to the user. Since the user only

@@ -28,6 +28,7 @@ import { DeleteCommand } from "commands/DeleteCommand";
 import { SettingsCommand } from "commands/SettingsCommand";
 import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { SettingsService } from "services/SettingsService";
+import { HelpCommand } from "commands/HelpCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -96,7 +97,8 @@ function buildCommandRouter(
     new ContactCommand(threadService, messageService),
 
     // Settings
-    new SettingsCommand(settingsService)
+    new SettingsCommand(settingsService),
+    new HelpCommand()
   );
 
   snippetService.setReservedNames(router.getCommandNames());
