@@ -1,6 +1,5 @@
 names:
   case-sensitive: plain_text
-  clipboard-paste: snippet
   logs: logs
   message-circle-code: message_id
   message-circle-reply: message_reply
@@ -8,7 +7,7 @@ names:
   pencil: edit
   settings: settings
   shield: staff_user
-  tag: tag
+  tag: snippet
   trash-2: delete
   chevrons-right: prefix
   hash: channel

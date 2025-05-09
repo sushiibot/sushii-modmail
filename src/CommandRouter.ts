@@ -162,8 +162,13 @@ export default class CommandRouter {
       msg.guildId
     );
 
+    // Server managers always have permission
+    if (msg.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+      return true;
+    }
+
+    // If no roles set, default requirement is Moderate Members permission
     if (runtimeConfig.requiredRoleIds.length === 0) {
-      // Default requirement is Moderate Members permission
       return msg.member.permissions.has(
         PermissionsBitField.Flags.ModerateMembers
       );

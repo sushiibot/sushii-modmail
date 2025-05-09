@@ -12,7 +12,6 @@ export const BotEmojiNameSchema = z.enum([
   "settings",
   "snippet",
   "staff_user",
-  "tag",
   "prefix",
   "channel",
   "arrow_down_right",

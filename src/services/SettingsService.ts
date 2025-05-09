@@ -4,6 +4,7 @@ import type {
   Interaction,
   Message,
   MessageCreateOptions,
+  ModalMessageModalSubmitInteraction,
 } from "discord.js";
 import { getLogger } from "utils/logger";
 import {
@@ -130,6 +131,7 @@ export class SettingsService {
     interaction:
       | AnySelectMenuInteraction<"cached">
       | ButtonInteraction<"cached">
+      | ModalMessageModalSubmitInteraction<"cached">
   ): Promise<void> {
     const config: RuntimeConfig = await this.configRepository.getConfig(
       interaction.guildId
@@ -225,6 +227,56 @@ export class SettingsService {
       requiredRoleIds: interaction.values,
     });
     return this.editSettingsMessage(interaction);
+  }
+
+  async handleModalSubmit(
+    interaction: ModalMessageModalSubmitInteraction<"cached">
+  ) {
+    // This comes from direct interaction event handler, not from message
+    // interaction collector
+
+    switch (interaction.customId) {
+      case settingsCustomID.modalPrefix: {
+        const newPrefix = interaction.fields.getTextInputValue(
+          settingsCustomID.modalPrefix
+        );
+
+        this.logger.debug(
+          { newPrefix },
+          "Received new prefix from settings modal"
+        );
+
+        await this.configRepository.setConfig(interaction.guildId, {
+          prefix: newPrefix,
+        });
+
+        break;
+      }
+
+      case settingsCustomID.modalInitialMessage: {
+        const newInitialMessage = interaction.fields.getTextInputValue(
+          settingsCustomID.modalInitialMessage
+        );
+
+        this.logger.debug(
+          { newInitialMessage },
+          "Received new initial message from settings modal"
+        );
+
+        await this.configRepository.setConfig(interaction.guildId, {
+          initialMessage: newInitialMessage,
+        });
+        break;
+      }
+
+      default: {
+        // No-op, ignore unrelated interactions
+        return;
+      }
+    }
+
+    // Update the message with new settings
+    await this.editSettingsMessage(interaction);
   }
 
   async editSettings(

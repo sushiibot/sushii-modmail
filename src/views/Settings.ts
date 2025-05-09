@@ -47,7 +47,6 @@ export const SettingsEmojiNames = [
   "message",
   "settings",
   "snippet",
-  "tag",
   "message_reply",
   "prefix",
   "channel",
@@ -70,7 +69,7 @@ export class SettingsCommandView {
     let generalSettingsContent = `## ${emojis.settings} Bot Settings`;
     generalSettingsContent += "\n### General Settings";
     generalSettingsContent += `\n${emojis.prefix} **Prefix:** \`${config.prefix}\``;
-    generalSettingsContent += `\n${emojis.message_reply} **Initial Message:**`;
+    generalSettingsContent += `\n${emojis.message_reply} **Initial Message (automatic reply):**`;
     generalSettingsContent += `\n\`\`\`markdown\n${config.initialMessage}\n\`\`\``;
 
     headerText.setContent(generalSettingsContent);
@@ -108,15 +107,15 @@ export class SettingsCommandView {
     let channelSettingsContent = `### Channel Settings`;
 
     if (config.forumChannelId === null) {
-      channelSettingsContent += `\n${emojis.message} **ModMail Channel:** None`;
+      channelSettingsContent += `\n${emojis.message} **ModMail forum channel:** \`Not set yet\``;
     } else {
-      channelSettingsContent += `\n${emojis.message} **ModMail Channel:** <#${config.forumChannelId}>`;
+      channelSettingsContent += `\n${emojis.message} **ModMail forum channel:** <#${config.forumChannelId}>`;
     }
 
     if (config.logsChannelId === null) {
-      channelSettingsContent += `\n${emojis.logs} **Error Logs Channel:** None`;
+      channelSettingsContent += `\n${emojis.logs} **Error logs channel:** \`Not set yet\``;
     } else {
-      channelSettingsContent += `\n${emojis.logs} **Error Logs Channel:** <#${config.logsChannelId}>`;
+      channelSettingsContent += `\n${emojis.logs} **Error logs channel:** <#${config.logsChannelId}>`;
     }
 
     channelSettingsText.setContent(channelSettingsContent);
@@ -163,10 +162,11 @@ export class SettingsCommandView {
     let permissionsContent = "### Permissions";
 
     if (config.requiredRoleIds.length === 0) {
-      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands:** None.`;
-      permissionsContent += `\n${emojis.arrow_down_right} **Note:** Commands will requires \`Moderate Members\` permission without roles set.`;
+      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands:** \`None\``;
+      permissionsContent += `\n> **Note:** Without any roles set, commands will requires \`Moderate Members\` or \`Manage Server\` permissions.`;
     } else {
-      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands (any)**`;
+      permissionsContent += `\n${emojis.staff_user} **Required roles to use commands (user only needs at least 1)**`;
+      permissionsContent += `\n> **Note:** Users with \`Manage Server\` permission will always be able to use commands.`;
       permissionsContent += `\n`;
       permissionsContent += config.requiredRoleIds
         .map((roleId) => `<@&${roleId}>`)
@@ -196,16 +196,19 @@ export class SettingsCommandView {
     );
     const featureText = new TextDisplayBuilder();
     let featureContent = "### Feature Toggles";
-    featureContent += `\n- **Anonymous Snippets:** ${
-      config.anonymousSnippets ? "Enabled" : "Disabled"
-    }`;
+
+    if (config.anonymousSnippets) {
+      featureContent += `\n${emojis.snippet} **Anonymous Snippets:** Enabled. Moderator usernames will be hidden in messages.`;
+    } else {
+      featureContent += `\n${emojis.snippet} **Anonymous Snippets:** Disabled. Moderator usernames will be shown in messages.`;
+    }
     featureText.setContent(featureContent);
     container.addTextDisplayComponents(featureText);
 
     const anonymousSnippetsButton = new ButtonBuilder()
       .setCustomId(settingsCustomID.anonymousSnippets)
       .setLabel("Toggle Anonymous Snippets")
-      .setEmoji("🕵️‍♀️")
+      .setEmoji(emojis.snippet)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled);
 

@@ -19,6 +19,8 @@ import { DiscordLogService } from "services/LogService";
 import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { DiscordBotEmojiService } from "services/BotEmojiService";
 import { BotEmojiController } from "controllers/BotEmojiController";
+import { SettingsModalController } from "controllers/SettingsModalController";
+import { SettingsService } from "services/SettingsService";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -58,6 +60,10 @@ export function registerEventHandlers(
     config.guildId
   );
   const botEmojiService = new DiscordBotEmojiService(botEmojiRepository);
+  const settingsService = new SettingsService(
+    runtimeConfigRepository,
+    botEmojiRepository
+  );
 
   const dmController = new DMController(
     threadService,
@@ -83,6 +89,7 @@ export function registerEventHandlers(
     botEmojiService,
     botEmojiRepository
   );
+  const settingsModalController = new SettingsModalController(settingsService);
 
   client.once(Events.ClientReady, async (client) => {
     logger.info(`Bot is online! ${client.user.tag}`);
@@ -106,56 +113,129 @@ export function registerEventHandlers(
   });
 
   client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot) {
-      return;
-    }
+    try {
+      if (message.author.bot) {
+        return;
+      }
 
-    if (message.content === "ping") {
-      await message.reply("pong");
+      await Promise.allSettled([
+        commandRouter.handleMessage(message),
+        dmController.handleUserDM(message.client, message),
+        snippetController.handleThreadMessage(message.client, message),
+      ]);
+    } catch (err) {
+      logger.error(
+        {
+          messageId: message.id,
+          userId: message.author.id,
+          userName: message.author.username,
+          guildId: message.guildId,
+        },
+        "Error handling message"
+      );
     }
-
-    await Promise.allSettled([
-      commandRouter.handleMessage(message),
-      dmController.handleUserDM(message.client, message),
-      snippetController.handleThreadMessage(message.client, message),
-    ]);
   });
 
   client.on(Events.MessageUpdate, async (_, newMessage) => {
-    if (newMessage.author.bot) {
-      return;
-    }
+    try {
+      if (newMessage.author.bot) {
+        return;
+      }
 
-    await Promise.allSettled([dmController.handleUserDMEdit(newMessage)]);
+      await Promise.allSettled([dmController.handleUserDMEdit(newMessage)]);
+    } catch (err) {
+      logger.error(
+        {
+          messageId: newMessage.id,
+          userId: newMessage.author.id,
+          userName: newMessage.author.username,
+          guildId: newMessage.guildId,
+        },
+        "Error handling message update"
+      );
+    }
   });
 
   client.on(Events.MessageDelete, async (oldMessage) => {
-    if (oldMessage?.author?.bot) {
-      return;
-    }
+    try {
+      if (oldMessage?.author?.bot) {
+        return;
+      }
 
-    await Promise.allSettled([dmController.handleUserDMDelete(oldMessage)]);
+      await Promise.allSettled([dmController.handleUserDMDelete(oldMessage)]);
+    } catch (err) {
+      logger.error(
+        {
+          messageId: oldMessage.id,
+          guildId: oldMessage.guildId,
+        },
+        "Error handling message delete"
+      );
+    }
   });
 
   client.on(Events.MessageReactionAdd, async (reaction, user) => {
-    if (user.bot) {
-      return;
-    }
+    try {
+      if (user.bot) {
+        return;
+      }
 
-    await Promise.allSettled([
-      userReactionController.handleUserDMReactionAdd(reaction, user),
-      staffReactionController.handleStaffReactionAdd(reaction, user),
-    ]);
+      await Promise.allSettled([
+        userReactionController.handleUserDMReactionAdd(reaction, user),
+        staffReactionController.handleStaffReactionAdd(reaction, user),
+      ]);
+    } catch (err) {
+      logger.error(
+        {
+          reaction: reaction.emoji.name,
+          userId: user.id,
+          userName: user.username,
+          guildId: reaction.message.guildId,
+        },
+        "Error handling reaction"
+      );
+    }
   });
 
   client.on(Events.MessageReactionRemove, async (reaction, user) => {
-    if (user.bot) {
-      return;
-    }
+    try {
+      if (user.bot) {
+        return;
+      }
 
-    await Promise.allSettled([
-      userReactionController.handleUserDMReactionRemove(reaction, user),
-      staffReactionController.handleStaffReactionRemove(reaction, user),
-    ]);
+      await Promise.allSettled([
+        userReactionController.handleUserDMReactionRemove(reaction, user),
+        staffReactionController.handleStaffReactionRemove(reaction, user),
+      ]);
+    } catch (err) {
+      logger.error(
+        {
+          reaction: reaction.emoji.name,
+          userId: user.id,
+          userName: user.username,
+          guildId: reaction.message.guildId,
+        },
+        "Error handling reaction"
+      );
+    }
+  });
+
+  client.on(Events.InteractionCreate, async (interaction) => {
+    try {
+      if (interaction.isModalSubmit()) {
+        await settingsModalController.handleModal(interaction);
+      }
+    } catch (err) {
+      logger.error(
+        {
+          interactionId: interaction.id,
+          type: interaction.type,
+          userId: interaction.user.id,
+          userName: interaction.user.username,
+          guildId: interaction.guildId,
+        },
+        "Error handling interaction"
+      );
+    }
   });
 }
