@@ -40,5 +40,5 @@ for file in ./icons_stroke/*.png; do
         "$file" \
         ./background.png "./composites/${mapped_name}.png"
 
-    echo "Created composite for $filename -> $mapped_name"
+    echo "Created composite for '$filename' -> '$mapped_name'"
 done

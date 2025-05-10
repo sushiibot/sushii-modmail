@@ -12,6 +12,4 @@ RUN apt-get update && \
 
 WORKDIR /workspace
 
-COPY ./generate.sh ./generate.sh
-
 CMD ["/workspace/generate.sh"]
