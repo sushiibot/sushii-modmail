@@ -308,14 +308,20 @@ export class ThreadService {
     // Send closed message
     await threadChannel.send("Thread closed.");
 
+    const config = await this.runtimeConfigRepository.getConfig(
+      this.config.guildId
+    );
+
+    // Remove open tag, but keep the rest if there's any custom
+    const remainingTags = threadChannel.appliedTags.filter(
+      (tagId) => tagId !== config.openTagId
+    );
+
     // Lock and close the forum thread as completed
     await threadChannel.edit({
       archived: true,
       locked: true,
-
-      // Clear tags, removing open tag -- TODO: Preserve non-Open tags if people
-      // use custom tags
-      appliedTags: [],
+      appliedTags: remainingTags,
     });
 
     // Mark as closed in db
