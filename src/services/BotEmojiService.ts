@@ -1,4 +1,9 @@
-import { DiscordAPIError, RESTJSONErrorCodes, type Client } from "discord.js";
+import {
+  DiscordAPIError,
+  Emoji,
+  RESTJSONErrorCodes,
+  type Client,
+} from "discord.js";
 import type { BotEmoji, BotEmojiName } from "models/botEmoji.model";
 import { getLogger } from "utils/logger";
 
@@ -31,12 +36,12 @@ export class DiscordBotEmojiService {
       if (err instanceof DiscordAPIError) {
         if (err.code === RESTJSONErrorCodes.InvalidFormBodyOrContentType) {
           this.logger.error(
-            { err: err.message, name, sha256 },
-            `Failed to save emoji: ${name}`
-          );
-
-          throw new Error(
-            `Failed to save emoji: ${name}, there's already an emoji with the same name. Please delete the old emoji first.`
+            {
+              err: err.message,
+              emojiName: name,
+              sha256,
+            },
+            `Failed to save emoji: ${name}, emoji name already exists. Skipping...`
           );
         }
       }

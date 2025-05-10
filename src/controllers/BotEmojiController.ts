@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import { createHash } from "crypto";
 import path from "path";
-import type { Client } from "discord.js";
+import type { ApplicationEmoji, Client } from "discord.js";
 import {
   BotEmojiNameSchema,
   type BotEmojiName,
@@ -39,13 +39,23 @@ export class BotEmojiController {
       `Found ${files.length} emojis to sync`
     );
 
+    const applicationEmojis = await client.application.emojis.fetch();
+    const applicationNameToEmoji = new Map<string, ApplicationEmoji>();
+    for (const emoji of applicationEmojis.values()) {
+      if (!emoji.name) {
+        continue;
+      }
+
+      applicationNameToEmoji.set(emoji.name, emoji);
+    }
+
     for (const file of files) {
       if (!file.endsWith(".png")) {
         this.logger.warn(
           {
             file,
           },
-          `Skipping non-PNG file: ${file}`
+          `Skipping non-PNG file`
         );
 
         continue;
@@ -57,7 +67,7 @@ export class BotEmojiController {
           {
             file,
           },
-          `Skipping invalid file name: ${file}`
+          `Invalid emoji file name, skipping...`
         );
 
         continue;
@@ -71,7 +81,7 @@ export class BotEmojiController {
             file,
             size: stats.size,
           },
-          `Skipping emoji larger than 256 KB: ${file}`
+          `Emoji is larger than 256 KB, skipping....`
         );
 
         continue;
@@ -92,15 +102,25 @@ export class BotEmojiController {
 
       const sha256 = createHash("sha256").update(buffer).digest("hex");
 
-      const existing = await this.emojiRepository.getEmoji(validatedName.data);
-      if (!existing) {
-        // Emoji doesn't exist, upload it
+      const existsInDB = await this.emojiRepository.getEmoji(
+        validatedName.data
+      );
+
+      // If DB is kept, with a new Discord application, they will be in the DB
+      // but not uploaded to the application yet.
+      const emojiUploaded = applicationNameToEmoji.get(name);
+
+      // Upload if: Not registered locally OR if the emoji is not uploaded yet.
+      // If the opposite: emojis is uploaded but not registered, it will be
+      // skipped on upload conflict failure
+      if (!existsInDB || !emojiUploaded) {
+        // Emoji doesn't exist in DATABASE, upload it
         this.logger.info(
           {
-            name,
+            emojiName: name,
             sha256,
           },
-          `Emoji ${name} does not exist, uploading...`
+          `Emoji does not exist in database, uploading...`
         );
 
         await this.emojiService.uploadEmoji(
@@ -112,7 +132,7 @@ export class BotEmojiController {
         continue;
       }
 
-      if (existing.sha256 === sha256) {
+      if (existsInDB.sha256 === sha256) {
         this.logger.trace(
           {
             name,
@@ -127,7 +147,7 @@ export class BotEmojiController {
       // Emoji has changed, update it
       this.logger.info(
         {
-          existingSha256: existing.sha256,
+          existingSha256: existsInDB.sha256,
           newSha256: sha256,
         },
         `Emoji ${name} has changed, updating...`
@@ -138,7 +158,7 @@ export class BotEmojiController {
         validatedName.data,
         sha256,
         buffer,
-        existing.id
+        existsInDB.id
       );
     }
   }
