@@ -6,24 +6,10 @@ const configSchema = z.object({
   DISCORD_TOKEN: z.string(),
   DISCORD_CLIENT_ID: z.string(),
 
-  PREFIX: z.string().optional(),
+  DATABASE_URI: z.string(),
 
   // Where modmails get sent to
   MAIL_GUILD_ID: z.string(),
-  FORUM_CHANNEL_ID: z.string(),
-
-  // Errors or important information
-  LOGS_CHANNEL_ID: z.string(),
-  REQUIRED_ROLE_ID: z.string(),
-
-  ANONYMOUS_SNIPPETS: z
-    .enum(["true", "false"])
-    .transform((value) => value === "true")
-    .optional(),
-
-  DATABASE_URI: z.string(),
-
-  INITIAL_MESSAGE: z.string().optional(),
 });
 
 export type ConfigType = z.infer<typeof configSchema>;

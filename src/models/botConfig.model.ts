@@ -25,15 +25,6 @@ export class BotConfig {
   public readonly mailGuildId: string;
   public readonly databaseUri: string;
 
-  // public readonly forumChannelId: string;
-  // public readonly logsChannelId: string;
-  // public readonly requiredRoleId: string;
-
-  // Runtime configuration
-  // public readonly prefix: string;
-  // public readonly initialMessage: string;
-  // public readonly anonymousSnippets: boolean;
-
   constructor(
     logLevel: string,
     discordToken: string,
