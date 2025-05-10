@@ -460,11 +460,20 @@ describe("ThreadService", () => {
 
     it("should close the thread and mark it as closed in the repository", async () => {
       const thread = { channelId: "channelId" } as Thread;
+
+      const runtimeConfig = {
+        openTagId: "openTagId123",
+        forumChannelId: randomSnowflakeID(),
+      } as RuntimeConfig;
+
       const threadChannel = {
         isThread: () => true,
+        appliedTags: ["unrelatedTag", runtimeConfig.openTagId],
         send: mock(),
         edit: mock(),
       } as unknown as ForumThreadChannel;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
 
       await threadService.closeThread(thread, "userId");
@@ -473,7 +482,8 @@ describe("ThreadService", () => {
       expect(threadChannel.edit).toHaveBeenCalledWith({
         archived: true,
         locked: true,
-        appliedTags: [],
+        // Keeps the unrelated tag
+        appliedTags: ["unrelatedTag"],
       });
       expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(
         thread.channelId,
