@@ -10,8 +10,8 @@ Feature set is fairly minimal, focusing on essential and frequently used.
 
 - **Built-in Organization and Archive** - ModMail threads are Forum channel
   threads. Forum tags are used so you can only show the threads that are
-  currently open. No more worrying about losing modmail history if the bot goes
-  offline, or if you need to change to a different bot.
+  currently open. No more worrying about losing thread history if the bot goes
+  offline or if you need to change to a different bot.
 - **Configurable Message** - Initial message sent to the user when they open a
   thread.
 - **Snippets** - Re-usable messages for common responses. Snippets can be
@@ -83,11 +83,7 @@ services:
       - LOG_LEVEL=info
       - DISCORD_TOKEN=your_discord_bot_token
       - DISCORD_CLIENT_ID=your_discord_client_id
-      - PREFIX=!
       - MAIL_GUILD_ID=your_guild_id
-      - FORUM_CHANNEL_ID=your_forum_channel_id
-      - ANONYMOUS_SNIPPETS=false
-      - INITIAL_MESSAGE=Thank you for contacting the mod team! We'll get back to you as soon as possible.
       - DATABASE_URI=/app/data/db.sqlite
 
       # Litestream configuration
@@ -122,7 +118,10 @@ dbs:
 
 ## Configuration
 
-Configuration is set in environment variables. Here's an example .env file:
+Essential configuration is set in environment variables. Most of the other
+settings are set with the `settings` command.
+
+Here's an example .env file:
 
 ```env
 # Logging
@@ -131,15 +130,11 @@ LOG_LEVEL=info
 # Discord Bot Configuration
 DISCORD_TOKEN=your_discord_bot_token
 DISCORD_CLIENT_ID=your_discord_client_id
-PREFIX=!
 
-# ModMail Settings
+# Required Settings
 MAIL_GUILD_ID=your_guild_id
-FORUM_CHANNEL_ID=your_forum_channel_id
-ANONYMOUS_SNIPPETS=false
-INITIAL_MESSAGE=Thank you for contacting the mod team! We'll get back to you as soon as possible.
 
-# Sqlite database path
+# Sqlite database path - you shouldn't need to change this
 DATABASE_URI=./data/db.sqlite
 ```
 
