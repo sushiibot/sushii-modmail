@@ -32,6 +32,7 @@ COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile
 
 # Application source code
+COPY ./emojis/composites ./emojis/composites
 COPY ./tsconfig.json ./
 COPY ./drizzle ./drizzle
 COPY ./src ./src
