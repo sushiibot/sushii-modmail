@@ -102,25 +102,30 @@ export class BotEmojiController {
 
       const sha256 = createHash("sha256").update(buffer).digest("hex");
 
-      const existsInDB = await this.emojiRepository.getEmoji(
-        validatedName.data
-      );
+      const dbEmoji = await this.emojiRepository.getEmoji(validatedName.data);
 
-      // If DB is kept, with a new Discord application, they will be in the DB
-      // but not uploaded to the application yet.
-      const emojiUploaded = applicationNameToEmoji.get(name);
+      const discordEmoji = applicationNameToEmoji.get(name);
+      const dbHash = dbEmoji?.sha256;
 
-      // Upload if: Not registered locally OR if the emoji is not uploaded yet.
-      // If the opposite: emojis is uploaded but not registered, it will be
-      // skipped on upload conflict failure
-      if (!existsInDB || !emojiUploaded) {
-        // Emoji doesn't exist in DATABASE, upload it
+      if (discordEmoji && !dbEmoji) {
+        // Case 1: exists in Discord && not in DB
+        // Just save it to DB, ignoring hash check
         this.logger.info(
-          {
-            emojiName: name,
-            sha256,
-          },
-          `Emoji does not exist in database, uploading...`
+          { emojiName: name, sha256 },
+          `Emoji already exists with the same name but not registered, saving... If the emoji is not correct, delete it and restart`
+        );
+
+        await this.emojiRepository.saveEmoji(
+          validatedName.data,
+          discordEmoji.id,
+          sha256
+        );
+      } else if (!discordEmoji && dbEmoji) {
+        // Case 2: not in Discord && exists in DB
+        // Upload it to Discord and save ID
+        this.logger.info(
+          { emojiName: name, sha256 },
+          `Emoji registered DB but not in Discord, uploading`
         );
 
         await this.emojiService.uploadEmoji(
@@ -129,37 +134,44 @@ export class BotEmojiController {
           sha256,
           buffer
         );
-        continue;
-      }
-
-      if (existsInDB.sha256 === sha256) {
-        this.logger.trace(
+      } else if (discordEmoji && dbEmoji && dbHash === sha256) {
+        // Case 3: exists in both && hash matches
+        // No action needed
+        this.logger.trace({ emojiName: name }, `Emoji up to date, skipping`);
+      } else if (discordEmoji && dbEmoji && dbHash !== sha256) {
+        // Case 4: exists in both && hash differs
+        // Replace emoji in Discord and save ID
+        this.logger.info(
           {
-            name,
+            emojiName: name,
+            existingSha256: dbHash,
+            newSha256: sha256,
           },
-          `Emoji ${name} already exists, skipping...`
+          `Emoji has changed, replacing...`
         );
 
-        // Emoji is already up to date
-        continue;
+        await this.emojiService.editEmoji(
+          client,
+          validatedName.data,
+          sha256,
+          buffer,
+          dbEmoji.id
+        );
+      } else {
+        // Case 5: not in both discord nor DB
+        // Upload it to Discord and save ID
+        this.logger.info(
+          { emojiName: name, sha256 },
+          `New emoji, uploading and registering`
+        );
+
+        await this.emojiService.uploadEmoji(
+          client,
+          validatedName.data,
+          sha256,
+          buffer
+        );
       }
-
-      // Emoji has changed, update it
-      this.logger.info(
-        {
-          existingSha256: existsInDB.sha256,
-          newSha256: sha256,
-        },
-        `Emoji ${name} has changed, updating...`
-      );
-
-      await this.emojiService.editEmoji(
-        client,
-        validatedName.data,
-        sha256,
-        buffer,
-        existsInDB.id
-      );
     }
   }
 
