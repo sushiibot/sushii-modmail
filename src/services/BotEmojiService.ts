@@ -25,45 +25,47 @@ export class DiscordBotEmojiService {
     name: BotEmojiName,
     sha256: string,
     file: Buffer
-  ): Promise<BotEmoji> {
+  ): Promise<void> {
     let response;
     try {
       response = await client.application.emojis.create({
         attachment: file,
         name,
       });
+
+      this.logger.info(
+        {
+          name: response.name,
+          id: response.id,
+        },
+        `Uploaded emoji`
+      );
     } catch (err) {
-      if (err instanceof DiscordAPIError) {
-        if (err.code === RESTJSONErrorCodes.InvalidFormBodyOrContentType) {
-          this.logger.error(
-            {
-              err: err.message,
-              emojiName: name,
-              sha256,
-            },
-            `Failed to save emoji: ${name}, emoji name already exists. Skipping...`
-          );
-        }
+      if (!(err instanceof DiscordAPIError)) {
+        // Unrelated error, treat as fatal
+        throw err;
       }
 
-      // Rethrow for other errors
-      throw err;
+      if (err.code !== RESTJSONErrorCodes.InvalidFormBodyOrContentType) {
+        // Rethrow for other errors
+        throw err;
+      }
+
+      // Only don't throw if the error is that the emoji name already exists
+      this.logger.error(
+        {
+          err: err.message,
+          emojiName: name,
+          sha256,
+        },
+        `Failed to save emoji: ${name}, emoji name already exists. Skipping...`
+      );
+
+      // Can't save it because we need the emoji ID
+      return;
     }
 
-    this.logger.info(
-      {
-        name: response.name,
-        id: response.id,
-      },
-      `Uploaded emoji`
-    );
-
-    const emoji = await this.botEmojiRepository.saveEmoji(
-      name,
-      response.id,
-      sha256
-    );
-    return emoji;
+    await this.botEmojiRepository.saveEmoji(name, response.id, sha256);
   }
 
   async editEmoji(
