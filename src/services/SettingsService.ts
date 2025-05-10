@@ -1,10 +1,17 @@
-import type {
-  AnySelectMenuInteraction,
-  ButtonInteraction,
-  Interaction,
-  Message,
-  MessageCreateOptions,
-  ModalMessageModalSubmitInteraction,
+import {
+  ChannelSelectMenuInteraction,
+  ChannelType,
+  PermissionsBitField,
+  RoleSelectMenuInteraction,
+  type AnySelectMenuInteraction,
+  type ButtonInteraction,
+  type Channel,
+  type GuildChannel,
+  type Interaction,
+  type Message,
+  type MessageCreateOptions,
+  type ModalMessageModalSubmitInteraction,
+  type PermissionsString,
 } from "discord.js";
 import { getLogger } from "utils/logger";
 import {
@@ -170,7 +177,7 @@ export class SettingsService {
 
   // Handler for channel select menu interactions
   private async handleChannelMenu(
-    interaction: AnySelectMenuInteraction<"cached">
+    interaction: ChannelSelectMenuInteraction<"cached">
   ) {
     switch (interaction.customId) {
       case settingsCustomID.forumChannelId:
@@ -189,7 +196,24 @@ export class SettingsService {
         await this.configRepository.setConfig(interaction.guildId, {
           forumChannelId: interaction.values[0],
         });
-        break;
+
+        // Update the message with new settings first, then check permissions
+        // after.
+        await this.editSettingsMessage(interaction);
+
+        const forumChannel = interaction.channels.first();
+        if (forumChannel && forumChannel.type === ChannelType.GuildForum) {
+          const missing = await this.getMissingModmailChannelPermissions(
+            forumChannel
+          );
+          await this.followUpMissingChannelPermissions(
+            interaction,
+            forumChannel.id,
+            missing
+          );
+        }
+
+        return;
       case settingsCustomID.logsChannelId:
         if (!interaction.values.length) {
           this.logger.warn(
@@ -206,18 +230,35 @@ export class SettingsService {
         await this.configRepository.setConfig(interaction.guildId, {
           logsChannelId: interaction.values[0],
         });
-        break;
+        // Update the message with new settings
+        await this.editSettingsMessage(interaction);
+
+        const logChannel = interaction.channels.first();
+        if (logChannel && logChannel.type === ChannelType.GuildForum) {
+          const missing = await this.getMissingLogsChannelPermissions(
+            logChannel
+          );
+
+          await this.followUpMissingChannelPermissions(
+            interaction,
+            logChannel.id,
+            missing
+          );
+        }
+
+        return;
       default:
+        this.logger.warn(
+          { customId: interaction.customId },
+          "Unknown select menu interaction"
+        );
         return;
     }
-
-    // Update the message with new settings
-    return this.editSettingsMessage(interaction);
   }
 
   // Handler for role select menu interactions
   private async handleRoleMenu(
-    interaction: AnySelectMenuInteraction<"cached">
+    interaction: RoleSelectMenuInteraction<"cached">
   ) {
     if (interaction.customId !== settingsCustomID.requiredRoleIds) {
       return;
@@ -294,5 +335,88 @@ export class SettingsService {
     if (interaction.isRoleSelectMenu()) {
       return this.handleRoleMenu(interaction);
     }
+  }
+
+  async getMissingChannelPermissions(
+    channel: GuildChannel,
+    requiredPermissions: Readonly<PermissionsBitField>
+  ): Promise<PermissionsString[]> {
+    const botMember = await channel.guild.members.fetchMe();
+    const botChannelPermissions = channel.permissionsFor(botMember);
+
+    const missingPermissions = botChannelPermissions.missing(
+      requiredPermissions,
+      true
+    );
+
+    this.logger.debug(
+      {
+        channelId: channel.id,
+        botPermissions: botChannelPermissions.toArray(),
+        requiredPermissions: requiredPermissions.toArray(),
+        missingPermissions,
+      },
+      "Checking channel permissions"
+    );
+
+    return missingPermissions;
+  }
+
+  async getMissingModmailChannelPermissions(
+    channel: GuildChannel
+  ): Promise<PermissionsString[]> {
+    new PermissionsBitField();
+    // Modmail channel needs:
+    const requiredPermissions = new PermissionsBitField([
+      PermissionsBitField.Flags.ViewChannel,
+      PermissionsBitField.Flags.ManageChannels,
+      PermissionsBitField.Flags.ReadMessageHistory,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.ManageMessages,
+      PermissionsBitField.Flags.CreatePublicThreads,
+      PermissionsBitField.Flags.SendMessagesInThreads,
+      PermissionsBitField.Flags.EmbedLinks,
+      PermissionsBitField.Flags.AttachFiles,
+      PermissionsBitField.Flags.AddReactions,
+      PermissionsBitField.Flags.UseExternalEmojis,
+      PermissionsBitField.Flags.ReadMessageHistory,
+    ]);
+
+    return this.getMissingChannelPermissions(channel, requiredPermissions);
+  }
+
+  async getMissingLogsChannelPermissions(
+    channel: GuildChannel
+  ): Promise<PermissionsString[]> {
+    // Logs channel needs:
+    const requiredPermissions = new PermissionsBitField([
+      PermissionsBitField.Flags.ViewChannel,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.EmbedLinks,
+      PermissionsBitField.Flags.AttachFiles,
+    ]);
+
+    return this.getMissingChannelPermissions(channel, requiredPermissions);
+  }
+
+  // Send follow-up when there are missing permissions
+  private async followUpMissingChannelPermissions(
+    interaction: ChannelSelectMenuInteraction<"cached">,
+    channelId: string,
+    missing: PermissionsString[]
+  ): Promise<void> {
+    if (missing.length === 0) {
+      return;
+    }
+
+    const permissionsStr = missing.join(", ");
+
+    let content = `I'm missing permissions in the selected channel <#${channelId}>: ${permissionsStr}.`;
+    content += "Please update my permissions in the channel to avoid issues.";
+
+    await interaction.followUp({
+      content: content,
+      ephemeral: true,
+    });
   }
 }
