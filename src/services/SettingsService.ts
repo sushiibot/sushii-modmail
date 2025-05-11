@@ -3,9 +3,12 @@ import {
   ChannelType,
   PermissionsBitField,
   RoleSelectMenuInteraction,
+  ThreadChannel,
   type AnySelectMenuInteraction,
+  type AnyThreadChannel,
   type ButtonInteraction,
   type Channel,
+  type GuildBasedChannel,
   type GuildChannel,
   type Interaction,
   type Message,
@@ -202,7 +205,7 @@ export class SettingsService {
         await this.editSettingsMessage(interaction);
 
         const forumChannel = interaction.channels.first();
-        if (forumChannel && forumChannel.type === ChannelType.GuildForum) {
+        if (forumChannel && !forumChannel.isDMBased()) {
           const missing = await this.getMissingModmailChannelPermissions(
             forumChannel
           );
@@ -234,7 +237,7 @@ export class SettingsService {
         await this.editSettingsMessage(interaction);
 
         const logChannel = interaction.channels.first();
-        if (logChannel && logChannel.type === ChannelType.GuildForum) {
+        if (logChannel && !logChannel.isDMBased()) {
           const missing = await this.getMissingLogsChannelPermissions(
             logChannel
           );
@@ -337,8 +340,10 @@ export class SettingsService {
     }
   }
 
+  // GuildBasedChannel is lax enough to cover ALL guild channels. Not doing any
+  // channel type verification when checking permissions.
   async getMissingChannelPermissions(
-    channel: GuildChannel,
+    channel: GuildBasedChannel,
     requiredPermissions: Readonly<PermissionsBitField>
   ): Promise<PermissionsString[]> {
     const botMember = await channel.guild.members.fetchMe();
@@ -363,7 +368,7 @@ export class SettingsService {
   }
 
   async getMissingModmailChannelPermissions(
-    channel: GuildChannel
+    channel: GuildBasedChannel
   ): Promise<PermissionsString[]> {
     new PermissionsBitField();
     // Modmail channel needs:
@@ -386,7 +391,7 @@ export class SettingsService {
   }
 
   async getMissingLogsChannelPermissions(
-    channel: GuildChannel
+    channel: GuildBasedChannel
   ): Promise<PermissionsString[]> {
     // Logs channel needs:
     const requiredPermissions = new PermissionsBitField([
@@ -395,6 +400,19 @@ export class SettingsService {
       PermissionsBitField.Flags.EmbedLinks,
       PermissionsBitField.Flags.AttachFiles,
     ]);
+
+    if (channel.isThread()) {
+      if (!channel.parent) {
+        throw new Error(
+          `Thread ${channel.id} has no parent channel, can't check permissions`
+        );
+      }
+
+      return this.getMissingChannelPermissions(
+        channel.parent,
+        requiredPermissions
+      );
+    }
 
     return this.getMissingChannelPermissions(channel, requiredPermissions);
   }
@@ -409,10 +427,11 @@ export class SettingsService {
       return;
     }
 
-    const permissionsStr = missing.join(", ");
+    const permissionsStr = missing.map((p) => `\`${p}\``).join(", ");
 
-    let content = `I'm missing permissions in the selected channel <#${channelId}>: ${permissionsStr}.`;
-    content += "Please update my permissions in the channel to avoid issues.";
+    let content = `I'm missing the following permissions in the selected channel <#${channelId}>`;
+    content += `> ${permissionsStr}`;
+    content += "\nPlease update my permissions in the channel to avoid issues.";
 
     await interaction.followUp({
       content: content,
