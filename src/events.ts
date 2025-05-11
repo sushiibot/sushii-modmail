@@ -126,6 +126,7 @@ export function registerEventHandlers(
     } catch (err) {
       logger.error(
         {
+          err,
           messageId: message.id,
           userId: message.author.id,
           userName: message.author.username,
@@ -146,6 +147,7 @@ export function registerEventHandlers(
     } catch (err) {
       logger.error(
         {
+          err,
           messageId: newMessage.id,
           userId: newMessage.author.id,
           userName: newMessage.author.username,
@@ -166,6 +168,7 @@ export function registerEventHandlers(
     } catch (err) {
       logger.error(
         {
+          err,
           messageId: oldMessage.id,
           guildId: oldMessage.guildId,
         },
@@ -187,6 +190,7 @@ export function registerEventHandlers(
     } catch (err) {
       logger.error(
         {
+          err,
           reaction: reaction.emoji.name,
           userId: user.id,
           userName: user.username,
@@ -210,6 +214,7 @@ export function registerEventHandlers(
     } catch (err) {
       logger.error(
         {
+          err,
           reaction: reaction.emoji.name,
           userId: user.id,
           userName: user.username,
@@ -228,6 +233,7 @@ export function registerEventHandlers(
     } catch (err) {
       logger.error(
         {
+          err,
           interactionId: interaction.id,
           type: interaction.type,
           userId: interaction.user.id,
