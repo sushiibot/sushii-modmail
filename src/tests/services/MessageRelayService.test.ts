@@ -33,6 +33,8 @@ describe("MessageRelayService", () => {
   let config: BotConfig;
   let configRepository: any;
   let messageRepository: any;
+  let emojiRepository: any;
+  let emojiMap: Map<any, any>;
   const guildId = "123456789";
 
   beforeEach(() => {
@@ -55,6 +57,11 @@ describe("MessageRelayService", () => {
       getByUserDMMessageId: mock().mockResolvedValue(null),
     };
 
+    emojiMap = new Map();
+    emojiRepository = {
+      getEmojiMap: mock().mockResolvedValue(emojiMap),
+    };
+
     config = {
       guildId,
     } as unknown as BotConfig;
@@ -62,7 +69,8 @@ describe("MessageRelayService", () => {
       config,
       client,
       configRepository,
-      messageRepository
+      messageRepository,
+      emojiRepository
     );
   });
 
@@ -95,7 +103,10 @@ describe("MessageRelayService", () => {
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
-      expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(message);
+      expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(
+        message,
+        emojiMap
+      );
       expect(threadChannel.send).lastCalledWith({
         components: [],
       });
@@ -152,7 +163,10 @@ describe("MessageRelayService", () => {
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).lastCalledWith(channelId);
-      expect(StaffThreadView.userReplyMessage).lastCalledWith(message);
+      expect(StaffThreadView.userReplyMessage).lastCalledWith(
+        message,
+        emojiMap
+      );
       expect(threadChannel.send).lastCalledWith({
         embeds: [],
         files: ["https://example.com/file1.txt"],
