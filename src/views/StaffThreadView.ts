@@ -24,9 +24,17 @@ import type {
   UserToStaffMessage,
   StaffRelayMessage,
 } from "../models/relayMessage";
+import type { BotEmojiName, MessageEmojiMap } from "models/botEmoji.model";
 
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
+
+export const StaffThreadEmojis = [
+  "message_id",
+  "user",
+] as const satisfies readonly BotEmojiName[];
+
+export type StaffThreadEmojis = MessageEmojiMap<typeof StaffThreadEmojis>;
 
 interface MemberRole {
   id: string;
@@ -308,12 +316,18 @@ export class StaffThreadView {
 
   static async userReplyEditedMessage(
     newUserMessage: UserToStaffMessage,
+    emojis: StaffThreadEmojis,
     previousMessageId?: string
   ): Promise<MessageCreateOptions> {
     // Edited messages just do the same thing as new messages but reply to the
     // original message
 
-    const components = this.userReplyComponents(newUserMessage, [], true);
+    const components = this.userReplyComponents(
+      newUserMessage,
+      [],
+      true,
+      emojis
+    );
 
     let msg: MessageCreateOptions = {
       components: components,
@@ -345,7 +359,8 @@ export class StaffThreadView {
   static userReplyComponents(
     userMessage: UserToStaffMessage,
     attachments: AttachmentBuilder[],
-    isEdited: boolean
+    isEdited: boolean,
+    emojis: StaffThreadEmojis
   ): BaseMessageOptions["components"] {
     const container = new ContainerBuilder();
 
@@ -423,8 +438,8 @@ export class StaffThreadView {
       metadataStr += `\n**Stickers:**\n${stickerLinks}`;
     }
 
-    metadataStr += `\n\nUser ID: \`${userMessage.author.id})\``;
-    metadataStr += `\nMessage ID: \`${userMessage.id}\``;
+    metadataStr += `\n\n${emojis.user} User ID: \`${userMessage.author.id}\``;
+    metadataStr += `\n${emojis.message_id} Message ID: \`${userMessage.id}\``;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     container.addTextDisplayComponents(metadataText);
@@ -433,11 +448,17 @@ export class StaffThreadView {
   }
 
   static async userReplyMessage(
-    userMessage: UserToStaffMessage
+    userMessage: UserToStaffMessage,
+    emojis: StaffThreadEmojis
   ): Promise<MessageCreateOptions> {
     const files = await downloadAttachments(userMessage.attachments);
 
-    const components = this.userReplyComponents(userMessage, files, false);
+    const components = this.userReplyComponents(
+      userMessage,
+      files,
+      false,
+      emojis
+    );
     return {
       files: files,
       components: components,

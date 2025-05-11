@@ -15,9 +15,19 @@ export const BotEmojiNameSchema = z.enum([
   "prefix",
   "channel",
   "arrow_down_right",
+  "user",
 ]);
 
 export type BotEmojiName = z.infer<typeof BotEmojiNameSchema>;
+
+/**
+ * Emoji mapping keyed by either a single BotEmojiName or an array of BotEmojiNames.
+ * Allows passing a const tuple of names directly for convenience: MessageEmojis<typeof NamesTuple>.
+ */
+export type MessageEmojiMap<T extends readonly BotEmojiName[] | BotEmojiName> =
+  {
+    [K in T extends readonly BotEmojiName[] ? T[number] : T]: string;
+  };
 
 export class BotEmoji {
   public readonly name: BotEmojiName;

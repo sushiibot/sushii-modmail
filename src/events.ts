@@ -47,7 +47,8 @@ export function registerEventHandlers(
     config,
     client,
     runtimeConfigRepository,
-    messageRepository
+    messageRepository,
+    botEmojiRepository
   );
   const reactionService = new ReactionRelayService(
     config,

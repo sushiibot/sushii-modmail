@@ -60,4 +60,28 @@ export class BotEmojiRepository {
 
     return BotEmoji.fromDatabaseRow(inserted[0]);
   }
+
+  /**
+   * Fetches emojis by names and returns a map of name to emoji string, logging any missing entries.
+   */
+  async getEmojiMap(
+    names: readonly BotEmojiName[]
+  ): Promise<Record<BotEmojiName, string>> {
+    // Convert to non-readonly
+    const emojis = await this.getEmojis([...names]);
+
+    const map = {} as Record<BotEmojiName, string>;
+    for (const name of names) {
+      const found = emojis.find((e) => e.name === name);
+      if (!found) {
+        this.logger.error({ name }, `Emoji not found in database: ${name}`);
+        map[name] = "";
+      } else {
+        map[name] = found.toEmojiString();
+      }
+    }
+
+    this.logger.debug({ emojis: map }, "Mapped emojis to strings");
+    return map;
+  }
 }

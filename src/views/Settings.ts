@@ -17,7 +17,22 @@ import {
 } from "discord.js";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import { HexColor } from "./Color";
-import type { BotEmojiName } from "models/botEmoji.model";
+import type { BotEmojiName, MessageEmojiMap } from "models/botEmoji.model";
+
+// Specific emoji set for Settings view
+export const SettingsEmojiNames = [
+  "logs",
+  "message",
+  "settings",
+  "snippet",
+  "message_reply",
+  "prefix",
+  "channel",
+  "staff_user",
+  "arrow_down_right",
+] as const satisfies readonly BotEmojiName[];
+
+export type SettingsEmojis = MessageEmojiMap<typeof SettingsEmojiNames>;
 
 const settingsCustomIDPrefix = "cmd.settings.";
 const id = (name: string) => `${settingsCustomIDPrefix}${name}`;
@@ -37,24 +52,6 @@ export const settingsCustomID = {
   modalPrefix: modalId("prefix"),
   modalInitialMessage: modalId("initialMessage"),
 };
-
-type MessageEmojis<T extends BotEmojiName> = {
-  [K in T]: string;
-};
-
-export const SettingsEmojiNames = [
-  "logs",
-  "message",
-  "settings",
-  "snippet",
-  "message_reply",
-  "prefix",
-  "channel",
-  "staff_user",
-  "arrow_down_right",
-] as const satisfies readonly BotEmojiName[];
-
-export type SettingsEmojis = MessageEmojis<(typeof SettingsEmojiNames)[number]>;
 
 export class SettingsCommandView {
   static buildMessage(

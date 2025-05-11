@@ -12,7 +12,7 @@ import type { Message, MessageSticker } from "models/message.model";
 import type { NewMessage } from "repositories/message.repository";
 import { getLogger } from "utils/logger";
 import { Color } from "views/Color";
-import { StaffThreadView } from "views/StaffThreadView";
+import { StaffThreadEmojis, StaffThreadView } from "views/StaffThreadView";
 import type {
   UserToStaffMessage,
   StaffToUserMessage,
@@ -29,6 +29,7 @@ import {
   extractImageURLsFromComponents,
 } from "views/util";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
+import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 
 interface Config {
   guildId: string;
@@ -85,6 +86,7 @@ export class MessageRelayService {
 
   private configRepository: ConfigRepository;
   private messageRepository: MessageRepository;
+  private emojiRepository: BotEmojiRepository;
 
   private logger = getLogger("MessageRelayService");
 
@@ -92,13 +94,15 @@ export class MessageRelayService {
     config: Config,
     client: Client,
     configRepository: ConfigRepository,
-    messageRepository: MessageRepository
+    messageRepository: MessageRepository,
+    emojiRepository: BotEmojiRepository
   ) {
     this.config = config;
     this.client = client;
 
     this.configRepository = configRepository;
     this.messageRepository = messageRepository;
+    this.emojiRepository = emojiRepository;
   }
 
   // ---------------------------------------------------------------------------
@@ -127,7 +131,9 @@ export class MessageRelayService {
       "Relaying user message to staff"
     );
 
-    const msg = await StaffThreadView.userReplyMessage(message);
+    const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
+
+    const msg = await StaffThreadView.userReplyMessage(message, emojis);
     const relayedMsg = await threadChannel.send(msg);
 
     // Save message to database
@@ -187,8 +193,11 @@ export class MessageRelayService {
       message.id
     );
 
+    const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
+
     const msg = await StaffThreadView.userReplyEditedMessage(
       message,
+      emojis,
       // ThreadMessage ID is always the message in the staff thread
       threadMessage?.messageId
     );

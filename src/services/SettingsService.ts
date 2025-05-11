@@ -50,21 +50,10 @@ export class SettingsService {
     config: RuntimeConfig,
     disabled: boolean = false
   ): Promise<MessageCreateOptions> {
-    // Fetch required emojis
-    const emojis = await this.emojiRepository.getEmojis([
-      ...SettingsEmojiNames,
-    ]);
-
-    // Check if all emojis are available, and convert to emoji strings
-    const emojiMap = {} as SettingsEmojis;
-    for (const name of SettingsEmojiNames) {
-      const found = emojis.find((e) => e.name === name);
-      if (!found) {
-        this.logger.error({ name }, `Emoji not found in database: ${name}`);
-      }
-
-      emojiMap[name] = found ? found.toEmojiString() : "";
-    }
+    // Fetch and map emojis to strings
+    const emojiMap: SettingsEmojis = await this.emojiRepository.getEmojiMap(
+      SettingsEmojiNames
+    );
 
     this.logger.debug(
       { emojis: emojiMap },
