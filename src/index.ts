@@ -54,7 +54,8 @@ function buildCommandRouter(
     config,
     client,
     runtimeConfigRepository,
-    messageRepository
+    messageRepository,
+    botEmojiRepository
   );
   const snippetService = new SnippetService(config, client, snippetRepository);
 
