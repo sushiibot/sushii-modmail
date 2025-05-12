@@ -125,7 +125,7 @@ export class BotEmojiController {
         // Upload it to Discord and save ID
         this.logger.info(
           { emojiName: name, sha256 },
-          `Emoji registered DB but not in Discord, uploading`
+          `Emoji registered in database but not in Discord, uploading`
         );
 
         await this.emojiService.uploadEmoji(

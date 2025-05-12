@@ -109,11 +109,13 @@ export class SettingsCommandView {
       channelSettingsContent += `\n${emojis.message} **ModMail forum channel:** <#${config.forumChannelId}>`;
     }
 
+    /*
     if (config.logsChannelId === null) {
       channelSettingsContent += `\n${emojis.logs} **Error logs channel:** \`Not set yet\``;
     } else {
       channelSettingsContent += `\n${emojis.logs} **Error logs channel:** <#${config.logsChannelId}>`;
     }
+    */
 
     channelSettingsText.setContent(channelSettingsContent);
     container.addTextDisplayComponents(channelSettingsText);
@@ -127,6 +129,7 @@ export class SettingsCommandView {
       .setPlaceholder("Select a ModMail channel")
       .setDisabled(disabled);
 
+    /*
     const logsChannelSelect = new ChannelSelectMenuBuilder()
       .setCustomId(settingsCustomID.logsChannelId)
       .setDefaultChannels(config.logsChannelId ? [config.logsChannelId] : [])
@@ -139,15 +142,18 @@ export class SettingsCommandView {
       .setMaxValues(1)
       .setPlaceholder("Select an error logs channel")
       .setDisabled(disabled);
+    */
 
     // Only 1 select per row
     const forumChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>();
     forumChannelRow.addComponents(forumChannelSelect);
     container.addActionRowComponents(forumChannelRow);
 
+    /*
     const logsChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>();
     logsChannelRow.addComponents(logsChannelSelect);
     container.addActionRowComponents(logsChannelRow);
+    */
 
     // -------------------------------------------------------------------------
     // Permissions & Roles
