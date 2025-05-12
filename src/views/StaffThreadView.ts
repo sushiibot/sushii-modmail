@@ -32,6 +32,7 @@ export const MediaGalleryStickersID = 102;
 export const StaffThreadEmojis = [
   "message_id",
   "user",
+  "forward",
 ] as const satisfies readonly BotEmojiName[];
 
 export type StaffThreadEmojis = MessageEmojiMap<typeof StaffThreadEmojis>;
@@ -427,7 +428,8 @@ export class StaffThreadView {
         .map((attachment) => `[${attachment.name}](${attachment.url})`)
         .join("\n");
 
-      metadataStr += `\n**Attachment links:**\n${attachmentLinks}`;
+      metadataStr += `\n**Attachment links:**`;
+      metadataStr += `\n${attachmentLinks}`;
     }
 
     if (!isEdited && userMessage.stickers.length > 0) {
@@ -435,10 +437,15 @@ export class StaffThreadView {
         .map((sticker) => `[${sticker.name}](${sticker.url})`)
         .join("\n");
 
-      metadataStr += `\n**Stickers:**\n${stickerLinks}`;
+      metadataStr += `\n**Stickers:**`;
+      metadataStr += `\n${stickerLinks}`;
     }
 
-    metadataStr += `\n\n${emojis.user} User ID: \`${userMessage.author.id}\``;
+    if (userMessage.forwarded === true) {
+      metadataStr += `\n\n${emojis.forward} Forwarded message`;
+    }
+
+    metadataStr += `\n${emojis.user} User ID: \`${userMessage.author.id}\``;
     metadataStr += `\n${emojis.message_id} Message ID: \`${userMessage.id}\``;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
