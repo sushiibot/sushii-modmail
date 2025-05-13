@@ -29,6 +29,7 @@ import { SettingsCommand } from "commands/SettingsCommand";
 import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
+import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -72,6 +73,11 @@ function buildCommandRouter(
     // Reply commands
     new ReplyCommand(threadService, messageService, runtimeConfigRepository),
     new AnonymousReplyCommand(
+      threadService,
+      messageService,
+      runtimeConfigRepository
+    ),
+    new AnonymousPlainReplyCommand(
       threadService,
       messageService,
       runtimeConfigRepository
