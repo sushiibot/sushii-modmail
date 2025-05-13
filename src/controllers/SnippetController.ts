@@ -160,25 +160,8 @@ export class SnippetController {
         options
       );
 
-      // Re-send to show the message was sent and how it looks
-      const components = StaffThreadView.staffReplyComponents(
-        {
-          ...message,
-          attachments: Array.from(message.attachments.values()),
-          stickers: Array.from(message.stickers.values()),
-        },
-        options
-      );
-
-      await Promise.allSettled([
-        // Delete the original message
-        message.delete(),
-        message.channel.send({
-          components,
-          flags: MessageFlags.IsComponentsV2,
-          allowedMentions: { parse: [] },
-        }),
-      ]);
+      // Delete the original message
+      await message.delete();
     } catch (err) {
       this.logger.error(err, `Error handling snippet command`);
       await message.reply(
