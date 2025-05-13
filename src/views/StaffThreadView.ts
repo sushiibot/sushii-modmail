@@ -255,7 +255,7 @@ export class StaffThreadView {
     }
 
     if (displayOptions.deletedById) {
-      metadataStr += `\n${emojis.delete}Deleted by <@${displayOptions.deletedById}>`;
+      metadataStr += `\n${emojis.delete} Deleted by <@${displayOptions.deletedById}>`;
     }
 
     if (options.plainText) {
