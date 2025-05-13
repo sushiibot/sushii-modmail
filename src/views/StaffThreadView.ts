@@ -33,6 +33,10 @@ export const StaffThreadEmojis = [
   "message_id",
   "user",
   "forward",
+  "edit",
+  "delete",
+  "snippet",
+  "plain_text",
 ] as const satisfies readonly BotEmojiName[];
 
 export type StaffThreadEmojis = MessageEmojiMap<typeof StaffThreadEmojis>;
@@ -174,6 +178,7 @@ export class StaffThreadView {
 
   static staffReplyComponents(
     msg: StaffRelayMessage,
+    emojis: StaffThreadEmojis,
     options: StaffMessageOptions = defaultStaffMessageOptions,
     displayOptions: {
       editedById?: string;
@@ -189,7 +194,7 @@ export class StaffThreadView {
     }
 
     // Set the author field based on anonymous option
-    let authorName = `### Staff reply from <@${msg.author.id}>`;
+    let authorName = `### Staff - <@${msg.author.id}>`;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
@@ -246,22 +251,21 @@ export class StaffThreadView {
     let metadataStr = "\n";
 
     if (displayOptions.editedById) {
-      metadataStr += `\nEdited by <@${displayOptions.editedById}>`;
+      metadataStr += `\n${emojis.edit} Edited by <@${displayOptions.editedById}>`;
     }
 
     if (displayOptions.deletedById) {
-      metadataStr += `\nDeleted by <@${displayOptions.deletedById}>`;
+      metadataStr += `\n${emojis.delete}Deleted by <@${displayOptions.deletedById}>`;
     }
 
     if (options.plainText) {
-      metadataStr += `\nSent as plain text`;
+      metadataStr += `\n${emojis.plain_text} Sent as plain text`;
     }
 
     if (options.snippet) {
-      metadataStr += `\nSent from snippet`;
+      metadataStr += `\n${emojis.snippet} Sent from snippet`;
     }
 
-    metadataStr += `\nMessage ID: \`${msg.id}\``;
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     container.addTextDisplayComponents(metadataText);
 
@@ -377,7 +381,7 @@ export class StaffThreadView {
     // 4. Metadata (links to attachments, stickers, timestamps, ID)
 
     // 1. Author
-    const author = `### User message from <@${userMessage.author.id}>`;
+    const author = `### User - <@${userMessage.author.id}>`;
     const authorText = new TextDisplayBuilder().setContent(author);
     container.addTextDisplayComponents(authorText);
 

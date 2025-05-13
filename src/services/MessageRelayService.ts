@@ -275,8 +275,14 @@ export class MessageRelayService {
     // Download the attachments and re-upload them to the staff thread
     const files = await downloadAttachments(msg.attachments);
 
+    const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
+
     // Re-send to show the message was sent and how it looks
-    const components = StaffThreadView.staffReplyComponents(msg, options);
+    const components = StaffThreadView.staffReplyComponents(
+      msg,
+      emojis,
+      options
+    );
 
     const staffThread = await this.client.channels.fetch(threadId);
     if (!staffThread) {
@@ -427,6 +433,8 @@ export class MessageRelayService {
     // STAFF MODMAIL THREAd
     // Send a staff view of the edited message
     const staffFullUser = await this.client.users.fetch(messageData.authorId);
+    const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
+
     const components = StaffThreadView.staffReplyComponents(
       {
         author: staffFullUser,
@@ -437,6 +445,7 @@ export class MessageRelayService {
         stickers: stickers,
         forwarded: msg.forwarded,
       },
+      emojis,
       {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,
@@ -563,6 +572,7 @@ export class MessageRelayService {
 
     // Re-build staff message
     const staffUser = await this.client.users.fetch(messageData.authorId);
+    const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
     const components = StaffThreadView.staffReplyComponents(
       {
         author: staffUser,
@@ -572,6 +582,7 @@ export class MessageRelayService {
         stickers: stickers,
         forwarded: messageData.forwarded,
       },
+      emojis,
       {
         anonymous: messageData.isAnonymous,
         plainText: messageData.isPlainText,
