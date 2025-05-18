@@ -1,8 +1,11 @@
 import { type DB } from "../database/db";
 import { messages } from "../database/schema";
-import { eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { Message, type MessageSticker } from "../models/message.model";
 import { getLogger } from "utils/logger";
+import { messageEdits } from "../database/schema";
+import { MessageVersion } from "../models/messageVersion.model";
+import { version } from "bun";
 
 export type NewMessage = {
   messageId: string;
@@ -133,5 +136,93 @@ export class MessageRepository {
     }
 
     return Message.fromDatabaseRow(result[0]);
+  }
+
+  async saveNewMessageVersion(
+    messageId: string,
+    newContent: string
+  ): Promise<void> {
+    this.logger.debug(
+      { messageId, content: newContent },
+      "Saving new message version"
+    );
+
+    await this.db.transaction(async (tx) => {
+      // Max + 1 of the current messageId, or 1 if none exist.
+      // Note: Using SQLITE, so in transactions this is safe such that there
+      // won't be any concurrent transactions trying to get or modify the same
+      // messageId.
+      const nextVersion = await tx
+        .select({
+          version: sql<number>`coalesce(max(version), 0) + 1`,
+        })
+        .from(messageEdits)
+        .where(eq(messageEdits.messageId, messageId))
+        .execute();
+
+      const previousMessage = await tx
+        .select({ content: messages.content })
+        .from(messages)
+        .where(eq(messages.messageId, messageId))
+        .limit(1)
+        .execute();
+
+      // Ignore empty strings
+      if (previousMessage.length === 0 || !previousMessage[0].content) {
+        this.logger.error(
+          { messageId },
+          "Failed to get previous message content"
+        );
+
+        // No message content found, and no db mutations were made. So we can
+        // just return instead of rolling back. drizzle tx.rollback() will throw
+        // an error which isn't ideal for this. Not an error.
+        return;
+      }
+
+      this.logger.debug(
+        {
+          messageId,
+          version: nextVersion[0].version,
+          oldContent: previousMessage[0].content,
+          newContent: newContent,
+        },
+        "Moving previous message content to message versions"
+      );
+
+      // 1. Move the current message content to the message versions table
+      await tx
+        .insert(messageEdits)
+        .values({
+          messageId: messageId,
+          version: nextVersion[0].version,
+          content: previousMessage[0].content,
+        })
+        .execute();
+
+      // 2. Update the current message with the new content
+      await tx
+        .update(messages)
+        .set({
+          content: newContent,
+        })
+        .where(eq(messages.messageId, messageId))
+        .execute();
+    });
+  }
+
+  /**
+   * Get all versions of a message, ordered by newest to oldest.
+   * @param messageId
+   */
+  async getMessageVersions(messageId: string): Promise<MessageVersion[]> {
+    const rows = await this.db
+      .select()
+      .from(messageEdits)
+      .where(eq(messageEdits.messageId, messageId))
+      .orderBy(desc(messageEdits.version))
+      .execute();
+
+    return rows.map(MessageVersion.fromDatabaseRow);
   }
 }

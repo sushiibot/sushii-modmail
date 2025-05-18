@@ -30,6 +30,7 @@ import {
 } from "views/util";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { BotEmojiRepository } from "repositories/botEmoji.repository";
+import type { MessageVersion } from "models/messageVersion.model";
 
 interface Config {
   guildId: string;
@@ -78,6 +79,8 @@ interface MessageRepository {
   deleteMessage(messageId: string): Promise<void>;
   getByThreadMessageId(messageId: string): Promise<Message | null>;
   getByUserDMMessageId(dmMessageId: string): Promise<Message | null>;
+  saveNewMessageVersion(messageId: string, newContent: string): Promise<void>;
+  getMessageVersions(messageId: string): Promise<MessageVersion[]>;
 }
 
 export class MessageRelayService {
@@ -193,16 +196,51 @@ export class MessageRelayService {
       message.id
     );
 
+    if (!threadMessage) {
+      this.logger.error(
+        {
+          threadId: threadId,
+          messageId: message.id,
+        },
+        "Could not find relay message for user edited message"
+      );
+
+      return;
+    }
+
+    // Update the existing message in the thread (showing previous versions too)
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
 
-    const msg = await StaffThreadView.userReplyEditedMessage(
-      message,
-      emojis,
-      // ThreadMessage ID is always the message in the staff thread
-      threadMessage?.messageId
+    // Save the new message version
+    await this.messageRepository.saveNewMessageVersion(
+      threadMessage.messageId,
+      message.content
     );
 
-    await threadChannel.send(msg);
+    const messageVersions = await this.messageRepository.getMessageVersions(
+      threadMessage.messageId
+    );
+
+    this.logger.debug(
+      {
+        messageId: threadMessage.messageId,
+        newContent: message.content,
+        messageVersions,
+      },
+      "Relaying user edited message to staff"
+    );
+
+    const updatedRelayMsg = StaffThreadView.userReplyComponents(
+      message,
+      [], // Ignore attachments, they're preserved already
+      messageVersions,
+      true,
+      emojis
+    );
+
+    await threadChannel.messages.edit(threadMessage.messageId, {
+      components: updatedRelayMsg,
+    });
   }
 
   async relayUserDeletedMessageToStaff(

@@ -64,6 +64,13 @@
       "when": 1746673365693,
       "tag": "0008_perpetual_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1747605793456,
+      "tag": "0009_jittery_vision",
+      "breakpoints": true
     }
   ]
 }

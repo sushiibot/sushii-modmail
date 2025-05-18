@@ -7,6 +7,7 @@ import {
   MediaGalleryItemBuilder,
   MessageFlags,
   SeparatorBuilder,
+  SeparatorSpacingSize,
   TextDisplayBuilder,
   type BaseMessageOptions,
   type GuildForumThreadCreateOptions,
@@ -25,6 +26,7 @@ import type {
   StaffRelayMessage,
 } from "../models/relayMessage";
 import type { BotEmojiName, MessageEmojiMap } from "models/botEmoji.model";
+import type { MessageVersion } from "models/messageVersion.model";
 
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
@@ -319,38 +321,6 @@ export class StaffThreadView {
     return msg;
   }
 
-  static async userReplyEditedMessage(
-    newUserMessage: UserToStaffMessage,
-    emojis: StaffThreadEmojis,
-    previousMessageId?: string
-  ): Promise<MessageCreateOptions> {
-    // Edited messages just do the same thing as new messages but reply to the
-    // original message
-
-    const components = this.userReplyComponents(
-      newUserMessage,
-      [],
-      true,
-      emojis
-    );
-
-    let msg: MessageCreateOptions = {
-      components: components,
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: {
-        parse: [],
-      },
-    };
-
-    if (previousMessageId) {
-      msg.reply = {
-        messageReference: previousMessageId,
-      };
-    }
-
-    return msg;
-  }
-
   /**
    * Creates v2 components for a user reply message, created or edited. Message
    * edits can only change the content, so attachments and stickers are excluded
@@ -364,6 +334,7 @@ export class StaffThreadView {
   static userReplyComponents(
     userMessage: UserToStaffMessage,
     attachments: AttachmentBuilder[],
+    messageVersions: MessageVersion[],
     isEdited: boolean,
     emojis: StaffThreadEmojis
   ): BaseMessageOptions["components"] {
@@ -394,9 +365,31 @@ export class StaffThreadView {
       container.addTextDisplayComponents(contentText);
     }
 
+    if (messageVersions.length > 0) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+
+      const editHistoryItems = messageVersions.map((version) => {
+        const editTs = Math.floor(version.editedAt.getTime() / 1000);
+        let s = `<t:${editTs}:f>`;
+        s += `\n${version.content}`;
+
+        return s;
+      });
+
+      let editHistoryText = `### Message Edits`;
+      editHistoryText += `\n${editHistoryItems.join("\n\n")}`;
+
+      const editTextDisplay = new TextDisplayBuilder().setContent(
+        editHistoryText
+      );
+      container.addTextDisplayComponents(editTextDisplay);
+    }
+
     // 3. Attachments - use reuploaded attachments
     if (!isEdited && attachments.length > 0) {
-      container.addSeparatorComponents(new SeparatorBuilder());
+      container.addSeparatorComponents(
+        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
+      );
 
       const attachmentItems = attachments.map((attachment) =>
         // Reference file attachments
@@ -423,7 +416,9 @@ export class StaffThreadView {
     }
 
     // 4. Metadata
-    container.addSeparatorComponents(new SeparatorBuilder());
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
+    );
 
     let metadataStr = "";
 
@@ -467,6 +462,7 @@ export class StaffThreadView {
     const components = this.userReplyComponents(
       userMessage,
       files,
+      [],
       false,
       emojis
     );

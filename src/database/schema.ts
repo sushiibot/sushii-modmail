@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { check, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  integer,
+  sqliteTable,
+  text,
+  primaryKey,
+} from "drizzle-orm/sqlite-core";
 
 export const threads = sqliteTable(
   "threads",
@@ -113,6 +119,24 @@ export const messages = sqliteTable(
         )`
     ),
   ]
+);
+
+export const messageEdits = sqliteTable(
+  "message_versions",
+  {
+    messageId: text()
+      .notNull()
+      .references(() => messages.messageId, {
+        onDelete: "cascade",
+      }),
+    version: integer().notNull(),
+    // Only track edit history for content as users can't edit attachments.
+    // This means content is NOT null. If there's some other non-content edit,
+    // ignore.
+    content: text().notNull(),
+    editedAt: integer({ mode: "timestamp" }).notNull().default(new Date()),
+  },
+  (table) => [primaryKey({ columns: [table.messageId, table.version] })]
 );
 
 export const snippets = sqliteTable(
