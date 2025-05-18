@@ -189,14 +189,16 @@ export class SnippetCommandView {
   }
 
   static snippetList(snippets: Snippet[]): MessageCreateOptions {
+    const snippetStringItems = snippets.map(
+      (snippet) => `\`${snippet.name}\`\n${snippet.content}`
+    );
+
+    const snippetString = snippetStringItems.join("\n\n");
+
     const embed = new EmbedBuilder()
       .setTitle("Available Snippets")
       .setColor(Color.Purple)
-      .setDescription(
-        snippets
-          .map((snippet) => `\`${snippet.name}\` - ${snippet.content}`)
-          .join(", ")
-      )
+      .setDescription(snippetString)
       .setFooter({ text: `Total snippets: ${snippets.length}` });
 
     return { embeds: [embed], allowedMentions: { parse: [] } };
