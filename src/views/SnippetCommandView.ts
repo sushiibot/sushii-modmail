@@ -189,11 +189,22 @@ export class SnippetCommandView {
   }
 
   static snippetList(snippets: Snippet[]): MessageCreateOptions {
-    const snippetStringItems = snippets.map(
-      (snippet) => `\`${snippet.name}\`\n${snippet.content}`
-    );
+    const snippetStringItems = snippets.map((snippet) => {
+      let s = `### \`${snippet.name}\``;
+      s += "\n";
 
-    const snippetString = snippetStringItems.join("\n\n");
+      // Add a > to the start of each line
+      s += snippet.content
+        .split("\n")
+        .map((line) => {
+          return `> ${line}`;
+        })
+        .join("\n");
+
+      return s;
+    });
+
+    const snippetString = snippetStringItems.join("\n");
 
     const embed = new EmbedBuilder()
       .setTitle("Available Snippets")
