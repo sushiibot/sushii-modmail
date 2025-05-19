@@ -249,7 +249,6 @@ export class StaffThreadView {
     }
 
     // Add metadata
-    container.addSeparatorComponents(new SeparatorBuilder());
     let metadataStr = "\n";
 
     if (displayOptions.editedById) {
@@ -270,6 +269,7 @@ export class StaffThreadView {
 
     // Only add if there's content
     if (metadataStr.trim().length > 1) {
+      container.addSeparatorComponents(new SeparatorBuilder());
       const metadataText = new TextDisplayBuilder().setContent(metadataStr);
       container.addTextDisplayComponents(metadataText);
     }
