@@ -268,8 +268,11 @@ export class StaffThreadView {
       metadataStr += `\n${emojis.snippet} Sent from snippet`;
     }
 
-    const metadataText = new TextDisplayBuilder().setContent(metadataStr);
-    container.addTextDisplayComponents(metadataText);
+    // Only add if there's content
+    if (metadataStr.trim().length > 1) {
+      const metadataText = new TextDisplayBuilder().setContent(metadataStr);
+      container.addTextDisplayComponents(metadataText);
+    }
 
     return [container];
   }
