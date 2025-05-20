@@ -18,6 +18,7 @@ import { ThreadRepository } from "../../repositories/thread.repository";
 import { Thread } from "../../models/thread.model";
 import { StaffThreadView } from "../../views/StaffThreadView";
 import { getLogger } from "utils/logger";
+import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 
 import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { getDb } from "database/db";
@@ -38,6 +39,14 @@ const mockThreadRepository = {
 const mockRuntimeConfigRepository = {
   getConfig: mock(),
   setConfig: mock(),
+};
+
+const mockEmojiRepository = {
+  logger: { info: mock(), error: mock(), debug: mock(), warn: mock() },
+  getEmoji: mock(),
+  getEmojis: mock(),
+  saveEmoji: mock(),
+  getEmojiMap: mock(),
 };
 
 describe("ThreadService", () => {
@@ -77,7 +86,8 @@ describe("ThreadService", () => {
       config,
       client,
       mockRuntimeConfigRepository,
-      mockThreadRepository
+      mockThreadRepository,
+      mockEmojiRepository as unknown as BotEmojiRepository
     );
   });
 
