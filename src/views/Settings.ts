@@ -244,11 +244,11 @@ export class SettingsCommandView {
 
     if (config.notificationSilent) {
       notificationContent += `\n${emojis.silent} **Push Notifications:** \`Silent\``;
-      notificationContent += `\n> Users with the notification role will get pinged but without push notifications when a new thread is created.`;
-      notificationContent += `\n> Remove the notification role to disable notifications.`;
+      notificationContent += `\n> When a new thread is created, users with the notification role will get pinged but __without__ push notifications.`;
+      notificationContent += `\n> Remove the notification role to disable role ping entirely.`;
     } else {
       notificationContent += `\n${emojis.notify} **Push Notifications:** \`Notify\``;
-      notificationContent += `\n> Users with the notification role will get push notifications when a new thread is created.`;
+      notificationContent += `\n> When a new thread is created, users with the notification role will get push notifications.`;
 
       if (!config.notificationRoleId) {
         notificationContent += `\n> There's currently no notification role set, so this won't do anything.`;
