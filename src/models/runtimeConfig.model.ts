@@ -29,6 +29,10 @@ export class RuntimeConfig {
   protected readonly _initialMessage: string | null;
   public readonly anonymousSnippets: boolean;
 
+  // Notifications
+  public readonly notificationRoleId: string | null;
+  public readonly notificationSilent: boolean;
+
   constructor(
     guildId: string,
     openTagId: string | null,
@@ -37,16 +41,27 @@ export class RuntimeConfig {
     logsChannelId: string | null,
     requiredRoleIds: Snowflake[],
     initialMessage: string | null,
-    anonymousSnippets: boolean
+    anonymousSnippets: boolean,
+    notificationRoleId: string | null,
+    notificationSilent: boolean
   ) {
     this.guildId = guildId;
     this.openTagId = openTagId;
     this._prefix = prefix;
+
+    // Channel IDs
     this.forumChannelId = forumChannelId;
     this.logsChannelId = logsChannelId;
+
+    // Permissions
     this.requiredRoleIds = requiredRoleIds;
+
+    // Threads
     this._initialMessage = initialMessage;
     this.anonymousSnippets = anonymousSnippets;
+
+    this.notificationRoleId = notificationRoleId;
+    this.notificationSilent = notificationSilent;
   }
 
   get prefix(): string {
@@ -79,11 +94,24 @@ export class RuntimeConfig {
       row.logsChannelId,
       requiredRoleIds,
       row.initialMessage,
-      row.anonymousSnippets
+      row.anonymousSnippets,
+      row.notificationRoleId,
+      row.notificationSilent
     );
   }
 
   static default(guildId: string): RuntimeConfig {
-    return new RuntimeConfig(guildId, null, null, null, null, [], null, true);
+    return new RuntimeConfig(
+      guildId, // Guild ID
+      null, // Open tag ID
+      null, // Prefix
+      null, // Forum channel ID
+      null, // Logs channel ID
+      [], // Required role IDs
+      null, // Initial message
+      true, // Anonymous snippets
+      null, // Notification role ID
+      false // Notification silent
+    );
   }
 }

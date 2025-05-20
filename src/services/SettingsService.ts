@@ -108,6 +108,10 @@ export class SettingsService {
           return;
         }
 
+        // Refresh config, could be a second interaction which changes the
+        // config
+        const config = await this.configRepository.getConfig(msg.guildId);
+
         await this.editSettings(interaction, config);
       });
 
@@ -147,6 +151,7 @@ export class SettingsService {
     currentConfig: RuntimeConfig
   ) {
     switch (interaction.customId) {
+      // Modals, no message update
       case settingsCustomID.prefix:
         return interaction.showModal(
           SettingsCommandView.prefixModal(currentConfig.prefix)
@@ -155,12 +160,19 @@ export class SettingsService {
         return interaction.showModal(
           SettingsCommandView.initialMessageModal(currentConfig.initialMessage)
         );
+
+      // Toggles, update message
       case settingsCustomID.anonymousSnippets:
         await this.configRepository.toggleAnonymousSnippets(
           interaction.guildId
         );
 
-        // Only this one has to be updated, no modal
+        return this.editSettingsMessage(interaction);
+      case settingsCustomID.notificationSilent:
+        await this.configRepository.setConfig(interaction.guildId, {
+          notificationSilent: !currentConfig.notificationSilent,
+        });
+
         return this.editSettingsMessage(interaction);
       default:
         return;
@@ -252,14 +264,35 @@ export class SettingsService {
   private async handleRoleMenu(
     interaction: RoleSelectMenuInteraction<"cached">
   ) {
-    if (interaction.customId !== settingsCustomID.requiredRoleIds) {
-      return;
-    }
+    switch (interaction.customId) {
+      case settingsCustomID.requiredRoleIds: {
+        await this.configRepository.setConfig(interaction.guildId, {
+          requiredRoleIds: interaction.values,
+        });
+        return this.editSettingsMessage(interaction);
+      }
+      case settingsCustomID.notificationRoleId: {
+        if (interaction.values.length === 0) {
+          await this.configRepository.setConfig(interaction.guildId, {
+            notificationRoleId: null,
+          });
+        } else {
+          // Only one role is allowed, for now...
+          await this.configRepository.setConfig(interaction.guildId, {
+            notificationRoleId: interaction.values[0],
+          });
+        }
 
-    await this.configRepository.setConfig(interaction.guildId, {
-      requiredRoleIds: interaction.values,
-    });
-    return this.editSettingsMessage(interaction);
+        return this.editSettingsMessage(interaction);
+      }
+
+      default:
+        this.logger.warn(
+          { customId: interaction.customId },
+          "Unknown select menu interaction"
+        );
+        return;
+    }
   }
 
   async handleModalSubmit(

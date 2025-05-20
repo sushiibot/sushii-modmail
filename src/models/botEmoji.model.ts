@@ -17,6 +17,8 @@ export const BotEmojiNameSchema = z.enum([
   "arrow_down_right",
   "user",
   "forward",
+  "silent",
+  "notify",
 ]);
 
 export type BotEmojiName = z.infer<typeof BotEmojiNameSchema>;

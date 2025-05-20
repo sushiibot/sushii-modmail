@@ -30,6 +30,9 @@ export const SettingsEmojiNames = [
   "channel",
   "staff_user",
   "arrow_down_right",
+  "user",
+  "silent",
+  "notify",
 ] as const satisfies readonly BotEmojiName[];
 
 export type SettingsEmojis = MessageEmojiMap<typeof SettingsEmojiNames>;
@@ -47,6 +50,9 @@ export const settingsCustomID = {
   logsChannelId: id("logsChannelId"),
   requiredRoleIds: id("requiredRoleIds"),
   anonymousSnippets: id("anonymousSnippets"),
+
+  notificationRoleId: id("notificationRoleId"),
+  notificationSilent: id("notificationSilent"),
 
   // Modals
   modalPrefix: modalId("prefix"),
@@ -192,7 +198,7 @@ export class SettingsCommandView {
     container.addActionRowComponents(requiredRoleRow);
 
     // -------------------------------------------------------------------------
-    // Feature Toggles
+    // Snippet settings
 
     container.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
@@ -220,6 +226,70 @@ export class SettingsCommandView {
     const featureActionRow = new ActionRowBuilder<ButtonBuilder>();
     featureActionRow.addComponents(anonymousSnippetsButton);
     container.addActionRowComponents(featureActionRow);
+
+    // -------------------------------------------------------------------------
+    // Notification settings
+
+    container.addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
+    );
+    const notificationText = new TextDisplayBuilder();
+    let notificationContent = "### Notifications";
+    if (config.notificationRoleId === null) {
+      notificationContent += `\n${emojis.user} **Notification role:** \`None\``;
+      notificationContent += `\n> Add a role to mention when a new thread is created. Users with the role will also be automatically added to the thread.`;
+    } else {
+      notificationContent += `\n${emojis.user} **Notification role:** <@&${config.notificationRoleId}>`;
+    }
+
+    if (config.notificationSilent) {
+      notificationContent += `\n${emojis.silent} **Push Notifications:** \`Silent\``;
+      notificationContent += `\n> Users with the notification role will get pinged but without push notifications when a new thread is created.`;
+      notificationContent += `\n> Remove the notification role to disable notifications.`;
+    } else {
+      notificationContent += `\n${emojis.notify} **Push Notifications:** \`Notify\``;
+      notificationContent += `\n> Users with the notification role will get push notifications when a new thread is created.`;
+
+      if (!config.notificationRoleId) {
+        notificationContent += `\n> There's currently no notification role set, so this won't do anything.`;
+      }
+    }
+
+    notificationText.setContent(notificationContent);
+    container.addTextDisplayComponents(notificationText);
+
+    // Role select menu
+    const notificationRoleSelect = new RoleSelectMenuBuilder()
+      .setCustomId(settingsCustomID.notificationRoleId)
+      .setDefaultRoles(
+        config.notificationRoleId ? [config.notificationRoleId] : []
+      )
+      .setMinValues(0)
+      .setMaxValues(1)
+      .setPlaceholder("Select a role to ping")
+      .setDisabled(disabled);
+
+    const notificationRoleRow = new ActionRowBuilder<RoleSelectMenuBuilder>();
+    notificationRoleRow.addComponents(notificationRoleSelect);
+    container.addActionRowComponents(notificationRoleRow);
+
+    // Notification toggle button
+    const notificationButton = new ButtonBuilder()
+      .setCustomId(settingsCustomID.notificationSilent)
+      .setLabel(
+        config.notificationSilent
+          ? "Enable Push Notifications"
+          : "Silence Notifications"
+      )
+      .setEmoji(config.notificationSilent ? emojis.notify : emojis.silent)
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled);
+
+    const notificationActionRow = new ActionRowBuilder<ButtonBuilder>();
+    notificationActionRow.addComponents(notificationButton);
+    container.addActionRowComponents(notificationActionRow);
+
+    // -------------------------------------------------------------------------
 
     return {
       components: [container],

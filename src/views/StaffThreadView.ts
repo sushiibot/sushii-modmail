@@ -6,6 +6,7 @@ import {
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
+  SectionBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
   TextDisplayBuilder,
@@ -39,6 +40,7 @@ export const StaffThreadEmojis = [
   "delete",
   "snippet",
   "plain_text",
+  "arrow_down_right",
 ] as const satisfies readonly BotEmojiName[];
 
 export type StaffThreadEmojis = MessageEmojiMap<typeof StaffThreadEmojis>;
@@ -75,69 +77,101 @@ export class StaffThreadView {
   /**
    * Generates the initial message for a new modmail thread
    */
-  static initialThreadMessage(userInfo: UserThreadInfo): MessageCreateOptions {
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: formatUserIdentity(
-          userInfo.user.id,
-          userInfo.user.username,
-          userInfo.member?.nickname
-        ),
-        iconURL:
-          userInfo.member?.avatarURL() || userInfo.user.displayAvatarURL(),
-      })
-      .setColor(Color.Gray)
-      .setTimestamp();
+  static initialThreadMessage(
+    emojis: StaffThreadEmojis,
+    userInfo: UserThreadInfo,
+    notificationRoleId: string | null,
+    silent: boolean
+  ): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Gray);
 
-    const createdTs = Math.floor(userInfo.user.createdTimestamp / 1000);
-    let description = `<@${userInfo.user.id}>\n`;
-    description += `User created at <t:${createdTs}:R>`;
+    let content = `### Modmail Thread`;
 
-    if (userInfo.member) {
-      if (userInfo.member.joinedTimestamp) {
-        const joinedTs = Math.floor(userInfo.member.joinedTimestamp / 1000);
-
-        description += `\nJoined server at <t:${joinedTs}:R>`;
-      }
+    // Basic info
+    content += `\n${emojis.user} <@${userInfo.user.id}>`;
+    content += `\n${emojis.user} Username: \`${userInfo.user.username}\``;
+    content += `\n${emojis.arrow_down_right} User ID: \`${userInfo.user.id}\``;
+    if (userInfo.member?.nickname) {
+      content += `\n${emojis.arrow_down_right} Server Nickname: \`${userInfo.member.nickname}\``;
     }
 
-    embed.setDescription(description);
+    // Timestamps
+    const createdTs = Math.floor(userInfo.user.createdTimestamp / 1000);
+    content += `\n${emojis.arrow_down_right} Created Account: <t:${createdTs}:R>`;
 
-    // Fields
-    const fields = [];
+    if (userInfo.member?.joinedTimestamp) {
+      const joinedTs = Math.floor(userInfo.member.joinedTimestamp / 1000);
+
+      content += `\n${emojis.arrow_down_right} Joined Server: <t:${joinedTs}:R>`;
+    }
+
+    // Roles
     if (userInfo.member) {
+      content += `\n### Roles`;
+
       const roles = Array.from(userInfo.member.roles.cache.values())
         .sort((a, b) => b.rawPosition - a.rawPosition)
         .map((role) => `<@&${role.id}>`);
 
-      fields.push({
-        name: "Roles",
-        value: roles.join(", ") || "None",
-      });
+      content += `\n${roles.join(", ") || "None"}`;
     }
 
+    // Mutual servers
     if (userInfo.mutualGuilds) {
-      fields.push({
-        name: "Mutual Servers",
-        value: userInfo.mutualGuilds.map((g) => g.name).join(", ") || "None",
-      });
+      content += `\n### Mutual Servers`;
+
+      const mutualServers = userInfo.mutualGuilds.map((g) => g.name).join("\n");
+
+      content += `\n${mutualServers || "None"}`;
     }
 
+    // Previous threads
     if (userInfo.previousThreads) {
-      fields.push({
-        name: "Previous Threads",
-        value:
-          userInfo.previousThreads
-            .map((thread) => thread.toString())
-            .join("\n") || "None",
-      });
+      content += `\n### Previous Threads`;
+      const previousThreads = userInfo.previousThreads
+        .map((thread) => thread.toString())
+        .join("\n");
+      content += `\n${previousThreads || "None"}`;
     }
 
-    embed.addFields(fields);
+    const userinfoText = new TextDisplayBuilder().setContent(content);
+
+    const userinfoSection = new SectionBuilder()
+      .setThumbnailAccessory((t) => t.setURL(userInfo.user.displayAvatarURL()))
+      .addTextDisplayComponents(userinfoText);
+
+    container.addSectionComponents(userinfoSection);
+
+    // Add the ping
+    if (notificationRoleId) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+
+      let notificationContent = `-# Notification role: <@&${notificationRoleId}>`;
+      if (silent) {
+        notificationContent += ` (silent)`;
+      }
+
+      const notificationText = new TextDisplayBuilder().setContent(
+        notificationContent
+      );
+
+      container.addTextDisplayComponents(notificationText);
+    }
+
+    if (silent) {
+      return {
+        components: [container],
+        flags: [
+          MessageFlags.IsComponentsV2,
+          // Silent notification
+          MessageFlags.SuppressNotifications,
+        ],
+      };
+    }
 
     return {
-      // content: `@here`,
-      embeds: [embed],
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
     };
   }
 
@@ -448,7 +482,8 @@ export class StaffThreadView {
     }
 
     metadataStr += `\n${emojis.user} User ID: \`${userMessage.author.id}\``;
-    metadataStr += `\n${emojis.message_id} Message ID: \`${userMessage.id}\``;
+    // Not necessary ...
+    // metadataStr += `\n${emojis.message_id} Message ID: \`${userMessage.id}\``;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     container.addTextDisplayComponents(metadataText);

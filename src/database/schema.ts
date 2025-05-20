@@ -173,6 +173,10 @@ export const runtimeConfig = sqliteTable(
     // Threads
     initialMessage: text(),
     anonymousSnippets: integer({ mode: "boolean" }).notNull().default(true),
+
+    // Role Notifications
+    notificationRoleId: text(),
+    notificationSilent: integer({ mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),

@@ -8,11 +8,12 @@ import {
   type GuildForumTagData,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
-import { StaffThreadView } from "../views/StaffThreadView";
+import { StaffThreadEmojis, StaffThreadView } from "../views/StaffThreadView";
 import { getLogger } from "utils/logger";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { runtimeConfig } from "database/schema";
 import type { UpdateConfig } from "repositories/runtimeConfig.repository";
+import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 
 // Global constant for the open tag name
 const OPEN_TAG_NAME = "Open";
@@ -45,6 +46,7 @@ export class ThreadService {
 
   private runtimeConfigRepository: RuntimeConfigRepository;
   private threadRepository: ThreadRepository;
+  private emojiRepository: BotEmojiRepository;
 
   private logger = getLogger("ThreadService");
 
@@ -52,13 +54,15 @@ export class ThreadService {
     config: Config,
     client: Client,
     runtimeConfigRepository: RuntimeConfigRepository,
-    threadRepository: ThreadRepository
+    threadRepository: ThreadRepository,
+    emojiRepository: BotEmojiRepository
   ) {
     this.config = config;
     this.client = client;
 
     this.runtimeConfigRepository = runtimeConfigRepository;
     this.threadRepository = threadRepository;
+    this.emojiRepository = emojiRepository;
   }
 
   async getOpenTagId(): Promise<string | null> {
@@ -266,12 +270,19 @@ export class ThreadService {
       userId,
       username
     );
-    const threadInitialMsg = StaffThreadView.initialThreadMessage({
-      user: user,
-      member: member,
-      previousThreads: previousThreads,
-      mutualGuilds: mutualServers,
-    });
+
+    const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
+    const threadInitialMsg = StaffThreadView.initialThreadMessage(
+      emojis,
+      {
+        user: user,
+        member: member,
+        previousThreads: previousThreads,
+        mutualGuilds: mutualServers,
+      },
+      runtimeConfig.notificationRoleId,
+      runtimeConfig.notificationSilent
+    );
 
     const discordThread = await modmailForumChannel.threads.create({
       name: threadMetadata.name,

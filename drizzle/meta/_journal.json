@@ -71,6 +71,13 @@
       "when": 1747605793456,
       "tag": "0009_jittery_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1747714217052,
+      "tag": "0010_unusual_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

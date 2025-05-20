@@ -40,7 +40,8 @@ export function registerEventHandlers(
     config,
     client,
     runtimeConfigRepository,
-    threadRepository
+    threadRepository,
+    botEmojiRepository
   );
   const snippetService = new SnippetService(config, client, snippetRepository);
   const messageService = new MessageRelayService(

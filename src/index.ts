@@ -49,7 +49,8 @@ function buildCommandRouter(
     config,
     client,
     runtimeConfigRepository,
-    threadRepository
+    threadRepository,
+    botEmojiRepository
   );
   const messageService = new MessageRelayService(
     config,
