@@ -240,6 +240,9 @@ export class MessageRelayService {
 
     await threadChannel.messages.edit(threadMessage.messageId, {
       components: updatedRelayMsg,
+      // Preserve allowed mentions to none
+      allowedMentions: { parse: [] },
+      flags: MessageFlags.IsComponentsV2,
     });
   }
 
