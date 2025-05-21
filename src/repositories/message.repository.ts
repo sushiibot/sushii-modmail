@@ -197,6 +197,7 @@ export class MessageRepository {
           messageId: messageId,
           version: nextVersion[0].version,
           content: previousMessage[0].content,
+          editedAt: new Date(),
         })
         .execute();
 

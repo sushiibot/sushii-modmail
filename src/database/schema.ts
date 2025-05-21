@@ -134,7 +134,9 @@ export const messageEdits = sqliteTable(
     // This means content is NOT null. If there's some other non-content edit,
     // ignore.
     content: text().notNull(),
-    editedAt: integer({ mode: "timestamp" }).notNull().default(new Date()),
+    editedAt: integer({ mode: "timestamp" })
+      .notNull()
+      .default(sql`(strftime('%s','now'))`),
   },
   (table) => [primaryKey({ columns: [table.messageId, table.version] })]
 );
