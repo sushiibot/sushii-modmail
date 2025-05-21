@@ -15,6 +15,14 @@ export function getDb(dbUri: string): BunSQLiteDatabase {
   }
 
   const sqlite = new Database(dbUri);
+
+  // Set busy timeout to 5 seconds, wait instead of erroring immediately (SQLiteError: database is locked)
+  // Litestream requires periodic write locks during checkpointing.
+  // https://litestream.io/tips/#busy-timeout
+  sqlite.run("PRAGMA busy_timeout = 5000;");
+  // Required by Litestream, it should already be set but just to be clear.
+  sqlite.run("PRAGMA journal_mode = WAL;");
+
   const db = drizzle(sqlite, { casing: "snake_case" });
 
   migrate(db, {
