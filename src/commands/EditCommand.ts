@@ -72,7 +72,7 @@ export class EditCommand extends TextCommandHandler {
       // Get the message that was replied to
       const targetMessage = await msg.channel.messages.fetch(repliedToMessage);
 
-      // Check if the message is from the bot and is an embed (staff message)
+      // Check if the message is from the bot
       if (targetMessage.author.id !== msg.client.user.id) {
         await msg.channel.send(
           "You can only edit staff messages. Make sure to reply to the bot message you want to edit."
@@ -102,7 +102,7 @@ export class EditCommand extends TextCommandHandler {
       }
 
       // Edit the message with the new content
-      await this.messageService.editStaffMessage(
+      const result = await this.messageService.editStaffMessage(
         repliedToMessage,
         thread.userId,
         msg.guild,
@@ -116,6 +116,12 @@ export class EditCommand extends TextCommandHandler {
           forwarded: false,
         }
       );
+
+      if (!result.ok) {
+        await msg.channel.send(result.message);
+
+        return;
+      }
 
       // React to the command message to indicate success
       await msg.react("✅");

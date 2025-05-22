@@ -63,6 +63,13 @@ export interface MessageRelayServiceMessage {
   attachments: Collection<Snowflake, Attachment>;
 }
 
+type EditStaffMessageResult =
+  | { ok: true }
+  | {
+      ok: false;
+      message: string;
+    };
+
 type DeleteStaffMessageResult =
   | { ok: true }
   | {
@@ -418,7 +425,7 @@ export class MessageRelayService {
     userId: string,
     guild: UserThreadViewGuild,
     msg: StaffToUserMessage
-  ): Promise<boolean> {
+  ): Promise<EditStaffMessageResult> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
@@ -438,7 +445,11 @@ export class MessageRelayService {
         "Cannot edit relayed staff message: is a user message"
       );
 
-      return false;
+      return {
+        ok: false,
+        message:
+          "You can only edit staff messages. Make sure to reply to the staff message you want to edit.",
+      };
     }
 
     const threadChannel = await this.client.channels.fetch(
@@ -529,7 +540,9 @@ export class MessageRelayService {
       newMessage
     );
 
-    return true;
+    return {
+      ok: true,
+    };
   }
 
   /**
@@ -565,7 +578,7 @@ export class MessageRelayService {
       return {
         ok: false,
         message:
-          "You can only delete staff messages. Make sure to reply to the bot message you want to delete.",
+          "You can only delete staff messages. Make sure to reply to the staff message you want to delete.",
       };
     }
 
