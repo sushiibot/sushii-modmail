@@ -21,7 +21,7 @@ import {
 } from "services/MessageRelayService";
 import { formatUserIdentity } from "./user";
 import { Color, HexColor } from "./Color";
-import { downloadAttachments } from "./util";
+import { downloadAttachments, quoteText } from "./util";
 import type {
   UserToStaffMessage,
   StaffRelayMessage,
@@ -408,13 +408,13 @@ export class StaffThreadView {
       const editHistoryItems = messageVersions.map((version) => {
         const editTs = Math.floor(version.editedAt.getTime() / 1000);
         let s = `<t:${editTs}:f>`;
-        s += `\n${version.content}`;
+        s += `\n${quoteText(version.content)}`;
 
         return s;
       });
 
       let editHistoryText = `### Message Edits`;
-      editHistoryText += `\n${editHistoryItems.join("\n\n")}`;
+      editHistoryText += `\n${editHistoryItems.join("\n")}`;
 
       const editTextDisplay = new TextDisplayBuilder().setContent(
         editHistoryText
@@ -482,8 +482,6 @@ export class StaffThreadView {
     }
 
     metadataStr += `\n${emojis.user} User ID: \`${userMessage.author.id}\``;
-    // Not necessary ...
-    // metadataStr += `\n${emojis.message_id} Message ID: \`${userMessage.id}\``;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     container.addTextDisplayComponents(metadataText);

@@ -1,6 +1,7 @@
 import { EmbedBuilder, type MessageCreateOptions } from "discord.js";
 import { Snippet } from "../models/snippet.model";
 import { Color } from "./Color";
+import { quoteText } from "./util";
 
 export class SnippetCommandView {
   static notInGuild(): MessageCreateOptions {
@@ -194,12 +195,7 @@ export class SnippetCommandView {
       s += "\n";
 
       // Add a > to the start of each line
-      s += snippet.content
-        .split("\n")
-        .map((line) => {
-          return `> ${line}`;
-        })
-        .join("\n");
+      s += quoteText(snippet.content);
 
       return s;
     });

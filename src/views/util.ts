@@ -165,3 +165,13 @@ export function extractStickersFromComponents(msg: Message): MessageSticker[] {
 
   return stickers;
 }
+
+export function quoteText(text: string): string {
+  // Add a > to the start of each line
+  return text
+    .split("\n")
+    .map((line) => {
+      return `> ${line}`;
+    })
+    .join("\n");
+}
