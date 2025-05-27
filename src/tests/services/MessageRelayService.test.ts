@@ -96,14 +96,14 @@ describe("MessageRelayService", () => {
       } as unknown as TextChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
-      spyOn(StaffThreadView, "userReplyMessage").mockResolvedValue({
+      spyOn(StaffThreadView, "userInitialReplyMessage").mockResolvedValue({
         components: [],
       });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
-      expect(StaffThreadView.userReplyMessage).toHaveBeenCalledWith(
+      expect(StaffThreadView.userInitialReplyMessage).toHaveBeenCalledWith(
         message,
         emojiMap
       );
@@ -155,7 +155,7 @@ describe("MessageRelayService", () => {
       } as unknown as TextChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
-      spyOn(StaffThreadView, "userReplyMessage").mockResolvedValue({
+      spyOn(StaffThreadView, "userInitialReplyMessage").mockResolvedValue({
         embeds: [],
         files: ["https://example.com/file1.txt"],
       });
@@ -163,7 +163,7 @@ describe("MessageRelayService", () => {
       const result = await service.relayUserMessageToStaff(channelId, message);
 
       expect(client.channels.fetch).lastCalledWith(channelId);
-      expect(StaffThreadView.userReplyMessage).lastCalledWith(
+      expect(StaffThreadView.userInitialReplyMessage).lastCalledWith(
         message,
         emojiMap
       );

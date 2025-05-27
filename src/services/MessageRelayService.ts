@@ -88,6 +88,11 @@ interface MessageRepository {
   getByUserDMMessageId(dmMessageId: string): Promise<Message | null>;
   saveNewMessageVersion(messageId: string, newContent: string): Promise<void>;
   getMessageVersions(messageId: string): Promise<MessageVersion[]>;
+  getAdditionalMessageIds(messageId: string): Promise<string[]>;
+  saveAdditionalMessageId(
+    mainMessageId: string,
+    additionalMessageId: string
+  ): Promise<void>;
 }
 
 export class MessageRelayService {
@@ -143,7 +148,7 @@ export class MessageRelayService {
 
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
 
-    const msg = await StaffThreadView.userReplyMessage(message, emojis);
+    const msg = await StaffThreadView.userInitialReplyMessage(message, emojis);
     const relayedMsg = await threadChannel.send(msg);
 
     // Save message to database
@@ -237,7 +242,7 @@ export class MessageRelayService {
       "Relaying user edited message to staff"
     );
 
-    const updatedRelayMsg = StaffThreadView.userReplyComponents(
+    const updatedComponents = StaffThreadView.userReplyComponents(
       message,
       [], // Ignore attachments, they're preserved already
       messageVersions,
@@ -246,11 +251,94 @@ export class MessageRelayService {
     );
 
     await threadChannel.messages.edit(threadMessage.messageId, {
-      components: updatedRelayMsg,
+      components: updatedComponents[0],
       // Preserve allowed mentions to none
       allowedMentions: { parse: [] },
       flags: MessageFlags.IsComponentsV2,
     });
+
+    if (updatedComponents.length === 1) {
+      // Nothing more to do, no edit history components.
+      // 2 components means it created a dedicated message for user edit history.
+      return;
+    }
+
+    // If there are more than 1 components, that means it created a dedicated
+    // message for user edit history. First fetch to see if we already have one
+    const additionalMessageIDs =
+      await this.messageRepository.getAdditionalMessageIds(
+        threadMessage.messageId
+      );
+
+    if (additionalMessageIDs.length > 0) {
+      // Edit existing
+      const additionalMessage = await threadChannel.messages.fetch(
+        additionalMessageIDs[0]
+      );
+
+      if (!additionalMessage) {
+        this.logger.error(
+          {
+            threadId: threadId,
+            messageId: additionalMessageIDs[0],
+          },
+          "Could not find additional message for user edited message"
+        );
+        return;
+      }
+
+      this.logger.debug(
+        {
+          additionalMessageId: additionalMessage.id,
+          content: message.content,
+        },
+        "Editing existing user edit history message"
+      );
+      await additionalMessage.edit({
+        // There will only be 1 component for edit history for now.
+        components: updatedComponents[1],
+        flags: MessageFlags.IsComponentsV2,
+        // Preserve allowed mentions to none
+        allowedMentions: { parse: [] },
+      });
+
+      return;
+    } else {
+      // Create a new message for user edit history
+      this.logger.debug(
+        {
+          threadId: threadId,
+          messageId: threadMessage.messageId,
+          content: message.content,
+        },
+        "Creating new user edit history message"
+      );
+
+      const additionalMessage = await threadChannel.send({
+        components: updatedComponents[1],
+        flags: MessageFlags.IsComponentsV2,
+        // Preserve allowed mentions to none
+        allowedMentions: { parse: [] },
+        reply: {
+          // Reply to the original message in the thread
+          messageReference: threadMessage.messageId,
+        },
+      });
+
+      // Save the additional message ID
+      await this.messageRepository.saveAdditionalMessageId(
+        threadMessage.messageId,
+        additionalMessage.id
+      );
+      this.logger.debug(
+        {
+          additionalMessageId: additionalMessage.id,
+          threadId: threadId,
+          messageId: threadMessage.messageId,
+        },
+        "Saved additional message ID for user edit history"
+      );
+    }
   }
 
   async relayUserDeletedMessageToStaff(

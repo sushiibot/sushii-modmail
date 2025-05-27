@@ -1,6 +1,6 @@
 import { type DB } from "../database/db";
-import { messages } from "../database/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { additionalMessageIds, messages } from "../database/schema";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { Message, type MessageSticker } from "../models/message.model";
 import { getLogger } from "utils/logger";
 import { messageEdits } from "../database/schema";
@@ -92,6 +92,49 @@ export class MessageRepository {
     }
 
     return Message.fromDatabaseRow(result[0]);
+  }
+
+  /**
+   * Get additional message IDs for a message in a thread. This is used for
+   * splitting up a single message into multiple messages in a thread when it
+   * exceeds the maximum message length, likely due to many edits to a long
+   * user message.
+   *
+   * @param messageId
+   * @returns
+   */
+  async getAdditionalMessageIds(messageId: string): Promise<string[]> {
+    const result = await this.db
+      .select()
+      .from(additionalMessageIds)
+      .where(eq(additionalMessageIds.mainMessageId, messageId))
+      // Old to new... as we sort from top to bottom when creating messages.
+      // Newer have larger IDs
+      .orderBy(
+        asc(sql`cast(${additionalMessageIds.additionalMessageId} as integer)`)
+      )
+      .execute();
+
+    return result.map((row) => row.additionalMessageId);
+  }
+
+  async saveAdditionalMessageId(
+    mainMessageId: string,
+    additionalMessageId: string
+  ): Promise<void> {
+    this.logger.debug(
+      { mainMessageId, additionalMessageId },
+      "Saving additional message ID"
+    );
+
+    await this.db
+      .insert(additionalMessageIds)
+      .values({
+        mainMessageId,
+        additionalMessageId,
+      })
+      .onConflictDoNothing()
+      .execute();
   }
 
   /**

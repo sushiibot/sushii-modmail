@@ -32,6 +32,8 @@ import type { MessageVersion } from "models/messageVersion.model";
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
 
+const MAX_MESSAGE_LENGTH = 4000;
+
 export const StaffThreadEmojis = [
   "message_id",
   "user",
@@ -374,13 +376,16 @@ export class StaffThreadView {
     messageVersions: MessageVersion[],
     isEdited: boolean,
     emojis: StaffThreadEmojis
-  ): BaseMessageOptions["components"] {
-    const container = new ContainerBuilder();
+  ): BaseMessageOptions["components"][] {
+    const primaryContainer = new ContainerBuilder();
+
+    // This will currently only be: empty OR 1 additional message with edits.
+    const additionalMessages = [];
 
     if (isEdited) {
-      container.setAccentColor(HexColor.Purple);
+      primaryContainer.setAccentColor(HexColor.Purple);
     } else {
-      container.setAccentColor(HexColor.Blue);
+      primaryContainer.setAccentColor(HexColor.Blue);
     }
 
     // 1. Author
@@ -391,19 +396,19 @@ export class StaffThreadView {
     // 1. Author
     const author = `### User - <@${userMessage.author.id}>`;
     const authorText = new TextDisplayBuilder().setContent(author);
-    container.addTextDisplayComponents(authorText);
+    primaryContainer.addTextDisplayComponents(authorText);
 
     // 2. Content (optional)
     if (userMessage.content) {
-      container.addSeparatorComponents(new SeparatorBuilder());
+      primaryContainer.addSeparatorComponents(new SeparatorBuilder());
       const contentText = new TextDisplayBuilder().setContent(
         userMessage.content
       );
-      container.addTextDisplayComponents(contentText);
+      primaryContainer.addTextDisplayComponents(contentText);
     }
 
     if (messageVersions.length > 0) {
-      container.addSeparatorComponents(new SeparatorBuilder());
+      primaryContainer.addSeparatorComponents(new SeparatorBuilder());
 
       const editHistoryItems = messageVersions.map((version) => {
         const editTs = Math.floor(version.editedAt.getTime() / 1000);
@@ -416,15 +421,31 @@ export class StaffThreadView {
       let editHistoryText = `### Message Edits`;
       editHistoryText += `\n${editHistoryItems.join("\n")}`;
 
-      const editTextDisplay = new TextDisplayBuilder().setContent(
-        editHistoryText
-      );
-      container.addTextDisplayComponents(editTextDisplay);
+      // Check if current content + edit history exceeds max length
+      if (
+        userMessage.content.length + editHistoryText.length >
+        MAX_MESSAGE_LENGTH
+      ) {
+        // If it does, replace this logic to use a dedicated message for edits
+        const additionalMsg = this.userReplyComponentsAdditionalEdits(
+          messageVersions,
+          emojis
+        );
+
+        additionalMessages.push(additionalMsg);
+      } else {
+        // Fine to continue with the primary message
+        const editTextDisplay = new TextDisplayBuilder().setContent(
+          editHistoryText
+        );
+
+        primaryContainer.addTextDisplayComponents(editTextDisplay);
+      }
     }
 
     // 3. Attachments - use reuploaded attachments
     if (!isEdited && attachments.length > 0) {
-      container.addSeparatorComponents(
+      primaryContainer.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
       );
 
@@ -436,11 +457,11 @@ export class StaffThreadView {
         attachmentItems
       );
 
-      container.addMediaGalleryComponents(attachmentText);
+      primaryContainer.addMediaGalleryComponents(attachmentText);
     }
 
     if (userMessage.stickers.length > 0) {
-      container.addSeparatorComponents(new SeparatorBuilder());
+      primaryContainer.addSeparatorComponents(new SeparatorBuilder());
 
       const stickerItems = userMessage.stickers.map((sticker) =>
         new MediaGalleryItemBuilder()
@@ -449,11 +470,11 @@ export class StaffThreadView {
       );
       const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
 
-      container.addMediaGalleryComponents(stickerText);
+      primaryContainer.addMediaGalleryComponents(stickerText);
     }
 
     // 4. Metadata
-    container.addSeparatorComponents(
+    primaryContainer.addSeparatorComponents(
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
     );
 
@@ -484,27 +505,90 @@ export class StaffThreadView {
     metadataStr += `\n${emojis.user} User ID: \`${userMessage.author.id}\``;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
-    container.addTextDisplayComponents(metadataText);
+    primaryContainer.addTextDisplayComponents(metadataText);
+
+    // Primary + any additional messages
+    return [[primaryContainer], ...additionalMessages];
+  }
+
+  /**
+   * Creates a v2 components dedicated to edits only. Any older edits that
+   * cause it to exceed 4_000 characters will cause it to currently just omit
+   * the oldest edits. Since it's unlikely that a very large message will be
+   * edited so many times, it's an edge case that isn't worth making it overly
+   * complex.
+   *
+   * This is only used if the primary message exceeds the maximum length to
+   * contain both the current message and previous edit history.
+   */
+  static userReplyComponentsAdditionalEdits(
+    messageVersions: MessageVersion[],
+    emojis: StaffThreadEmojis
+  ): BaseMessageOptions["components"] {
+    if (messageVersions.length === 0) {
+      return [];
+    }
+
+    const container = new ContainerBuilder().setAccentColor(HexColor.Purple);
+
+    const editHistoryItems = messageVersions.map((version) => {
+      const editTs = Math.floor(version.editedAt.getTime() / 1000);
+      let s = `<t:${editTs}:f>`;
+      s += `\n${quoteText(version.content)}`;
+
+      return s;
+    });
+
+    let editHistoryText = `### Extended Message Edit History`;
+    editHistoryText += `\n`;
+
+    for (const item of editHistoryItems) {
+      // If the edit history exceeds 4_000 characters (with some buffer), stop
+      // adding more edits. Last ones are the oldest ones?
+
+      // TODO: There is a small edge case where if they really completely max out
+      // the 40000 character limit, the additional title will cause it to exceed
+      // the limit, but it's unlikely.
+      if (editHistoryText.length + item.length > 4000 - 100) {
+        break;
+      }
+
+      editHistoryText += item + "\n";
+    }
+
+    const editTextDisplay = new TextDisplayBuilder().setContent(
+      editHistoryText
+    );
+    container.addTextDisplayComponents(editTextDisplay);
 
     return [container];
   }
 
-  static async userReplyMessage(
+  /**
+   * This creates the staff view message for the initial DM from a recipient.
+   * This is NOT used when the user edits their DM.
+   *
+   * @param userMessage
+   * @param emojis
+   * @returns
+   */
+  static async userInitialReplyMessage(
     userMessage: UserToStaffMessage,
     emojis: StaffThreadEmojis
   ): Promise<MessageCreateOptions> {
     const files = await downloadAttachments(userMessage.attachments);
 
-    const components = this.userReplyComponents(
+    const [primaryComponent] = this.userReplyComponents(
       userMessage,
       files,
       [],
       false,
       emojis
     );
+
     return {
       files: files,
-      components: components,
+      components: primaryComponent,
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: {
         parse: [],

@@ -5,6 +5,7 @@ import {
   sqliteTable,
   text,
   primaryKey,
+  index,
 } from "drizzle-orm/sqlite-core";
 
 export const threads = sqliteTable(
@@ -140,6 +141,20 @@ export const messageEdits = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.messageId, table.version] })]
 );
+
+// Additional messages, if source messages are too long. This will (likely) only
+// be user messages, as staff messages are relayed in a single message that
+// don't contain any additional content (e.g. edit history).
+export const additionalMessageIds = sqliteTable("additional_message_ids", {
+  // This is the message saved in the staff thread, which is the main
+  mainMessageId: text()
+    .primaryKey()
+    .references(() => messages.messageId, { onDelete: "cascade" }),
+
+  // We don't need additional ordering since the ID itself can be used to
+  // determine the order.
+  additionalMessageId: text().unique().notNull(),
+});
 
 export const snippets = sqliteTable(
   "snippets",
