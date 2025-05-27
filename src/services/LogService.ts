@@ -115,6 +115,12 @@ export class DiscordLogService implements LogService {
         return;
       }
 
+      const errMessage =
+        error.message || String(error).substring(0, 1024) || "Unknown error";
+      const stackTrace = error.stack
+        ? error.stack.substring(0, 1024)
+        : "No stack trace available";
+
       const errorEmbed = new EmbedBuilder()
         .setColor(Colors.Red)
         .setTitle(`Error in ${source}`)
@@ -122,14 +128,11 @@ export class DiscordLogService implements LogService {
         .addFields(
           {
             name: "Error Message",
-            value:
-              error.message ||
-              String(error).substring(0, 1024) ||
-              "Unknown error",
+            value: `\`\`\`\n${errMessage}\`\`\``,
           },
           {
             name: "Stack Trace",
-            value: (error.stack || "No stack trace").substring(0, 1024),
+            value: `\`\`\`\n${stackTrace}\`\`\``,
           }
         )
         .setTimestamp();
