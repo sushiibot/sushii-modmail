@@ -21,6 +21,8 @@ import { DiscordBotEmojiService } from "services/BotEmojiService";
 import { BotEmojiController } from "controllers/BotEmojiController";
 import { SettingsModalController } from "controllers/SettingsModalController";
 import { SettingsService } from "services/SettingsService";
+import { MemberNotificationController } from "controllers/MemberNotificationController";
+import { MemberNotificationService } from "services/MemberNotificationService";
 
 export function registerEventHandlers(
   config: BotConfig,
@@ -66,6 +68,11 @@ export function registerEventHandlers(
     runtimeConfigRepository,
     botEmojiRepository
   );
+  const notificationService = new MemberNotificationService(
+    config,
+    client,
+    threadRepository
+  );
 
   const dmController = new DMController(
     threadService,
@@ -92,6 +99,9 @@ export function registerEventHandlers(
     botEmojiRepository
   );
   const settingsModalController = new SettingsModalController(settingsService);
+  const notificationController = new MemberNotificationController(
+    notificationService
+  );
 
   client.once(Events.ClientReady, async (client) => {
     logger.info(`Bot is online! ${client.user.tag}`);
@@ -243,6 +253,159 @@ export function registerEventHandlers(
           guildId: interaction.guildId,
         },
         "Error handling interaction"
+      );
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // User Notifications
+  client.on(Events.GuildMemberAdd, async (member) => {
+    try {
+      if (member.user.bot) {
+        return;
+      }
+
+      await notificationController.handleMember(
+        "join",
+        member.guild,
+        member.user
+      );
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          userId: member.id,
+          userName: member.user.username,
+          guildId: member.guild.id,
+        },
+        "Error handling member join"
+      );
+    }
+  });
+
+  client.on(Events.GuildMemberRemove, async (member) => {
+    try {
+      if (member.user.bot) {
+        return;
+      }
+
+      await notificationController.handleMember(
+        "leave",
+        member.guild,
+        member.user
+      );
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          userId: member.id,
+          userName: member.user.username,
+          guildId: member.guild.id,
+        },
+        "Error handling member leave"
+      );
+    }
+  });
+
+  client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+    try {
+      if (oldMember.user.bot) {
+        return;
+      }
+
+      // Check for timeout add / remove
+      const oldTimeout = oldMember.communicationDisabledUntilTimestamp;
+      const newTimeout = newMember.communicationDisabledUntilTimestamp;
+
+      if (oldTimeout === newTimeout) {
+        // No change in timeout
+        return;
+      }
+
+      if (newTimeout && !oldTimeout) {
+        const newTimeoutDate = new Date(newTimeout);
+
+        logger.debug(
+          {
+            newTimeoutDate,
+            userId: newMember.id,
+            userName: newMember.user.username,
+            guildId: newMember.guild.id,
+          },
+          "Member timed out"
+        );
+
+        // Timeout added
+        await notificationController.handleMember(
+          "timeout",
+          newMember.guild,
+          newMember.user,
+          {
+            until: newTimeoutDate,
+          }
+        );
+        return;
+      }
+
+      if (!newTimeout && oldTimeout) {
+        logger.debug(
+          {
+            userId: newMember.id,
+            userName: newMember.user.username,
+            guildId: newMember.guild.id,
+          },
+          "Member timeout removed"
+        );
+
+        // Timeout removed
+        await notificationController.handleMember(
+          "untimeout",
+          newMember.guild,
+          newMember.user
+        );
+        return;
+      }
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          userId: newMember.id,
+          userName: newMember.user.username,
+          guildId: newMember.guild.id,
+        },
+        "Error handling member update"
+      );
+    }
+  });
+
+  client.on(Events.GuildBanAdd, async (ban) => {
+    try {
+      await notificationController.handleMember("ban", ban.guild, ban.user);
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          userId: ban.user.id,
+          userName: ban.user.username,
+          guildId: ban.guild.id,
+        },
+        "Error handling member ban"
+      );
+    }
+  });
+
+  client.on(Events.GuildBanRemove, async (ban) => {
+    try {
+      await notificationController.handleMember("unban", ban.guild, ban.user);
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          userId: ban.user.id,
+          userName: ban.user.username,
+          guildId: ban.guild.id,
+        },
+        "Error handling member unban"
       );
     }
   });

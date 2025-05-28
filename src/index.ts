@@ -130,13 +130,19 @@ async function main() {
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMessageReactions,
+      GatewayIntentBits.GuildModeration,
       GatewayIntentBits.MessageContent,
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.DirectMessageReactions,
     ],
     // Partials.Channel: Required to receive DMs with Events.MessageCreate
     // Partials.Reaction and Partials.Message: Required to receive reactions on uncached messages
-    partials: [Partials.Channel, Partials.Reaction, Partials.Message],
+    partials: [
+      Partials.Channel,
+      Partials.Reaction,
+      Partials.Message,
+      Partials.GuildMember,
+    ],
   });
 
   logger.info("Initializing command router...");

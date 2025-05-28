@@ -14,6 +14,7 @@ import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { runtimeConfig } from "database/schema";
 import type { UpdateConfig } from "repositories/runtimeConfig.repository";
 import type { BotEmojiRepository } from "repositories/botEmoji.repository";
+import { getMutualServers } from "utils/mutualServers";
 
 // Global constant for the open tag name
 const OPEN_TAG_NAME = "Open";
@@ -170,36 +171,6 @@ export class ThreadService {
     return { thread, isNew };
   }
 
-  async getMutualServers(
-    userId: string
-  ): Promise<{ id: string; name: string }[]> {
-    // This is NOT efficient with many servers.
-    // Bot is designed to be in only the 1-2 servers, e.g. main and appeals server
-    const mutualGuilds = [];
-
-    for (const guild of this.client.guilds.cache.values()) {
-      // Fetch member - throws if not found
-      try {
-        await guild.members.fetch(userId);
-      } catch (err) {
-        if (
-          err instanceof DiscordAPIError &&
-          err.code === RESTJSONErrorCodes.UnknownMember
-        ) {
-          // Not found member, continue
-          continue;
-        }
-
-        // Unexpected error
-        throw err;
-      }
-
-      mutualGuilds.push(guild);
-    }
-
-    return mutualGuilds.map((g) => ({ id: g.id, name: g.name }));
-  }
-
   private async createNewThread(
     userId: string,
     username: string
@@ -261,7 +232,7 @@ export class ThreadService {
       userId
     );
 
-    const mutualServers = await this.getMutualServers(userId);
+    const mutualServers = await getMutualServers(this.client, userId);
 
     // -------------------------------------------------------------------------
     // Create Forum thread

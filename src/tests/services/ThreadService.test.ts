@@ -12,6 +12,7 @@ import {
   Collection,
   DiscordAPIError,
   RESTJSONErrorCodes,
+  type Snowflake,
 } from "discord.js";
 import { ThreadService } from "../../services/ThreadService";
 import { ThreadRepository } from "../../repositories/thread.repository";
@@ -26,6 +27,7 @@ import { randomSnowflakeID } from "tests/utils/snowflake";
 import { mockThread } from "tests/models/thread.model.mock.test";
 import type { BotConfig } from "models/botConfig.model";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
+import * as mutualServersUtil from "utils/mutualServers";
 
 // Mock dependencies
 const mockThreadRepository = {
@@ -356,7 +358,8 @@ describe("ThreadService", () => {
       spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
       spyOn(threadService, "getOpenTagId").mockResolvedValue(openTagId);
-      spyOn(threadService, "getMutualServers").mockResolvedValue([]);
+
+      spyOn(mutualServersUtil, "getMutualServers").mockResolvedValue([]);
 
       spyOn(StaffThreadView, "createThreadOptions").mockReturnValue({
         name: "threadName",
@@ -373,7 +376,10 @@ describe("ThreadService", () => {
       const result = await threadService["createNewThread"](userId, username);
 
       expect(result).toBeInstanceOf(Thread);
-      expect(threadService.getMutualServers).toHaveBeenCalledWith(userId);
+      expect(mutualServersUtil.getMutualServers).toHaveBeenCalledWith(
+        client,
+        userId
+      );
       expect(modmailForumChannel.threads.create).toHaveBeenCalledWith({
         name: "threadName",
         reason: "reason",
@@ -417,7 +423,7 @@ describe("ThreadService", () => {
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
       spyOn(threadService, "getOpenTagId").mockResolvedValue(null);
       spyOn(threadService, "createOpenTag").mockResolvedValue(newOpenTagId);
-      spyOn(threadService, "getMutualServers").mockResolvedValue([]);
+      spyOn(mutualServersUtil, "getMutualServers").mockResolvedValue([]);
 
       spyOn(StaffThreadView, "createThreadOptions").mockReturnValue({
         name: "threadName",
@@ -552,13 +558,25 @@ describe("ThreadService", () => {
       const guildId1 = randomSnowflakeID();
       const guildId2 = randomSnowflakeID();
 
-      const guildsMock = [
-        { id: guildId1, name: "Server 1", members: { fetch: mock() } },
-        { id: guildId2, name: "Server 2", members: { fetch: mock() } },
-      ];
+      const guild1 = {
+        id: guildId1,
+        name: "Server 1",
+        members: { fetch: mock() },
+      };
+
+      const guild2 = {
+        id: guildId2,
+        name: "Server 2",
+        members: { fetch: mock() },
+      };
+
+      const guildsMock: Collection<Snowflake, Guild> = new Collection([
+        [guildId1, guild1 as unknown as Guild],
+        [guildId2, guild2 as unknown as Guild],
+      ]);
 
       // Setup the successful fetch for guild1
-      guildsMock[0].members.fetch.mockResolvedValue(123);
+      guild1.members.fetch.mockResolvedValue(123);
 
       // Setup the error for guild2
       const unknownMemberError = new DiscordAPIError(
@@ -569,18 +587,20 @@ describe("ThreadService", () => {
         "",
         {}
       );
-      guildsMock[1].members.fetch.mockRejectedValue(unknownMemberError);
 
-      const guilds = guildsMock as unknown as MapIterator<Guild>;
+      guild2.members.fetch.mockRejectedValue(unknownMemberError);
 
       // Mock the guilds cache values to return our guilds
-      spyOn(client.guilds.cache, "values").mockReturnValue(guilds);
+      spyOn(client.guilds.cache, "values").mockReturnValue(guildsMock.values());
 
-      const result = await threadService.getMutualServers(userId);
+      // Clear mocks on mutualServersUtil
+      spyOn(mutualServersUtil, "getMutualServers").mockRestore();
+
+      const result = await mutualServersUtil.getMutualServers(client, userId);
 
       expect(result).toEqual([{ id: guildId1, name: "Server 1" }]);
-      expect(guildsMock[0].members.fetch).toHaveBeenCalledWith(userId);
-      expect(guildsMock[1].members.fetch).toHaveBeenCalledWith(userId);
+      expect(guild1.members.fetch).toHaveBeenCalledWith(userId);
+      expect(guild2.members.fetch).toHaveBeenCalledWith(userId);
     });
   });
 });
