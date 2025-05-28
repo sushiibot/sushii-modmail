@@ -42,6 +42,15 @@ export class MemberNotificationView {
       case "leave":
         if (inPrimaryGuild) {
           content = `### User Left the Server`;
+
+          if (mutualServers.length > 0) {
+            const mutualServerNames = mutualServers
+              .map((s) => `- ${s.name}`)
+              .join("\n");
+
+            content += `\nUser is still in mutual servers:`;
+            content += `\n${mutualServerNames}`;
+          }
         } else {
           content = `### User Left Mutual Server - ${guildName}`;
         }
@@ -50,6 +59,14 @@ export class MemberNotificationView {
       case "ban":
         if (inPrimaryGuild) {
           content = `### User Banned from the Server`;
+          if (mutualServers.length > 0) {
+            const mutualServerNames = mutualServers
+              .map((s) => `- ${s.name}`)
+              .join("\n");
+
+            content += `\nUser is still in mutual servers:`;
+            content += `\n${mutualServerNames}`;
+          }
         } else {
           content = `### User Banned in Mutual Server - ${guildName}`;
         }
