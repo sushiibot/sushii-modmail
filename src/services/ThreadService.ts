@@ -6,6 +6,7 @@ import {
   GuildMember,
   RESTJSONErrorCodes,
   type GuildForumTagData,
+  type GuildForumTagEmoji,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
 import { StaffThreadEmojis, StaffThreadView } from "../views/StaffThreadView";
@@ -18,6 +19,19 @@ import { getMutualServers } from "utils/mutualServers";
 
 // Global constant for the open tag name
 const OPEN_TAG_NAME = "Open";
+const CLOSED_TAG_NAME = "Closed";
+
+// Tag emoji mappings
+const TAG_EMOJIS: Record<string, GuildForumTagEmoji> = {
+  open: { id: null, name: "📨" },
+  closed: { id: null, name: "🔒" },
+} as const;
+
+// Tag configuration mapping
+const TAG_CONFIG_MAP: Record<string, GuildForumTagData> = {
+  openTagId: { name: OPEN_TAG_NAME, emoji: TAG_EMOJIS.open },
+  closedTagId: { name: CLOSED_TAG_NAME, emoji: TAG_EMOJIS.closed },
+} as const;
 
 interface Config {
   guildId: string;
@@ -66,18 +80,24 @@ export class ThreadService {
     this.emojiRepository = emojiRepository;
   }
 
-  async getOpenTagId(): Promise<string | null> {
-    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
-      this.config.guildId
-    );
+  private async getForumChannel(forumChannelId: string): Promise<ForumChannel> {
+    // Ensure channel exists and is a forum channel
+    const forumChannel = await this.client.channels.fetch(forumChannelId);
 
-    // Check if there's an ID stored in the runtime config
-    if (runtimeConfig.openTagId) {
-      return runtimeConfig.openTagId;
+    if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
+      throw new Error(
+        `Invalid forum channel: ${forumChannelId} (${forumChannel?.type})`
+      );
     }
 
-    this.logger.debug(
-      `Did not find open tag ID in runtime config, checking existing tags`
+    return forumChannel;
+  }
+
+  private async getForumTagId(
+    configKey: "openTagId" | "closedTagId"
+  ): Promise<string> {
+    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
+      this.config.guildId
     );
 
     if (!runtimeConfig.forumChannelId) {
@@ -86,70 +106,115 @@ export class ThreadService {
       );
     }
 
-    // If no ID is stored, check if there's already a tag named "Open" in the forum channel
-    const forumChannel = await this.client.channels.fetch(
+    const forumChannel = await this.getForumChannel(
       runtimeConfig.forumChannelId
     );
 
-    if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
-      // Oop
-      throw new Error(
-        `Invalid forum channel: ${runtimeConfig.forumChannelId} (${forumChannel?.type})`
+    // Check if there's an ID stored in the runtime config
+    const existingTagId = runtimeConfig[configKey];
+    if (existingTagId) {
+      // Validate that the tag still exists in the forum channel
+      const tagExists = forumChannel.availableTags.some(
+        (tag) => tag.id === existingTagId
+      );
+
+      // Found tag!
+      if (tagExists) {
+        return existingTagId;
+      }
+
+      this.logger.warn(
+        `Tag ID ${existingTagId} for ${configKey} no longer exists in forum channel, will recreate`
       );
     }
 
-    // Find the tag with the name "Open"
-    const openTag = forumChannel.availableTags.find(
-      (tag) => tag.name === OPEN_TAG_NAME
+    const tagConfig = TAG_CONFIG_MAP[configKey];
+
+    // Check for any existing tag by name
+    const existingTag = forumChannel.availableTags.find(
+      (tag) => tag.name === tagConfig.name
     );
 
-    if (openTag) {
+    if (existingTag) {
       this.logger.info(
-        `Found existing "open" tag with ID ${openTag.id}, saving to runtime config`
+        `Found existing "${tagConfig.name}" tag with ID ${existingTag.id}, saving to runtime config`
       );
 
-      // Save the found tag ID
+      // Save the found tag ID to avoid future lookups
       await this.runtimeConfigRepository.setConfig(this.config.guildId, {
-        openTagId: openTag.id,
+        [configKey]: existingTag.id,
       });
 
-      return openTag.id;
+      return existingTag.id;
     }
 
-    return null;
-  }
-
-  async createOpenTag(forumChannel: ForumChannel): Promise<string> {
-    const currentTags: GuildForumTagData[] = forumChannel.availableTags;
-
-    // Add the open tag to the list of available tags
-    currentTags.push({
-      moderated: false,
-      name: OPEN_TAG_NAME,
-      emoji: {
-        id: null,
-        name: "📨",
-      },
-    });
-
-    // Set the available tags
-    forumChannel = await forumChannel.setAvailableTags(currentTags);
-
-    // Re-fetch tags to get the new tag ID
-    const openTag = forumChannel.availableTags.find(
-      (tag) => tag.name === OPEN_TAG_NAME
+    this.logger.info(
+      `No existing "${tagConfig.name}" tag found, creating new one`
     );
 
-    if (!openTag) {
-      throw new Error("Open tag not found after creation");
+    // Create the tag if it doesn't exist
+    return this.createForumTag(forumChannel, configKey, tagConfig);
+  }
+
+  private async createForumTag(
+    forumChannel: ForumChannel,
+    configKey: "openTagId" | "closedTagId",
+    tagConfig: GuildForumTagData
+  ): Promise<string> {
+    this.logger.info(`Creating new "${tagConfig.name}" forum tag`);
+
+    try {
+      const currentTags: GuildForumTagData[] = [
+        ...forumChannel.availableTags,
+        {
+          name: tagConfig.name,
+          emoji: tagConfig.emoji,
+          moderated: tagConfig.moderated,
+        },
+      ];
+
+      const updatedChannel = await forumChannel.setAvailableTags(currentTags);
+
+      // Find the newly created tag
+      const createdTag = updatedChannel.availableTags.find(
+        (tag) => tag.name === tagConfig.name
+      );
+
+      if (!createdTag) {
+        throw new Error(`${tagConfig.name} tag not found after creation`);
+      }
+
+      this.logger.info(
+        { [configKey]: createdTag.id },
+        `Successfully created forum tag '${tagConfig.name}'`
+      );
+
+      // Save the new tag ID to runtime config
+      await this.runtimeConfigRepository.setConfig(this.config.guildId, {
+        [configKey]: createdTag.id,
+      });
+
+      return createdTag.id;
+    } catch (error) {
+      this.logger.error(
+        { error, tagName: tagConfig.name, configKey },
+        `Failed to create forum tag`
+      );
+
+      throw new Error(
+        `Failed to create forum tag "${tagConfig.name}": ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
+  }
 
-    // Save the open tag ID to the runtime config
-    await this.runtimeConfigRepository.setConfig(this.config.guildId, {
-      openTagId: openTag.id,
-    });
+  async getOpenTagId(): Promise<string> {
+    return this.getForumTagId("openTagId");
+  }
 
-    return openTag.id;
+  async getClosedTagId(): Promise<string> {
+    return this.getForumTagId("closedTagId");
   }
 
   async getThread(userId: string): Promise<Thread | null> {
@@ -218,13 +283,8 @@ export class ThreadService {
     const user = await this.client.users.fetch(userId);
 
     // -------------------------------------------------------------------------
-    // Check open tag
+    // Get / create open tag
     let openTagID = await this.getOpenTagId();
-    // Check if there's already a tag named "Open" and save that ID
-
-    if (!openTagID) {
-      openTagID = await this.createOpenTag(modmailForumChannel);
-    }
 
     // -------------------------------------------------------------------------
     // Get user metadata, previous threads and mutual servers
@@ -297,6 +357,23 @@ export class ThreadService {
     // Remove open tag, but keep the rest if there's any custom
     const remainingTags = threadChannel.appliedTags.filter(
       (tagId) => tagId !== config.openTagId
+    );
+
+    // Get / create closed tag
+    let closedTagId = await this.getClosedTagId();
+
+    // Push closed tag if not already present
+    if (!remainingTags.includes(closedTagId)) {
+      remainingTags.push(closedTagId);
+    }
+
+    this.logger.debug(
+      {
+        threadId: thread.channelId,
+        userId: userId,
+        remainingTags: remainingTags,
+      },
+      `Closing thread`
     );
 
     // Lock and close the forum thread as completed

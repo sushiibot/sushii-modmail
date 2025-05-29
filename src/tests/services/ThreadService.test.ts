@@ -100,7 +100,13 @@ describe("ThreadService", () => {
         forumChannelId: randomSnowflakeID(),
       } as RuntimeConfig;
 
+      const mockForumChannel = {
+        type: ChannelType.GuildForum,
+        availableTags: [{ name: "Open", id: "openTagId123" }],
+      } as unknown as ForumChannel;
+
       mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
+      spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
 
       const result = await threadService.getOpenTagId();
 
@@ -123,8 +129,9 @@ describe("ThreadService", () => {
       );
     });
 
-    it("should return null if no open tag and no tag found in forum channel", async () => {
+    it("should create a new Open tag if none exists", async () => {
       const forumChannelId = randomSnowflakeID();
+      const newTagId = randomSnowflakeID();
       const runtimeConfig = {
         openTagId: null,
         forumChannelId,
@@ -132,21 +139,28 @@ describe("ThreadService", () => {
 
       mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
 
-      // Mock forum channel fetch
+      // Mock forum channel with no existing Open tag
       const mockForumChannel = {
         type: ChannelType.GuildForum,
         availableTags: [],
+        setAvailableTags: mock().mockResolvedValue({
+          availableTags: [{ name: "Open", id: newTagId }],
+        }),
       } as unknown as ForumChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
+      mockRuntimeConfigRepository.setConfig.mockResolvedValue(
+        {} as RuntimeConfig
+      );
 
       const result = await threadService.getOpenTagId();
 
-      expect(result).toBeNull();
-      expect(mockRuntimeConfigRepository.getConfig).toHaveBeenCalledWith(
-        config.guildId
+      expect(result).toBe(newTagId);
+      expect(mockForumChannel.setAvailableTags).toHaveBeenCalled();
+      expect(mockRuntimeConfigRepository.setConfig).toHaveBeenCalledWith(
+        config.guildId,
+        { openTagId: newTagId }
       );
-      expect(client.channels.fetch).toHaveBeenCalledWith(forumChannelId);
     });
 
     it("should find and return existing Open tag ID from forum channel", async () => {
@@ -202,37 +216,91 @@ describe("ThreadService", () => {
     });
   });
 
-  describe("createOpenTag", () => {
-    it("should create an open tag and save it to the runtime config", async () => {
-      const tagId = randomSnowflakeID();
+  describe("getClosedTagId", () => {
+    it("should return the closed tag ID from runtime config", async () => {
+      const runtimeConfig = {
+        closedTagId: "closedTagId123",
+        forumChannelId: randomSnowflakeID(),
+      } as RuntimeConfig;
 
-      const forumChannel = {
-        availableTags: [],
-        setAvailableTags: mock((tags: GuildForumTag[]) => {
-          forumChannel.availableTags = tags.map((tag) => {
-            // For the "Open" tag, use our known tagId
-            if (tag.name === "Open" && !tag.id) {
-              return { ...tag, id: tagId };
-            }
-
-            return tag;
-          });
-
-          return Promise.resolve(forumChannel);
-        }),
+      const mockForumChannel = {
+        type: ChannelType.GuildForum,
+        availableTags: [{ name: "Closed", id: "closedTagId123" }],
       } as unknown as ForumChannel;
 
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
+      spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
+
+      const result = await threadService.getClosedTagId();
+
+      expect(result).toBe("closedTagId123");
+      expect(mockRuntimeConfigRepository.getConfig).toHaveBeenCalledWith(
+        config.guildId
+      );
+    });
+
+    it("should find and return existing Closed tag ID from forum channel", async () => {
+      const forumChannelId = randomSnowflakeID();
+      const existingTagId = randomSnowflakeID();
+      const runtimeConfig = {
+        closedTagId: null,
+        forumChannelId,
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
+
+      // Mock forum channel fetch with existing Closed tag
+      const mockForumChannel = {
+        type: ChannelType.GuildForum,
+        availableTags: [{ name: "Closed", id: existingTagId }],
+      } as unknown as ForumChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
       mockRuntimeConfigRepository.setConfig.mockResolvedValue(
         {} as RuntimeConfig
       );
 
-      const result = await threadService.createOpenTag(forumChannel);
+      const result = await threadService.getClosedTagId();
 
-      expect(result).toBe(tagId);
-      expect(forumChannel.setAvailableTags).toHaveBeenCalled();
+      expect(result).toBe(existingTagId);
+      expect(client.channels.fetch).toHaveBeenCalledWith(forumChannelId);
       expect(mockRuntimeConfigRepository.setConfig).toHaveBeenCalledWith(
         config.guildId,
-        { openTagId: tagId }
+        { closedTagId: existingTagId }
+      );
+    });
+
+    it("should create a new Closed tag if none exists", async () => {
+      const forumChannelId = randomSnowflakeID();
+      const newTagId = randomSnowflakeID();
+      const runtimeConfig = {
+        closedTagId: null,
+        forumChannelId,
+      } as RuntimeConfig;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
+
+      // Mock forum channel with no existing Closed tag
+      const mockForumChannel = {
+        type: ChannelType.GuildForum,
+        availableTags: [],
+        setAvailableTags: mock().mockResolvedValue({
+          availableTags: [{ name: "Closed", id: newTagId }],
+        }),
+      } as unknown as ForumChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(mockForumChannel);
+      mockRuntimeConfigRepository.setConfig.mockResolvedValue(
+        {} as RuntimeConfig
+      );
+
+      const result = await threadService.getClosedTagId();
+
+      expect(result).toBe(newTagId);
+      expect(mockForumChannel.setAvailableTags).toHaveBeenCalled();
+      expect(mockRuntimeConfigRepository.setConfig).toHaveBeenCalledWith(
+        config.guildId,
+        { closedTagId: newTagId }
       );
     });
   });
@@ -395,7 +463,7 @@ describe("ThreadService", () => {
       );
     });
 
-    it("should create a new open tag if none exists", async () => {
+    it("should create a new thread with new open tag when none exists", async () => {
       const userId = randomSnowflakeID();
       const username = "testuser";
       const newOpenTagId = randomSnowflakeID();
@@ -421,8 +489,7 @@ describe("ThreadService", () => {
       } as RuntimeConfig);
       spyOn(client.users, "fetch").mockResolvedValue(mockUser);
       spyOn(client.channels, "fetch").mockResolvedValue(modmailForumChannel);
-      spyOn(threadService, "getOpenTagId").mockResolvedValue(null);
-      spyOn(threadService, "createOpenTag").mockResolvedValue(newOpenTagId);
+      spyOn(threadService, "getOpenTagId").mockResolvedValue(newOpenTagId);
       spyOn(mutualServersUtil, "getMutualServers").mockResolvedValue([]);
 
       spyOn(StaffThreadView, "createThreadOptions").mockReturnValue({
@@ -440,9 +507,7 @@ describe("ThreadService", () => {
       const result = await threadService["createNewThread"](userId, username);
 
       expect(result).toBeInstanceOf(Thread);
-      expect(threadService.createOpenTag).toHaveBeenCalledWith(
-        modmailForumChannel
-      );
+      expect(threadService.getOpenTagId).toHaveBeenCalled();
       expect(modmailForumChannel.threads.create).toHaveBeenCalledWith({
         name: "threadName",
         reason: "reason",
@@ -476,30 +541,34 @@ describe("ThreadService", () => {
 
     it("should close the thread and mark it as closed in the repository", async () => {
       const thread = { channelId: "channelId" } as Thread;
+      const openTagId = "openTagId123";
+      const closedTagId = "closedTagId456";
 
       const runtimeConfig = {
-        openTagId: "openTagId123",
+        openTagId: openTagId,
         forumChannelId: randomSnowflakeID(),
       } as RuntimeConfig;
 
       const threadChannel = {
         isThread: () => true,
-        appliedTags: ["unrelatedTag", runtimeConfig.openTagId],
+        appliedTags: ["unrelatedTag", openTagId],
         send: mock(),
         edit: mock(),
       } as unknown as ForumThreadChannel;
 
       mockRuntimeConfigRepository.getConfig.mockResolvedValue(runtimeConfig);
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
+      spyOn(threadService, "getClosedTagId").mockResolvedValue(closedTagId);
 
       await threadService.closeThread(thread, "userId");
 
       expect(threadChannel.send).toHaveBeenCalledWith("Thread closed.");
+      expect(threadService.getClosedTagId).toHaveBeenCalled();
       expect(threadChannel.edit).toHaveBeenCalledWith({
         archived: true,
         locked: true,
-        // Keeps the unrelated tag
-        appliedTags: ["unrelatedTag"],
+        // Should remove open tag and add closed tag, keeping unrelated tags
+        appliedTags: ["unrelatedTag", closedTagId],
       });
       expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(
         thread.channelId,

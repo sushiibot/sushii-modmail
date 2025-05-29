@@ -176,6 +176,7 @@ export const runtimeConfig = sqliteTable(
 
     // Internal config -- not user facing
     openTagId: text(),
+    closedTagId: text(),
 
     // Base
     prefix: text(),

@@ -20,6 +20,7 @@ You'll get a ✅ reaction on your messages when they're successfully forwarded t
 export class RuntimeConfig {
   public readonly guildId: string;
   public readonly openTagId: string | null;
+  public readonly closedTagId: string | null;
 
   // User configurable settings
   protected readonly _prefix: string | null;
@@ -36,6 +37,7 @@ export class RuntimeConfig {
   constructor(
     guildId: string,
     openTagId: string | null,
+    closedTagId: string | null,
     prefix: string | null,
     forumChannelId: string | null,
     logsChannelId: string | null,
@@ -46,7 +48,10 @@ export class RuntimeConfig {
     notificationSilent: boolean
   ) {
     this.guildId = guildId;
+
     this.openTagId = openTagId;
+    this.closedTagId = closedTagId;
+
     this._prefix = prefix;
 
     // Channel IDs
@@ -89,6 +94,7 @@ export class RuntimeConfig {
     return new RuntimeConfig(
       row.guildId,
       row.openTagId,
+      row.closedTagId,
       row.prefix,
       row.forumChannelId,
       row.logsChannelId,
@@ -104,6 +110,7 @@ export class RuntimeConfig {
     return new RuntimeConfig(
       guildId, // Guild ID
       null, // Open tag ID
+      null, // Closed tag ID
       null, // Prefix
       null, // Forum channel ID
       null, // Logs channel ID
