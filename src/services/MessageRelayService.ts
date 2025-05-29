@@ -599,7 +599,8 @@ export class MessageRelayService {
     // Edit the staff message
     await threadChannel.messages.edit(messageData.messageId, {
       components,
-      // No flags when editing
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
     });
 
     // -------------------------------------------------------------------------
@@ -738,6 +739,8 @@ export class MessageRelayService {
     // Edit the message
     await threadChannel.messages.edit(messageData.messageId, {
       components,
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
     });
 
     await this.messageRepository.deleteMessage(messageData.messageId);
