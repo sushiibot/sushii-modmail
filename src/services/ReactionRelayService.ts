@@ -39,16 +39,15 @@ export class ReactionRelayService {
 
   /**
    * Relay a reaction from user to staff thread
-   * @param userDmMessageId The user's DM message ID that was reacted to
-   * @param userId The ID of the user who added the reaction
-   * @param emojiIdentifier The emoji that was added
-   * @param emojiString The string representation of the emoji (optional)
    */
   async relayUserReactionToStaff(
     userDmMessageId: string,
     userId: string,
-    emojiIdentifier: string,
-    emojiString: string
+    emojiName: string | null,
+    // Represent emojis in message, e.g. <:emoji_name:emoji_id>
+    emojiString: string,
+    // Only if custom
+    emojiUrl: string | null
   ): Promise<void> {
     // Get the corresponding thread message
 
@@ -81,15 +80,14 @@ export class ReactionRelayService {
       // Send a system message indicating a reaction was added
       const user = await this.client.users.fetch(userId);
 
-      const emojiID = this.client.emojis.resolveId(emojiIdentifier);
-      const emojiURL = this.client.rest.cdn.emoji(emojiID);
+      let content = `${user.tag} reacted with ${emojiString}`;
+      if (emojiName && emojiUrl) {
+        content += ` ([\`${emojiName}\`](<${emojiUrl}>))`;
+      }
 
-      const systemMessage = StaffThreadView.systemMessage(
-        `${user.tag} reacted with ${emojiString} ([\`${emojiIdentifier}\`](<${emojiURL}>))`,
-        {
-          automated: false,
-        }
-      );
+      const systemMessage = StaffThreadView.systemMessage(content, {
+        automated: false,
+      });
 
       // Add reply to the reacted message
       systemMessage.reply = {
@@ -100,7 +98,7 @@ export class ReactionRelayService {
 
       try {
         // Add the reaction to the thread message
-        await threadMessage.react(emojiIdentifier);
+        await threadMessage.react(emojiString);
       } catch (err) {
         if (!(err instanceof DiscordAPIError)) {
           // Unrelated error, throw
@@ -110,7 +108,7 @@ export class ReactionRelayService {
         // Custom emoji, bot doesn't have access to it, fine
         if (err.code === RESTJSONErrorCodes.UnknownEmoji) {
           this.logger.debug(
-            { error: err, emojiIdentifier },
+            { error: err, emojiString },
             "Failed to add reaction to thread message, bot doesn't have access to the emoji"
           );
         }
@@ -120,14 +118,14 @@ export class ReactionRelayService {
         {
           threadMessageId: message.messageId,
           userDmMessageId,
-          emojiIdentifier,
           emojiString,
+          emojiName,
         },
         "Relayed user reaction to staff thread"
       );
     } catch (error) {
       this.logger.error(
-        { error, userDmMessageId, emojiIdentifier },
+        { error, userDmMessageId, emojiString },
         "Failed to relay user reaction to staff"
       );
     }
@@ -142,8 +140,12 @@ export class ReactionRelayService {
   async relayUserReactionRemovalToStaff(
     userDmMessageId: string,
     userId: string,
-    emojiIdentifier: string,
-    emojiString: string
+    // Emoji unicode or custom emoji name, e.g. 👍 or emoji_name
+    emojiName: string | null,
+    // Represent emojis in message, e.g. <:emoji_name:emoji_id>
+    emojiString: string,
+    // Only if custom
+    emojiUrl: string | null
   ): Promise<void> {
     // Get the corresponding thread message
     const message = await this.messageRepository.getByStaffDMMessageId(
@@ -171,23 +173,23 @@ export class ReactionRelayService {
       );
 
       // Get users who reacted with this emoji
-      const reactions = threadMessage.reactions.cache.get(emojiIdentifier);
+      const reactions = threadMessage.reactions.cache.get(emojiString);
       if (reactions) {
         // Remove bot's reaction to reflect user's removal
         await reactions.remove();
       }
 
-      const emojiID = this.client.emojis.resolveId(emojiIdentifier);
-      const emojiURL = this.client.rest.cdn.emoji(emojiID);
+      const user = await this.client.users.fetch(userId);
+
+      let content = `${user.tag} removed reaction ${emojiString}`;
+      if (emojiUrl) {
+        content += ` ([\`${emojiName}\`](<${emojiUrl}>))`;
+      }
 
       // Send a system message indicating a reaction was removed
-      const user = await this.client.users.fetch(userId);
-      const systemMessage = StaffThreadView.systemMessage(
-        `${user.tag} removed reaction ${emojiString} ([\`${emojiIdentifier}\`](<${emojiURL}>))`,
-        {
-          automated: false,
-        }
-      );
+      const systemMessage = StaffThreadView.systemMessage(content, {
+        automated: false,
+      });
 
       // Add reply to the reacted message
       systemMessage.reply = {
@@ -200,14 +202,14 @@ export class ReactionRelayService {
         {
           threadMessageId: message.messageId,
           userDmMessageId,
-          emojiIdentifier,
+          emojiName,
           emojiString,
         },
         "Relayed user reaction removal to staff thread"
       );
     } catch (error) {
       this.logger.error(
-        { error, userDmMessageId, emojiIdentifier },
+        { error, userDmMessageId, emojiString },
         "Failed to relay user reaction removal to staff"
       );
     }

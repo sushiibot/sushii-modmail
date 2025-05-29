@@ -319,21 +319,24 @@ export class StaffThreadView {
       automated: boolean;
     } = { automated: true }
   ): MessageCreateOptions {
-    let name = "System";
+    const container = new ContainerBuilder();
+
+    let textDisplayContent = `### System`;
     if (options.automated) {
-      name += " (Automated)";
+      textDisplayContent += " (Automated)";
     }
 
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: name,
-      })
-      .setDescription(content)
-      .setColor(Color.Gray)
-      .setTimestamp();
+    textDisplayContent += `\n${content}`;
+
+    const contentText = new TextDisplayBuilder().setContent(textDisplayContent);
+    container.addTextDisplayComponents(contentText);
 
     return {
-      embeds: [embed],
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: {
+        parse: [],
+      },
     };
   }
 

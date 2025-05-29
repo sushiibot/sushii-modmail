@@ -17,9 +17,6 @@ export class MemberNotificationController {
     user: User,
     options?: { until?: Date }
   ): Promise<void> {
-    this.logger.info("Handling member join notification");
-    // Logic to handle member join notification
-
     await this.notificationService.notify(action, guild, user, options);
   }
 }

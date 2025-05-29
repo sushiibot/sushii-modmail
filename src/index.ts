@@ -142,6 +142,9 @@ async function main() {
       Partials.Reaction,
       Partials.Message,
       Partials.GuildMember,
+      // For reactions on non-cached messages
+      Partials.Reaction,
+      Partials.User,
     ],
   });
 

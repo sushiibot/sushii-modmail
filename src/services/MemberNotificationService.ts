@@ -34,10 +34,17 @@ export class MemberNotificationService {
   ): Promise<void> {
     const thread = await this.threadRepository.getOpenThreadByUserID(user.id);
     if (!thread) {
+      // No thread found for user, no notification
       return;
     }
 
-    this.logger.info({ userId: user.id }, `Retrieving thread channel for user`);
+    this.logger.info(
+      {
+        userId: user.id,
+        action,
+      },
+      `Retrieving thread channel for thread notification`
+    );
 
     const channel = await this.client.channels.fetch(thread.channelId);
     if (!channel || !channel.isSendable()) {

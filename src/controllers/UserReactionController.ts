@@ -12,14 +12,22 @@ export interface ReactionRelayService {
   relayUserReactionToStaff(
     userDmMessageId: string,
     userId: string,
-    emojiIdentifier: string,
-    emojiString?: string
+    // Emoji unicode or custom emoji name, e.g. 👍 or emoji_name
+    emojiName: string | null,
+    // Represent emojis in message, e.g. <:emoji_name:emoji_id>
+    emojiString: string,
+    // Only if custom
+    emojiUrl: string | null
   ): Promise<void>;
   relayUserReactionRemovalToStaff(
     userDmMessageId: string,
     userId: string,
-    emojiIdentifier: string,
-    emojiString?: string
+    // Emoji unicode or custom emoji name, e.g. 👍 or emoji_name
+    emojiName: string | null,
+    // Represent emojis in message, e.g. <:emoji_name:emoji_id>
+    emojiString: string,
+    // Only if custom
+    emojiUrl: string | null
   ): Promise<void>;
 }
 
@@ -43,11 +51,14 @@ export class UserReactionController {
         return;
       }
 
+      reaction.emoji.identifier;
+
       await this.reactionService.relayUserReactionToStaff(
         reaction.message.id,
         user.id,
-        reaction.emoji.identifier,
-        reaction.emoji.toString()
+        reaction.emoji.name,
+        reaction.emoji.toString(),
+        reaction.emoji.imageURL()
       );
     } catch (err) {
       const contextMsg = `Error handling DM reaction from user ${
@@ -70,8 +81,9 @@ export class UserReactionController {
       await this.reactionService.relayUserReactionRemovalToStaff(
         reaction.message.id,
         user.id,
-        reaction.emoji.identifier,
-        reaction.emoji.toString()
+        reaction.emoji.name,
+        reaction.emoji.toString(),
+        reaction.emoji.imageURL()
       );
     } catch (err) {
       const contextMsg = `Error handling DM reaction removal from user ${

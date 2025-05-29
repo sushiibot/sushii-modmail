@@ -26,21 +26,6 @@ export interface MessageRelayService {
   sendInitialMessageToStaff(channelId: string, content: string): Promise<void>;
 }
 
-export interface ReactionRelayService {
-  relayUserReactionToStaff(
-    userDmMessageId: string,
-    userId: string,
-    emojiIdentifier: string,
-    emojiString: string
-  ): Promise<void>;
-  relayUserReactionRemovalToStaff(
-    userDmMessageId: string,
-    userId: string,
-    emojiIdentifier: string,
-    emojiString: string
-  ): Promise<void>;
-}
-
 export interface Thread {
   channelId: string;
 }
@@ -56,7 +41,6 @@ export interface ThreadService {
 export class DMController {
   private threadService: ThreadService;
   private messageService: MessageRelayService;
-  private reactionService: ReactionRelayService;
   private logService: LogService;
 
   private logger = getLogger(this.constructor.name);
@@ -64,12 +48,10 @@ export class DMController {
   constructor(
     threadService: ThreadService,
     messageService: MessageRelayService,
-    reactionService: ReactionRelayService,
     logService: LogService
   ) {
     this.threadService = threadService;
     this.messageService = messageService;
-    this.reactionService = reactionService;
     this.logService = logService;
   }
 
