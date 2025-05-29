@@ -77,7 +77,6 @@ export function registerEventHandlers(
   const dmController = new DMController(
     threadService,
     messageService,
-    reactionService,
     logService
   );
   const userReactionController = new UserReactionController(
@@ -324,6 +323,12 @@ export function registerEventHandlers(
 
       if (newTimeout && !oldTimeout) {
         const newTimeoutDate = new Date(newTimeout);
+
+        // If timeout date is in the past, ignore. Not cleared on timeout
+        // completion.
+        if (newTimeoutDate <= new Date()) {
+          return;
+        }
 
         logger.debug(
           {
