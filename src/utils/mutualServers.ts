@@ -9,7 +9,6 @@ export async function getMutualServers(
   const mutualGuilds = [];
 
   for (const guild of client.guilds.cache.values()) {
-    console.log(guild);
     // Fetch member - throws if not found
     try {
       await guild.members.fetch(userId);
