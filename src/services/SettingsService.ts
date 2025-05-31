@@ -452,7 +452,7 @@ export class SettingsService {
     const permissionsStr = missing.map((p) => `\`${p}\``).join(", ");
 
     let content = `I'm missing the following permissions in the selected channel <#${channelId}>`;
-    content += `> ${permissionsStr}`;
+    content += `\n> ${permissionsStr}`;
     content += "\nPlease update my permissions in the channel to avoid issues.";
 
     await interaction.followUp({
