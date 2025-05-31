@@ -1,19 +1,5 @@
 import { type ConfigType } from "../config/config";
 
-const defaultInitialMessage = `
-Hello! 👋 Your message has been forwarded to community staff, and we'll get back to you as soon as possible!
-To help us assist you faster, please include:
-
-- What you need help with - Be as specific as possible.
-- Context - If you're reporting someone, who's involved, screenshots, etc.
-
-The more details you provide, the quicker we can resolve your request!
-
----
-
-You'll get a ✅ reaction on your messages when they're successfully forwarded to staff.
-`;
-
 /**
  * Model representation of application configuration with standard TypeScript casing
  */
