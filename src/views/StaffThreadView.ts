@@ -13,6 +13,7 @@ import {
   type BaseMessageOptions,
   type GuildForumThreadCreateOptions,
   type MessageCreateOptions,
+  type MessageMentionOptions,
 } from "discord.js";
 import { Thread } from "../models/thread.model";
 import {
@@ -160,6 +161,15 @@ export class StaffThreadView {
       container.addTextDisplayComponents(notificationText);
     }
 
+    const allowedMentions: MessageMentionOptions = {
+      parse: [],
+    };
+
+    if (notificationRoleId) {
+      allowedMentions.roles = [notificationRoleId];
+      allowedMentions.parse = undefined;
+    }
+
     if (silent) {
       return {
         components: [container],
@@ -168,9 +178,7 @@ export class StaffThreadView {
           // Silent notification
           MessageFlags.SuppressNotifications,
         ],
-        allowedMentions: {
-          parse: [],
-        },
+        allowedMentions,
       };
     }
 
