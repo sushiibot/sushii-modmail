@@ -4,6 +4,21 @@ Discord ModMail bot utilizing forum channels to preserve previous ModMail
 threads entirely on Discord. Search past threads directly on Discord without
 needing a custom web UI.
 
+<p align="center">
+  <img
+    src="https://github.com/sushiibot/sushii-modmail/blob/main/images/01_forum_list.png?raw=true"
+    alt="Thread List"
+    width="500"
+    style="vertical-align: top;"
+  />
+  <img
+    src="https://github.com/sushiibot/sushii-modmail/blob/main/images/02_thread.png?raw=true"
+    alt="Modmail Thread"
+    width="500"
+    style="vertical-align: top;"
+  />
+</p>
+
 ## Features
 
 Feature set is fairly minimal, focusing on essential and frequently used.
@@ -60,9 +75,12 @@ Images are built and published to [Github container registry](https://github.com
 
 Images contain a [Litestream](https://litestream.io/) binary for automatic
 replication of the SQLite database to a remote S3-compatible storage. This is
-not enabled by default, but can be optionally configured.
+not enabled by default, but can be optionally enabled configured. A
+[default Litestream configuration](./litestream.yml) file is included in the
+image, but you can override it by mounting your own configuration file at
+`/etc/litestream.yml` in the container.
 
-Example Docker compose file:
+Example Docker compose file with all the environment variables
 
 ```yml
 services:
@@ -80,11 +98,14 @@ services:
       # https://litestream.io/reference/config/
       - ./litestream.yml:/etc/litestream.yml
     environment:
+      #  Base settings
       - LOG_LEVEL=info
       - DISCORD_TOKEN=your_discord_bot_token
       - DISCORD_CLIENT_ID=your_discord_client_id
-      - MAIL_GUILD_ID=your_guild_id
       - DATABASE_URI=/app/data/db.sqlite
+
+      # Required Settings
+      - MAIL_GUILD_ID=your_guild_id
 
       # Litestream configuration
       - REPLICATE_DB=true # Optional, default is false
@@ -99,44 +120,9 @@ services:
       - LITESTREAM_FORCE_PATH_STYLE=true # Optional, default is false, some S3 providers require this
 ```
 
-Example litestream config:
-
-```yml
-access-key-id: your-backblaze-keyID
-secret-access-key: your-backblaze-applicationKey
-
-dbs:
-    # Match the path in your docker-compose file
-  - path: /app/data/db.sqlite
-    replicas:
-      - type: s3
-        bucket: your-bucket-name
-        path: db # change to whatever path you want
-        endpoint: s3.us-west-000.backblazeb2.com # change this
-        force-path-style: true
-```
-
-## Configuration
-
-Essential configuration is set in environment variables. Most of the other
-settings are set with the `settings` command.
-
-Here's an example .env file:
-
-```env
-# Logging
-LOG_LEVEL=info
-
-# Discord Bot Configuration
-DISCORD_TOKEN=your_discord_bot_token
-DISCORD_CLIENT_ID=your_discord_client_id
-
-# Required Settings
-MAIL_GUILD_ID=your_guild_id
-
-# Sqlite database path - you shouldn't need to change this
-DATABASE_URI=./data/db.sqlite
-```
+Once the bot is running, you can use the `settings` command to set up additional
+configuration, such as the channel to use for ModMail threads, roles that can
+use the bot, and more.
 
 ## Development
 
