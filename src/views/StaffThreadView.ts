@@ -168,6 +168,9 @@ export class StaffThreadView {
           // Silent notification
           MessageFlags.SuppressNotifications,
         ],
+        allowedMentions: {
+          parse: [],
+        },
       };
     }
 
