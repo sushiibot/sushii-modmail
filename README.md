@@ -21,7 +21,7 @@ needing a custom web UI.
 
 ## Features
 
-Feature set is fairly minimal, focusing on essential and frequently used.
+Focused on simplicity and user experience, sushii-modmail provides:
 
 - **Built-in Organization and Archive** - ModMail threads are Forum channel
   threads. Forum tags are used so you can only show the threads that are
@@ -29,6 +29,8 @@ Feature set is fairly minimal, focusing on essential and frequently used.
   offline or if you need to change to a different bot.
 - **Configurable Message** - Initial message sent to the user when they open a
   thread.
+- **Configurable Notifications** - Ping roles when a new thread is opened,
+  optionally a silent ping.
 - **Snippets** - Re-usable messages for common responses. Snippets can be
   configured to be anonymous or not.
 - **Anonymous Replies** - Keep staff members anonymous when replying.
