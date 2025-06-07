@@ -38,11 +38,11 @@ export class HelpCommandView {
     helpContent += `\n\`snippet delete [name]\` - Delete a snippet`;
 
     if (config.gitHash || config.buildDate) {
-      const hash = config.gitHash ? config.gitHash.slice(0, 7) : 'unknown';
-      const date = config.buildDate 
+      const hash = config.gitHash ? config.gitHash.slice(0, 7) : "unknown";
+      const date = config.buildDate
         ? `<t:${Math.floor(config.buildDate.getTime() / 1000)}:f>`
-        : 'unknown';
-      helpContent += `\n\n-# Build: ${hash} ${date}`;
+        : "unknown";
+      helpContent += `\n\n-# Build: \`${hash}\` - ${date}`;
     }
 
     const text = new TextDisplayBuilder().setContent(helpContent);
