@@ -211,4 +211,16 @@ describe("SnippetService", () => {
       );
     });
   });
+
+  describe("snippetNameAllowed", () => {
+    it("returns false for reserved names", () => {
+      expect(snippetService.snippetNameAllowed("help")).toBe(false);
+      expect(snippetService.snippetNameAllowed("reply")).toBe(false);
+    });
+
+    it("returns true for non-reserved names", () => {
+      expect(snippetService.snippetNameAllowed("custom")).toBe(true);
+      expect(snippetService.snippetNameAllowed("another")).toBe(true);
+    });
+  });
 });
