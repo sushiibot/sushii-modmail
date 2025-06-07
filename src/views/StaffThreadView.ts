@@ -243,7 +243,7 @@ export class StaffThreadView {
     }
 
     // Set the author field based on anonymous option
-    let authorName = `### Staff - <@${msg.author.id}>`;
+    let authorName = `### Staff - ${msg.author.displayName} - <@${msg.author.id}>`;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
@@ -408,7 +408,7 @@ export class StaffThreadView {
     // 4. Metadata (links to attachments, stickers, timestamps, ID)
 
     // 1. Author
-    const author = `### User - <@${userMessage.author.id}>`;
+    const author = `### User - ${userMessage.author.displayName} - <@${userMessage.author.id}>`;
     const authorText = new TextDisplayBuilder().setContent(author);
     primaryContainer.addTextDisplayComponents(authorText);
 

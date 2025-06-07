@@ -30,6 +30,7 @@ import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
 import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
+import { HealthcheckService } from "services/HealthcheckService";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -148,6 +149,10 @@ async function main() {
     ],
   });
 
+  // Start healthcheck server before Discord client
+  const healthcheckService = new HealthcheckService(client, config.healthcheckPort);
+  healthcheckService.start();
+
   logger.info("Initializing command router...");
   const router = buildCommandRouter(config, client, db);
 
@@ -159,6 +164,17 @@ async function main() {
 
   // Start client, connect to Discord gateway and listen for events
   await client.login(config.discordToken);
+
+  // Graceful shutdown handlers
+  const shutdown = (signal: string) => {
+    logger.info(`Received ${signal}, shutting down gracefully...`);
+    healthcheckService.stop();
+    client.destroy();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 main().catch((error) => {

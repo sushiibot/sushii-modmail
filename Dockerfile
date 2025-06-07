@@ -17,6 +17,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # root certs for ssl
     ca-certificates \
+    # curl for healthcheck
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy litestream binary from the previous stage
@@ -39,6 +41,10 @@ COPY ./src ./src
 
 # Entrypoint script
 COPY ./scripts ./scripts
+
+# Healthcheck using the built-in healthcheck endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
 
 # Set the command to run the bot
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]

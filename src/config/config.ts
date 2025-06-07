@@ -10,6 +10,9 @@ const configSchema = z.object({
 
   // Where modmails get sent to
   MAIL_GUILD_ID: z.string(),
+
+  // Healthcheck server port
+  HEALTHCHECK_PORT: z.coerce.number().optional().default(3000),
 });
 
 export type ConfigType = z.infer<typeof configSchema>;
