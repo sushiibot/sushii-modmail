@@ -12,7 +12,7 @@ export class SettingsModalController {
   }
 
   /**
-   * Syncs emojis on startup: uploads new or changed emojis.
+   * Handle settings modal submissions.
    */
   async handleModal(interaction: ModalSubmitInteraction): Promise<void> {
     if (!interaction.inCachedGuild()) {
