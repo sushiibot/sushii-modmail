@@ -15,6 +15,7 @@ import { CloseCommand } from "commands/CloseCommand";
 import { LogsCommand } from "commands/LogsCommand";
 import { PlainReplyCommand } from "commands/reply/PlainReplyCommand";
 import { AddSnippetCommand } from "commands/snippets/AddSnippetCommand";
+import { GetSnippetCommand } from "commands/snippets/GetSnippetCommand";
 import { SnippetService } from "services/SnippetService";
 import { SnippetRepository } from "repositories/snippet.repository";
 import { EditSnippetCommand } from "commands/snippets/EditSnippetCommand";
@@ -95,6 +96,7 @@ function buildCommandRouter(
     new DeleteCommand(threadService, messageService),
 
     // Snippets
+    new GetSnippetCommand(snippetService),
     new AddSnippetCommand(snippetService),
     new EditSnippetCommand(snippetService),
     new DeleteSnippetCommand(snippetService),

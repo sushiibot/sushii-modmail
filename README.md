@@ -57,6 +57,7 @@ User information
 Snippets
 - `snippet add [name] [content]` - Create a new snippet
 - `snippet edit [name] [content]` - Modify an existing snippet
+- `snippet [name]` - Show a snippet's content
 - `snippet list` - List all available snippets
 - `snippet delete [name]` - Delete a snippet
 

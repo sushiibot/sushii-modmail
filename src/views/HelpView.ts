@@ -32,6 +32,7 @@ export class HelpCommandView {
     helpContent += `\n## Snippets`;
     helpContent += `\n\`snippet add [name] [content]\` - Create a new snippet`;
     helpContent += `\n\`snippet edit [name] [content]\` - Modify an existing snippet`;
+    helpContent += `\n\`snippet [name]\` - Show a snippet's content`;
     helpContent += `\n\`snippet list\` - List all available snippets`;
     helpContent += `\n\`snippet delete [name]\` - Delete a snippet`;
 

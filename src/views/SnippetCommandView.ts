@@ -211,6 +211,33 @@ export class SnippetCommandView {
     return { embeds: [embed], allowedMentions: { parse: [] } };
   }
 
+  static getUsage(): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setDescription("Usage: `!snippet <name>`")
+      .setColor(Color.Gray);
+
+    return { embeds: [embed], allowedMentions: { parse: [] } };
+  }
+
+  static snippetContent(snippet: Snippet): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setTitle(`Snippet - \`${snippet.name}\``)
+      .setDescription(quoteText(snippet.content))
+      .setColor(Color.Blue);
+
+    return { embeds: [embed], allowedMentions: { parse: [] } };
+  }
+
+  static errorFetchingSnippet(): MessageCreateOptions {
+    const embed = new EmbedBuilder()
+      .setDescription(
+        "Failed to retrieve snippet. Please check the logs for details."
+      )
+      .setColor(Color.Pink);
+
+    return { embeds: [embed], allowedMentions: { parse: [] } };
+  }
+
   static snippetNameReserved(name: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
       .setDescription(
