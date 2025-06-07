@@ -109,7 +109,7 @@ function buildCommandRouter(
 
     // Settings
     new SettingsCommand(settingsService),
-    new HelpCommand()
+    new HelpCommand(config)
   );
 
   snippetService.setReservedNames(router.getCommandNames());

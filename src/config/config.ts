@@ -13,6 +13,10 @@ const configSchema = z.object({
 
   // Healthcheck server port
   HEALTHCHECK_PORT: z.coerce.number().optional().default(3000),
+
+  // Build information
+  GIT_HASH: z.string().optional(),
+  BUILD_DATE: z.string().datetime().transform(str => new Date(str)).optional(),
 });
 
 export type ConfigType = z.infer<typeof configSchema>;

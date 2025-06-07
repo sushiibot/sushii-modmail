@@ -2,6 +2,7 @@ import type { Message } from "discord.js";
 import TextCommandHandler from "./CommandHandler";
 import { getLogger } from "utils/logger";
 import { HelpCommandView } from "views/HelpView";
+import type { BotConfig } from "models/botConfig.model";
 
 export class HelpCommand extends TextCommandHandler {
   commandName = "help";
@@ -9,9 +10,11 @@ export class HelpCommand extends TextCommandHandler {
   aliases = [];
 
   private logger = getLogger("CloseCommand");
+  private config: BotConfig;
 
-  constructor() {
+  constructor(config: BotConfig) {
     super();
+    this.config = config;
   }
 
   async handler(msg: Message, args: string[]): Promise<void> {
@@ -19,7 +22,7 @@ export class HelpCommand extends TextCommandHandler {
       return;
     }
 
-    const helpMsg = HelpCommandView.help();
+    const helpMsg = HelpCommandView.help(this.config);
     await msg.reply(helpMsg);
   }
 }

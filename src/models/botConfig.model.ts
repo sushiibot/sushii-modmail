@@ -12,13 +12,18 @@ export class BotConfig {
   public readonly databaseUri: string;
   public readonly healthcheckPort: number;
 
+  public readonly gitHash?: string;
+  public readonly buildDate?: Date;
+
   constructor(
     logLevel: string,
     discordToken: string,
     discordClientId: string,
     databaseUri: string,
     mailGuildId: string,
-    healthcheckPort: number
+    healthcheckPort: number,
+    gitHash?: string,
+    buildDate?: Date
   ) {
     this.logLevel = logLevel;
     this.discordToken = discordToken;
@@ -26,6 +31,8 @@ export class BotConfig {
     this.databaseUri = databaseUri;
     this.mailGuildId = mailGuildId;
     this.healthcheckPort = healthcheckPort;
+    this.gitHash = gitHash;
+    this.buildDate = buildDate;
   }
 
   /**
@@ -38,7 +45,9 @@ export class BotConfig {
       config.DISCORD_CLIENT_ID,
       config.DATABASE_URI,
       config.MAIL_GUILD_ID,
-      config.HEALTHCHECK_PORT
+      config.HEALTHCHECK_PORT,
+      config.GIT_HASH,
+      config.BUILD_DATE
     );
   }
 

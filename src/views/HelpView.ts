@@ -5,9 +5,10 @@ import {
   type MessageCreateOptions,
 } from "discord.js";
 import { HexColor } from "./Color";
+import type { BotConfig } from "models/botConfig.model";
 
 export class HelpCommandView {
-  static help(): MessageCreateOptions {
+  static help(config: BotConfig): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
 
     let helpContent = `# Bot Commands`;
@@ -35,6 +36,14 @@ export class HelpCommandView {
     helpContent += `\n\`snippet [name]\` - Show a snippet's content`;
     helpContent += `\n\`snippet list\` - List all available snippets`;
     helpContent += `\n\`snippet delete [name]\` - Delete a snippet`;
+
+    if (config.gitHash || config.buildDate) {
+      const hash = config.gitHash ? config.gitHash.slice(0, 7) : 'unknown';
+      const date = config.buildDate 
+        ? `<t:${Math.floor(config.buildDate.getTime() / 1000)}:f>`
+        : 'unknown';
+      helpContent += `\n\n-# Build: ${hash} ${date}`;
+    }
 
     const text = new TextDisplayBuilder().setContent(helpContent);
 
