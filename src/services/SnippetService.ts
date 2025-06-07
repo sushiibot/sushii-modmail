@@ -45,7 +45,7 @@ export class SnippetService {
    * @param names Array of reserved names
    */
   setReservedNames(names: Set<string>): void {
-    this.logger.debug({ names }, `Setting reserved names}`);
+    this.logger.debug({ names }, "Setting reserved names");
 
     this.reservedNames = names;
   }

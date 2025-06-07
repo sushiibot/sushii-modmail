@@ -212,8 +212,10 @@ export default class CommandRouter {
       return;
     }
 
+    const prefix = await this.getPrefix(msg);
+
     const [commandName, subCommandName, args] = await this.breakDownMessage(
-      msg.content.slice(1)
+      msg.content.slice(prefix.length)
     );
 
     let rootCommand = this.commands.get(commandName);
