@@ -137,6 +137,7 @@ export class SnippetController {
         anonymous: config.anonymousSnippets,
         plainText: message.content.includes("-p"),
         snippet: true,
+        snippetName: snippetName,
       };
 
       this.logger.debug(

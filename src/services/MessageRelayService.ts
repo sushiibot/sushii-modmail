@@ -40,12 +40,14 @@ export interface StaffMessageOptions {
   anonymous: boolean;
   plainText: boolean;
   snippet: boolean;
+  snippetName?: string;
 }
 
 export const defaultStaffMessageOptions: StaffMessageOptions = {
   anonymous: false,
   plainText: false,
   snippet: false,
+  snippetName: undefined,
 };
 
 export interface Attachment {

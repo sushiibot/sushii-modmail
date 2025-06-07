@@ -311,7 +311,8 @@ export class StaffThreadView {
     }
 
     if (options.snippet) {
-      metadataStr += `\n${emojis.snippet} Sent from snippet`;
+      const name = options.snippetName ? ` \`${options.snippetName}\`` : "";
+      metadataStr += `\n${emojis.snippet} Sent from snippet${name}`;
     }
 
     // Only add if there's content

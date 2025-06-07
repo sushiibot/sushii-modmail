@@ -4,6 +4,7 @@ interface StaffMessageOptions {
   isAnonymous: boolean;
   isPlainText: boolean;
   isSnippet: boolean;
+  snippetName?: string;
 }
 
 export type MessageSticker = {
