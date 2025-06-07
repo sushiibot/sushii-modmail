@@ -100,8 +100,11 @@ export class SnippetController {
         return;
       }
 
-      // Extract snippet name (removing the `-` prefix)
-      const snippetName = message.content.slice(1).trim().split(/\s+/)[0];
+      // Extract snippet name (removing the configured prefix)
+      const snippetName = message.content
+        .slice(config.prefix.length)
+        .trim()
+        .split(/\s+/)[0];
 
       if (!snippetName) {
         return;
