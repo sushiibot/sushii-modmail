@@ -59,6 +59,9 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            GIT_HASH=${{ steps.sha.outputs.sha_short }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
           tags: |
             ghcr.io/sushiibot/modmail:latest
             ghcr.io/sushiibot/modmail:${{ steps.sha.outputs.sha_short }}

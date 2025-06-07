@@ -11,6 +11,12 @@ FROM oven/bun:1.2.7-debian
 LABEL org.opencontainers.image.source=https://github.com/sushiibot/sushii-modmail
 LABEL org.opencontainers.image.description="Discord Modmail Bot"
 
+# Build arguments for version info
+ARG GIT_HASH
+ARG BUILD_DATE
+ENV GIT_HASH=${GIT_HASH}
+ENV BUILD_DATE=${BUILD_DATE}
+
 WORKDIR /app
 
 RUN apt-get update && \

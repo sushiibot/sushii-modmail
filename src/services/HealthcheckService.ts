@@ -32,6 +32,10 @@ export class HealthcheckService {
         {
           status,
           timestamp: new Date().toISOString(),
+          version: {
+            gitHash: process.env.GIT_HASH || "unknown",
+            buildDate: process.env.BUILD_DATE || "unknown",
+          },
           discord: {
             ready: this.client.isReady(),
             uptime: this.client.uptime,
