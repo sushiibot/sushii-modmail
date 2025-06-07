@@ -109,6 +109,20 @@ export function registerEventHandlers(
     const inviteLink = `https://discord.com/oauth2/authorize?client_id=${client.user?.id}&permissions=563362270660672&integration_type=0&scope=applications.commands+bot`;
     logger.info(`Invite link: ${inviteLink}`);
 
+    // Set bot status from config
+    try {
+      const runtimeConfig = await runtimeConfigRepository.getConfig(config.guildId);
+      if (runtimeConfig.botStatus) {
+        await client.user.setPresence({
+          activities: [{ name: runtimeConfig.botStatus, type: 0 }],
+          status: 'online'
+        });
+        logger.info(`Bot status set to: ${runtimeConfig.botStatus}`);
+      }
+    } catch (err) {
+      logger.error(err, "Failed to set bot status on startup");
+    }
+
     // Sync emojis on startup
     try {
       await botEmojiController.syncEmojis(client);
@@ -121,6 +135,26 @@ export function registerEventHandlers(
 
   client.on(Events.GuildCreate, (guild) => {
     logger.info(`Joined server: ${guild.name}`);
+  });
+
+  client.on(Events.Reconnecting, () => {
+    logger.info("Bot is reconnecting...");
+  });
+
+  client.on("ready", async () => {
+    // Set bot status on reconnect
+    try {
+      const runtimeConfig = await runtimeConfigRepository.getConfig(config.guildId);
+      if (runtimeConfig.botStatus) {
+        await client.user.setPresence({
+          activities: [{ name: runtimeConfig.botStatus, type: 0 }],
+          status: 'online'
+        });
+        logger.debug(`Bot status restored after reconnect: ${runtimeConfig.botStatus}`);
+      }
+    } catch (err) {
+      logger.error(err, "Failed to restore bot status after reconnect");
+    }
   });
 
   client.on(Events.MessageCreate, async (message) => {

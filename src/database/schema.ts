@@ -195,6 +195,9 @@ export const runtimeConfig = sqliteTable(
     // Role Notifications
     notificationRoleId: text(),
     notificationSilent: integer({ mode: "boolean" }).notNull().default(false),
+
+    // Bot Status
+    botStatus: text(),
   },
   (table) => [
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),

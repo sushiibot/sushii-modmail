@@ -33,6 +33,7 @@ export const SettingsEmojiNames = [
   "user",
   "silent",
   "notify",
+  "heart",
 ] as const satisfies readonly BotEmojiName[];
 
 export type SettingsEmojis = MessageEmojiMap<typeof SettingsEmojiNames>;
@@ -57,6 +58,8 @@ export const settingsCustomID = {
   // Modals
   modalPrefix: modalId("prefix"),
   modalInitialMessage: modalId("initialMessage"),
+  modalBotStatus: modalId("botStatus"),
+  botStatus: id("botStatus"),
 };
 
 export class SettingsCommandView {
@@ -72,6 +75,10 @@ export class SettingsCommandView {
     let generalSettingsContent = `## ${emojis.settings} Bot Settings`;
     generalSettingsContent += "\n### General Settings";
     generalSettingsContent += `\n${emojis.prefix} **Prefix:** \`${config.prefix}\``;
+    generalSettingsContent += `\n${emojis.heart} **Bot Status:** \`${
+      config.botStatus || "Not set"
+    }\``;
+    generalSettingsContent += `\n> This shows up as the bot's activity status.`;
     generalSettingsContent += `\n${emojis.message_reply} **Initial Message (automatic reply):**`;
     generalSettingsContent += `\n\`\`\`markdown\n${config.initialMessage}\n\`\`\``;
 
@@ -93,8 +100,19 @@ export class SettingsCommandView {
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled);
 
+    const botStatusButton = new ButtonBuilder()
+      .setCustomId(settingsCustomID.botStatus)
+      .setLabel("Change Bot Status")
+      .setEmoji(emojis.heart)
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled);
+
     const generalActionRow = new ActionRowBuilder<ButtonBuilder>();
-    generalActionRow.addComponents(prefixButton, initialMessageButton);
+    generalActionRow.addComponents(
+      prefixButton,
+      initialMessageButton,
+      botStatusButton
+    );
 
     container.addActionRowComponents(generalActionRow);
 
@@ -339,6 +357,31 @@ export class SettingsCommandView {
 
     const row = new ActionRowBuilder<TextInputBuilder>();
     row.addComponents(initialMessageInput);
+
+    modal.addComponents(row);
+
+    return modal;
+  }
+
+  static botStatusModal(currentBotStatus: string): ModalBuilder {
+    const modal = new ModalBuilder()
+      .setCustomId(settingsCustomID.modalBotStatus)
+      .setTitle("Change Bot Status");
+
+    const botStatusInput = new TextInputBuilder()
+      .setCustomId(settingsCustomID.modalBotStatus)
+      .setMinLength(0)
+      .setMaxLength(128)
+      .setLabel("Bot Status Activity")
+      .setRequired(false)
+      .setValue(currentBotStatus || "")
+      .setPlaceholder(
+        "Enter bot status (e.g., 'Helping users') or leave empty to clear"
+      )
+      .setStyle(TextInputStyle.Short);
+
+    const row = new ActionRowBuilder<TextInputBuilder>();
+    row.addComponents(botStatusInput);
 
     modal.addComponents(row);
 

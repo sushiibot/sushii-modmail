@@ -34,6 +34,9 @@ export class RuntimeConfig {
   public readonly notificationRoleId: string | null;
   public readonly notificationSilent: boolean;
 
+  // Bot Status
+  public readonly botStatus: string | null;
+
   constructor(
     guildId: string,
     openTagId: string | null,
@@ -45,7 +48,8 @@ export class RuntimeConfig {
     initialMessage: string | null,
     anonymousSnippets: boolean,
     notificationRoleId: string | null,
-    notificationSilent: boolean
+    notificationSilent: boolean,
+    botStatus: string | null
   ) {
     this.guildId = guildId;
 
@@ -67,6 +71,8 @@ export class RuntimeConfig {
 
     this.notificationRoleId = notificationRoleId;
     this.notificationSilent = notificationSilent;
+
+    this.botStatus = botStatus;
   }
 
   get prefix(): string {
@@ -102,7 +108,8 @@ export class RuntimeConfig {
       row.initialMessage,
       row.anonymousSnippets,
       row.notificationRoleId,
-      row.notificationSilent
+      row.notificationSilent,
+      row.botStatus
     );
   }
 
@@ -118,7 +125,8 @@ export class RuntimeConfig {
       null, // Initial message
       true, // Anonymous snippets
       null, // Notification role ID
-      false // Notification silent
+      false, // Notification silent
+      null // Bot status
     );
   }
 }

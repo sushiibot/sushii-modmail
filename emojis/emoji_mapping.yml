@@ -16,3 +16,4 @@ names:
   forward: forward
   bell-off: silent
   bell-ring: notify
+  heart: heart

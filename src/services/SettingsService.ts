@@ -1,4 +1,5 @@
 import {
+  ActivityType,
   ChannelSelectMenuInteraction,
   ChannelType,
   PermissionsBitField,
@@ -159,6 +160,10 @@ export class SettingsService {
       case settingsCustomID.initialMessage:
         return interaction.showModal(
           SettingsCommandView.initialMessageModal(currentConfig.initialMessage)
+        );
+      case settingsCustomID.botStatus:
+        return interaction.showModal(
+          SettingsCommandView.botStatusModal(currentConfig.botStatus || "")
         );
 
       // Toggles, update message
@@ -332,6 +337,41 @@ export class SettingsService {
         await this.configRepository.setConfig(interaction.guildId, {
           initialMessage: newInitialMessage,
         });
+        break;
+      }
+
+      case settingsCustomID.modalBotStatus: {
+        const newBotStatus = interaction.fields.getTextInputValue(
+          settingsCustomID.modalBotStatus
+        );
+
+        this.logger.debug(
+          { newBotStatus },
+          "Received new bot status from settings modal"
+        );
+
+        await this.configRepository.setConfig(interaction.guildId, {
+          botStatus: newBotStatus || null,
+        });
+
+        // Update bot presence immediately
+        if (newBotStatus) {
+          interaction.client.user.setPresence({
+            activities: [
+              {
+                name: newBotStatus,
+                type: ActivityType.Playing,
+              },
+            ],
+            status: "online",
+          });
+        } else {
+          interaction.client.user.setPresence({
+            activities: [],
+            status: "online",
+          });
+        }
+
         break;
       }
 
