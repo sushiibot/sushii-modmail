@@ -105,14 +105,14 @@ jobs:
           # Remove unused vault file
           rm ./inventory/group_vars/all/vault.yml
 
-          # Only run deploy tag, docker_image.version is directly set
+          # Only run deploy tag, docker_image_check_version is directly set
           ansible-playbook \
             -i inventory/hosts.yml \
             --vault-password-file ./vault-env \
             playbooks/deploy.yml \
             -e "target_host=sushii" \
             -e "service=sushii-modmail-staging" \
-            -e "docker_image.version=${{ needs.docker-build.outputs.sha_short }}" \
+            -e "docker_image_check_version=${{ needs.docker-build.outputs.sha_short }}" \
             -e "docker_registry_password=${{ secrets.GITHUB_TOKEN }}" \
             -e "docker_registry_user=${{ github.repository_owner }}" \
             -t deploy
