@@ -8,14 +8,9 @@ RUN go install \
 
 FROM oven/bun:1.2.7-debian
 
+# Static labels
 LABEL org.opencontainers.image.source=https://github.com/sushiibot/sushii-modmail
 LABEL org.opencontainers.image.description="Discord Modmail Bot"
-
-# Build arguments for version info
-ARG GIT_HASH
-ARG BUILD_DATE
-ENV GIT_HASH=${GIT_HASH}
-ENV BUILD_DATE=${BUILD_DATE}
 
 WORKDIR /app
 
@@ -47,6 +42,17 @@ COPY ./src ./src
 
 # Entrypoint script
 COPY ./scripts ./scripts
+
+# Build info, args at end to minimize cache invalidation
+ARG GIT_HASH
+ARG BUILD_DATE
+
+# Make build info available in the app
+ENV GIT_HASH=${GIT_HASH}
+ENV BUILD_DATE=${BUILD_DATE}
+
+LABEL org.opencontainers.image.revision=${GIT_HASH}
+LABEL org.opencontainers.image.created=${BUILD_DATE}
 
 # Healthcheck using the built-in healthcheck endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
