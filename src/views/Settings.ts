@@ -375,9 +375,7 @@ export class SettingsCommandView {
       .setLabel("Bot Status Activity")
       .setRequired(false)
       .setValue(currentBotStatus || "")
-      .setPlaceholder(
-        "Enter bot status (e.g., 'Helping users') or leave empty to clear"
-      )
+      .setPlaceholder("Bot status or leave empty to clear")
       .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>();
