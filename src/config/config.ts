@@ -16,7 +16,7 @@ const configSchema = z.object({
 
   // Build information
   GIT_HASH: z.string().optional(),
-  BUILD_DATE: z.string().datetime().transform(str => new Date(str)).optional(),
+  BUILD_DATE: z.coerce.date().optional(),
 });
 
 export type ConfigType = z.infer<typeof configSchema>;
