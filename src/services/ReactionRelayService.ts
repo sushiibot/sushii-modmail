@@ -43,6 +43,7 @@ export class ReactionRelayService {
   async relayUserReactionToStaff(
     userDmMessageId: string,
     userId: string,
+    // Emoji unicode or custom emoji name, e.g. 👍 or emoji_name
     emojiName: string | null,
     // Represent emojis in message, e.g. <:emoji_name:emoji_id>
     emojiString: string,

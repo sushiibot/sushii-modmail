@@ -77,29 +77,6 @@ export async function downloadAttachments(
   return Promise.all(fileDownloads);
 }
 
-/**
- * Applies the first sticker from a collection to an embed.
- * Sets the embed's image and adds a field with the sticker details.
- * Does nothing if the collection is empty.
- * @param embed The EmbedBuilder to modify.
- * @param stickers The collection of stickers.
- */
-export function applyStickerToEmbed(
-  embed: EmbedBuilder,
-  stickers: Collection<string, Sticker>
-): void {
-  if (stickers.size > 0) {
-    const sticker = stickers.first()!;
-    embed.setImage(sticker.url);
-
-    const stickerDisplay = `[${sticker.name}](${sticker.url})`;
-    embed.addFields({
-      name: "Sticker",
-      value: stickerDisplay,
-    });
-  }
-}
-
 export function extractComponentImages(msg: Message): {
   attachmentUrls: string[];
   stickers: MessageSticker[];
