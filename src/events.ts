@@ -111,11 +111,13 @@ export function registerEventHandlers(
 
     // Set bot status from config
     try {
-      const runtimeConfig = await runtimeConfigRepository.getConfig(config.guildId);
+      const runtimeConfig = await runtimeConfigRepository.getConfig(
+        config.guildId
+      );
       if (runtimeConfig.botStatus) {
         await client.user.setPresence({
           activities: [{ name: runtimeConfig.botStatus, type: 0 }],
-          status: 'online'
+          status: "online",
         });
         logger.info(`Bot status set to: ${runtimeConfig.botStatus}`);
       }
@@ -137,21 +139,28 @@ export function registerEventHandlers(
     logger.info(`Joined server: ${guild.name}`);
   });
 
-  client.on(Events.Reconnecting, () => {
+  client.on(Events.ShardReconnecting, () => {
     logger.info("Bot is reconnecting...");
   });
 
   client.on("ready", async () => {
     // Set bot status on reconnect
     try {
-      const runtimeConfig = await runtimeConfigRepository.getConfig(config.guildId);
-      if (runtimeConfig.botStatus) {
-        await client.user.setPresence({
-          activities: [{ name: runtimeConfig.botStatus, type: 0 }],
-          status: 'online'
-        });
-        logger.debug(`Bot status restored after reconnect: ${runtimeConfig.botStatus}`);
+      const runtimeConfig = await runtimeConfigRepository.getConfig(
+        config.guildId
+      );
+
+      if (!runtimeConfig.botStatus || !client.user) {
+        return;
       }
+
+      client.user.setPresence({
+        activities: [{ name: runtimeConfig.botStatus, type: 0 }],
+        status: "online",
+      });
+      logger.debug(
+        `Bot status restored after reconnect: ${runtimeConfig.botStatus}`
+      );
     } catch (err) {
       logger.error(err, "Failed to restore bot status after reconnect");
     }
