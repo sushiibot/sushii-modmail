@@ -42,7 +42,7 @@ export class HelpCommandView {
       const date = config.buildDate
         ? `<t:${Math.floor(config.buildDate.getTime() / 1000)}:f>`
         : "unknown";
-      helpContent += `\n\n-# Build: \`${hash}\` - ${date}`;
+      helpContent += `\n\n-# Bot Version: \`${hash}\` - ${date}`;
     }
 
     const text = new TextDisplayBuilder().setContent(helpContent);
