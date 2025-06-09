@@ -11,45 +11,47 @@ export class HelpCommandView {
   static help(config: BotConfig): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
 
-    let helpContent = `# Bot Commands`;
+    const helpContent = [
+      `# Bot Commands`,
 
-    helpContent += `\n## General Commands`;
-    helpContent += `\n\`help\` - Show this help message`;
-    helpContent += `\n\`settings\` - Show settings menu`;
+      `\n## General Commands`,
+      `\n\`help\` - Show this help message`,
+      `\n\`settings\` - Show settings menu`,
 
-    helpContent += `\n## Thread Commands`;
-    helpContent += `\n\`contact\` - Open a new thread with a user`;
-    helpContent += `\n\`reply\` - Reply to a thread`;
-    helpContent += `\n\`areply\` - Anonymously reply to a thread`;
-    helpContent += `\n\`preply\` - Plain text reply to a thread`;
-    helpContent += `\n\`apreply\` - Anonymous plain text reply to a thread`;
-    helpContent += `\n\`edit\` - Edit a previous thread message, reply to the message you want to edit`;
-    helpContent += `\n\`delete\` - Delete a previous thread message, reply to the message you want to delete`;
-    helpContent += `\n\`close\` - Close the current thread`;
+      `\n## Thread Commands`,
+      `\n\`contact\` - Open a new thread with a user`,
+      `\n\`reply\` - Reply to a thread`,
+      `\n\`areply\` - Anonymously reply to a thread`,
+      `\n\`preply\` - Plain text reply to a thread`,
+      `\n\`apreply\` - Anonymous plain text reply to a thread`,
+      `\n\`edit\` - Edit a previous thread message, reply to the message you want to edit`,
+      `\n\`delete\` - Delete a previous thread message, reply to the message you want to delete`,
+      `\n\`close\` - Close the current thread`,
 
-    helpContent += `\n## User Information`;
-    helpContent += `\n\`logs\` - Links to previous threads by the same user`;
+      `\n## User Information`,
+      `\n\`logs\` - Links to previous threads by the same user`,
 
-    helpContent += `\n## Snippets`;
-    helpContent += `\n\`snippet add [name] [content]\` - Create a new snippet`;
-    helpContent += `\n\`snippet edit [name] [content]\` - Modify an existing snippet`;
-    helpContent += `\n\`snippet [name]\` - Show a snippet's content`;
-    helpContent += `\n\`snippet list\` - List all available snippets`;
-    helpContent += `\n\`snippet delete [name]\` - Delete a snippet`;
+      `\n## Snippets`,
+      `\n\`snippet add [name] [content]\` - Create a new snippet`,
+      `\n\`snippet edit [name] [content]\` - Modify an existing snippet`,
+      `\n\`snippet [name]\` - Show a snippet's content`,
+      `\n\`snippet list\` - List all available snippets`,
+      `\n\`snippet delete [name]\` - Delete a snippet`,
 
-    helpContent += `\n## Guide`;
-    helpContent += `\nA user guide can be found here:`;
-    helpContent += `\nhttps://github.com/sushiibot/sushii-modmail/blob/main/USER_GUIDE.md`;
+      `\n## Guide`,
+      `\nA user guide can be found here:`,
+      `\nhttps://github.com/sushiibot/sushii-modmail/blob/main/USER_GUIDE.md`,
+    ];
 
     if (config.gitHash || config.buildDate) {
       const hash = config.gitHash ? config.gitHash.slice(0, 7) : "unknown";
       const date = config.buildDate
         ? `<t:${Math.floor(config.buildDate.getTime() / 1000)}:f>`
         : "unknown";
-      helpContent += `\n\n-# Bot Version: \`${hash}\` - ${date}`;
+      helpContent.push(`\n\n-# Bot Version: \`${hash}\` - ${date}`);
     }
 
-    const text = new TextDisplayBuilder().setContent(helpContent);
+    const text = new TextDisplayBuilder().setContent(helpContent.join(""));
 
     container.addTextDisplayComponents(text);
 
