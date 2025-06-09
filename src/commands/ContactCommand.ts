@@ -39,6 +39,10 @@ export class ContactCommand extends TextCommandHandler {
       targetUser = await msg.client.users.fetch(targetUserStr);
     }
 
+    if (targetUser.bot) {
+      await msg.channel.send("You cannot open a thread with a bot.");
+    }
+
     const { thread, isNew } = await this.threadService.getOrCreateThread(
       targetUser.id,
       targetUser.username
