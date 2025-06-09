@@ -232,6 +232,7 @@ export class StaffThreadView {
     displayOptions: {
       editedById?: string;
       deletedById?: string;
+      failed?: boolean; // If failed to send due to DM permissions
     } = {}
   ): BaseMessageOptions["components"] {
     const container = new ContainerBuilder();
@@ -242,8 +243,18 @@ export class StaffThreadView {
       container.setAccentColor(HexColor.Green);
     }
 
+    if (displayOptions.failed) {
+      container.setAccentColor(HexColor.Gray);
+    }
+
     // Set the author field based on anonymous option
-    let authorName = `### Staff - ${msg.author.displayName}`;
+    let authorName = `###`;
+
+    if (displayOptions.failed) {
+      authorName += ` [Failed to send message]`;
+    }
+
+    authorName += ` Staff - ${msg.author.displayName}`;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }

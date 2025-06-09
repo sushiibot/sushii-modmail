@@ -475,6 +475,33 @@ export class MessageRelayService {
           "User has blocked the bot or has privacy settings that prevent DMs"
         );
 
+        // Edit the staff thread message to indicate the user cannot be DMed
+        const failedComponents = StaffThreadView.staffReplyComponents(
+          msg,
+          emojis,
+          options,
+          { failed: true }
+        );
+
+        try {
+          await threadStaffMsg.edit({
+            components: failedComponents,
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: { parse: [] },
+          });
+        } catch (err) {
+          this.logger.error(
+            {
+              threadId: threadId,
+              messageId: threadStaffMsg.id,
+              error: (err as Error).message,
+            },
+            "Failed to edit staff thread message after user DM failure"
+          );
+
+          // Continue to send the error message
+        }
+
         // Send error message to staff thread
         const errorMessage = StaffThreadView.userDMsDisabledError();
         await staffThread.send({
