@@ -37,6 +37,10 @@ export class HelpCommandView {
     helpContent += `\n\`snippet list\` - List all available snippets`;
     helpContent += `\n\`snippet delete [name]\` - Delete a snippet`;
 
+    helpContent += `\n## Guide`;
+    helpContent += `\nA user guide can be found here:`;
+    helpContent += `\nhttps://github.com/sushiibot/sushii-modmail/blob/main/USER_GUIDE.md`;
+
     if (config.gitHash || config.buildDate) {
       const hash = config.gitHash ? config.gitHash.slice(0, 7) : "unknown";
       const date = config.buildDate
