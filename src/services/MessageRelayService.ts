@@ -5,7 +5,9 @@ import {
   Colors,
   ComponentType,
   ContainerComponent,
+  DiscordAPIError,
   MessageFlags,
+  RESTJSONErrorCodes,
   type Snowflake,
 } from "discord.js";
 import type { Message, MessageSticker } from "models/message.model";
@@ -454,7 +456,41 @@ export class MessageRelayService {
     // USER DM
     // Format the message for user facing DM
     const message = await UserThreadView.staffMessage(guild, msg, options);
-    const relayedMsg = await user.send(message);
+
+    let relayedMsg;
+    try {
+      relayedMsg = await user.send(message);
+    } catch (error) {
+      if (
+        error instanceof DiscordAPIError &&
+        error.code === RESTJSONErrorCodes.CannotSendMessagesToThisUser
+      ) {
+        // User has blocked the bot or has privacy settings that prevent DMs
+        this.logger.debug(
+          {
+            userId: user.id,
+            threadId: threadId,
+            error: error.message,
+          },
+          "User has blocked the bot or has privacy settings that prevent DMs"
+        );
+
+        // Send error message to staff thread
+        const errorMessage = StaffThreadView.userDMsDisabledError();
+        await staffThread.send({
+          ...errorMessage,
+          reply: {
+            messageReference: threadStaffMsg.id,
+          },
+        });
+
+        // Don't save the message to the database
+        return;
+      }
+
+      // Re-throw other errors
+      throw error;
+    }
 
     // ------------------------------------------------
     // Persist message
@@ -475,7 +511,7 @@ export class MessageRelayService {
   async saveStaffMessage(options: {
     threadId: string;
     threadMessageId: string;
-    relayedMessageId: string;
+    relayedMessageId: string | null;
     authorId: string;
     content: string;
     isAnonymous: boolean;

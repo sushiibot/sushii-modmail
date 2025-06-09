@@ -352,6 +352,25 @@ export class StaffThreadView {
     };
   }
 
+  static userDMsDisabledError(): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Pink);
+
+    let content = "## Cannot message user";
+    content += `\nThe user has either blocked the bot or their privacy settings don't allow DMs from server members.`;
+
+    const textDisplay = new TextDisplayBuilder().setContent(content);
+
+    container.addTextDisplayComponents(textDisplay);
+
+    return {
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: {
+        parse: [],
+      },
+    };
+  }
+
   static userReplyDeletedMessage(
     messageId: string,
     previousMessageId?: string
