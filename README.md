@@ -135,10 +135,14 @@ In your server, use the `settings` command to set up additional configuration,
 such as the channel to use for ModMail threads, roles that can use the bot, and
 more.
 
-You'll also need to ensure the bot has permissions in the forum channel where
-you want to use ModMail. This **needs to be done manually** in Modmail channel
-settings to ensure the bot does not have extra permissions it doesn't need in
-other channels.
+> [!IMPORTANT]
+> You'll also need to ensure the bot has permissions in the forum channel after
+> you selected it in the `settings` command. This
+> **needs to be done manually** in the Discord channel settings to ensure it
+> works properly.
+> 
+> The bot by default does **not** have every permission it needs, as it only
+> needs it in the single forum channel and not everywhere else in the server.
 
 Required ModMail Forum channel permissions:
 - **Manage Channel** - Creates and manage forum tags, e.g. "Open" and "Closed"
