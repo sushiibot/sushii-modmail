@@ -123,9 +123,37 @@ services:
       - LITESTREAM_FORCE_PATH_STYLE=true # Optional, default is false, some S3 providers require this
 ```
 
-Once the bot is running, you can use the `settings` command to set up additional
-configuration, such as the channel to use for ModMail threads, roles that can
-use the bot, and more.
+Once the bot is running, add the bot to your server. The invite URL will be
+logged to the console when the bot starts. You can also use the following link,
+replacing `YOUR_BOT_ID` with your bot's actual ID:
+
+```
+https://discord.com/oauth2/authorize?client_id=YOUR_BOT_ID&permissions=515396455488&integration_type=0&scope=applications.commands+bot
+```
+
+In your server, use the `settings` command to set up additional configuration,
+such as the channel to use for ModMail threads, roles that can use the bot, and
+more.
+
+You'll also need to ensure the bot has permissions in the forum channel where
+you want to use ModMail. This **needs to be done manually** in Modmail channel
+settings to ensure the bot does not have extra permissions it doesn't need in
+other channels.
+
+Required ModMail Forum channel permissions:
+- **Manage Channel** - Creates and manage forum tags, e.g. "Open" and "Closed"
+  tags.
+- **Create Posts** - Create new threads in the forum channel.
+- **Manage Threads** - Manage threads, including closing and locking them when
+  closed.
+- **Manage Messages** - Deletes staff messages after using a reply command to
+  keep threads clean.
+
+Optional permissions:
+- **Mention @everyone, @here, and All Roles** - Only if you want the bot to
+  be able to use a notification role **that is not already mentionable**. If
+  you are using a role like `@Mod` which is already mentionable by anyone, you
+  do not need to give the bot this permission.
 
 ## Development
 
