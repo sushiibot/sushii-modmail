@@ -69,7 +69,7 @@ Snippets
   them. Closing threads only changes things on the staff side, so it doesn't
   make sense to show the user anything.
 
-## Usage
+## Deployment
 
 You can run sushii-modmail with Docker and uses SQLite as the database so there
 is no need to run a separate database server.
@@ -122,6 +122,8 @@ services:
       - LITESTREAM_ENDPOINT=s3-endpoint
       - LITESTREAM_FORCE_PATH_STYLE=true # Optional, default is false, some S3 providers require this
 ```
+
+## Bot Setup
 
 Once the bot is running, add the bot to your server. The invite URL will be
 logged to the console when the bot starts. You can also use the following link,
