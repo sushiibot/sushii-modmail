@@ -38,9 +38,9 @@ export class HelpCommandView {
       `\n\`snippet list\` - List all available snippets`,
       `\n\`snippet delete [name]\` - Delete a snippet`,
 
-      `\n## Guide`,
-      `\nA user guide can be found here:`,
-      `\nhttps://github.com/sushiibot/sushii-modmail/blob/main/docs/USER_GUIDE.md`,
+      `\n## Guides`,
+      `\n- [Setup guide](https://github.com/sushiibot/sushii-modmail/blob/main/docs/SETUP_GUIDE.md)`,
+      `\n- [Staff guide](https://github.com/sushiibot/sushii-modmail/blob/main/docs/USER_GUIDE.md)`,
     ];
 
     if (config.gitHash || config.buildDate) {
