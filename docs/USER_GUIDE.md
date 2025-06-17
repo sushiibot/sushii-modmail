@@ -20,7 +20,7 @@ command. Use `-contact @user` or `-contact [user_id]` to start a new
 conversation with someone. This is useful for reaching out proactively or
 following up on issues without needing the user to DM the bot first.
 
-![Contact command](./images/guide/01_contact.png)
+![Contact command](./images/01_contact.png)
 
 > [!TIP]
 > Want to make sure all staff members are automatically added to new threads?
@@ -34,7 +34,7 @@ You have several ways to reply to a recipient:
 **When you want to stay anonymous**, use `-areply` (or `-ar`). This hides your
 username from the user and only shows the server name.
 
-![anonymous reply](./images/guide/02_areply.png)
+![anonymous reply](./images/02_areply.png)
 
 **Regular Replies**, just use `-reply` (or `-r` for short). This shows your
 username to the user, so they know who they're talking to.
@@ -60,7 +60,7 @@ Create commonly used responses with `-snippet add [name] [content]`. For example
 you might create a "server-rules" snippet with a link to your rules channel, or
 a "ban-appeal" snippet explaining your appeal process.
 
-![snippet commands](./images/guide/03_snippets.png)
+![snippet commands](./images/03_snippets.png)
 
 When you need to use a snippet, just type `-snippetname` and the bot will send
 that content. For example, `-server-rules` would send the content of the
