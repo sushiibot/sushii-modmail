@@ -40,7 +40,7 @@ export class HelpCommandView {
 
       `\n## Guide`,
       `\nA user guide can be found here:`,
-      `\nhttps://github.com/sushiibot/sushii-modmail/blob/main/USER_GUIDE.md`,
+      `\nhttps://github.com/sushiibot/sushii-modmail/blob/main/docs/USER_GUIDE.md`,
     ];
 
     if (config.gitHash || config.buildDate) {
