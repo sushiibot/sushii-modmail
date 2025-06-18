@@ -44,3 +44,21 @@ Optional permissions:
   be able to use a notification role **that is not already mentionable**. If
   you are using a role like `@Mod` which is already mentionable by anyone, you
   do not need to give the bot this permission.
+
+## Additional Servers
+
+You can add the bot to additional servers by using the same invite URL as above.
+
+The bot is designed serve a single **primary modmail server**, where all modmail
+threads are created and managed.
+
+However, it may be useful to add the bot to additional servers, for example to
+contact the staff for ban appeals.
+
+> [!NOTE]
+> Commands will **only work in the primary server**. Additional servers are not
+> supported for commands and are only for allowing users more access to the bot.
+>
+> If you want to use the bot for a different server for it's own modmail
+> channel, you will need to run a separate instance of the bot with a different
+> primary server ID.
