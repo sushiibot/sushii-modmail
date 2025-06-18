@@ -19,7 +19,7 @@ export class CommandErrorView {
       `\n\n**Current Primary server**`,
       `\n${primaryGuildName}`,
       `\nID: \`${primaryGuildId}\``,
-      `\n\nIf you want the modmail channel to be setup in this server, please notify the bot owner to change the primary server ID.`,
+      `\n\nIf you want this server to be primary, please notify the bot owner to change the primary server ID.`,
     ];
 
     const text = new TextDisplayBuilder().setContent(errorContent.join(""));
