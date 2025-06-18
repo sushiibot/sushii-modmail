@@ -1,0 +1,35 @@
+import {
+  ContainerBuilder,
+  MessageFlags,
+  TextDisplayBuilder,
+  type MessageCreateOptions,
+} from "discord.js";
+import { HexColor } from "./Color";
+
+export class SettingsErrorView {
+  static primaryServerOnlyError(
+    primaryGuildName: string,
+    primaryGuildId: string
+  ): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Pink);
+
+    const errorContent = [
+      `## Wrong server!`,
+      `\nThe \`settings\` command can only be used in the **primary server** where modmail threads are created.`,
+      `\n\n**Current Primary server**`,
+      `\n${primaryGuildName}`,
+      `\nID: \`${primaryGuildId}\``,
+      `\n\nIf you want the modmail channel to be setup in this server, please notify the bot owner to change the primary server ID.`,
+    ];
+
+    const text = new TextDisplayBuilder().setContent(errorContent.join(""));
+
+    container.addTextDisplayComponents(text);
+
+    return {
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] },
+    };
+  }
+}

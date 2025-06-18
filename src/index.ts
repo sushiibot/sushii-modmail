@@ -108,7 +108,7 @@ function buildCommandRouter(
     new ContactCommand(threadService, messageService),
 
     // Settings
-    new SettingsCommand(settingsService),
+    new SettingsCommand(settingsService, config),
     new HelpCommand(config)
   );
 
