@@ -8,8 +8,9 @@ export class HelpCommand extends TextCommandHandler {
   commandName = "help";
   subCommandName = null;
   aliases = [];
+  requiresPrimaryServer = false;
 
-  private logger = getLogger("CloseCommand");
+  private logger = getLogger(this.constructor.name);
   private config: BotConfig;
 
   constructor(config: BotConfig) {

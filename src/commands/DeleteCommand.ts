@@ -8,6 +8,7 @@ import { StaffThreadView } from "views/StaffThreadView";
 export class DeleteCommand extends TextCommandHandler {
   commandName = "delete";
   subCommandName = null;
+  requiresPrimaryServer = false;
 
   aliases = ["d"];
 

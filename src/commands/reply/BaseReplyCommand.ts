@@ -18,6 +18,8 @@ interface ConfigRepository {
 }
 
 export abstract class BaseReplyCommand extends TextCommandHandler {
+  requiresPrimaryServer = false;
+
   protected threadService: ThreadService;
   protected messageService: MessageRelayService;
 

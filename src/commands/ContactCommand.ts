@@ -9,6 +9,7 @@ export class ContactCommand extends TextCommandHandler {
   commandName = "contact";
   subCommandName = null;
   aliases = ["open"];
+  requiresPrimaryServer = true;
 
   protected threadService: ThreadService;
   protected messageService: MessageRelayService;

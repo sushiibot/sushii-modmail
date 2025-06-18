@@ -8,5 +8,8 @@ export default abstract class TextCommandHandler {
   abstract readonly subCommandName: string | null;
   abstract readonly aliases: string[];
 
+  // Whether this command requires execution in the primary server only
+  abstract readonly requiresPrimaryServer: boolean;
+
   abstract handler(msg: Message, args: string[]): Promise<void>;
 }

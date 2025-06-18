@@ -6,7 +6,7 @@ import {
 } from "discord.js";
 import { HexColor } from "./Color";
 
-export class SettingsErrorView {
+export class CommandErrorView {
   static primaryServerOnlyError(
     primaryGuildName: string,
     primaryGuildId: string
@@ -15,7 +15,7 @@ export class SettingsErrorView {
 
     const errorContent = [
       `## Wrong server!`,
-      `\nThe \`settings\` command can only be used in the **primary server** where modmail threads are created.`,
+      `\nThis command can only be used in the **primary server** where modmail threads are created.`,
       `\n\n**Current Primary server**`,
       `\n${primaryGuildName}`,
       `\nID: \`${primaryGuildId}\``,

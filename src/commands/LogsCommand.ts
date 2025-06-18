@@ -13,6 +13,7 @@ interface ConfigRepository {
 export class LogsCommand extends TextCommandHandler {
   commandName = "logs";
   subCommandName = null;
+  requiresPrimaryServer = false;
   aliases = [];
 
   protected threadService: ThreadService;

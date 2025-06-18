@@ -64,7 +64,7 @@ function buildCommandRouter(
   const snippetService = new SnippetService(config, client, snippetRepository);
 
   // Commands
-  const router = new CommandRouter(runtimeConfigRepository);
+  const router = new CommandRouter(runtimeConfigRepository, config);
 
   // Settings service
   const settingsService = new SettingsService(
@@ -108,7 +108,7 @@ function buildCommandRouter(
     new ContactCommand(threadService, messageService),
 
     // Settings
-    new SettingsCommand(settingsService, config),
+    new SettingsCommand(settingsService),
     new HelpCommand(config)
   );
 

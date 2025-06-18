@@ -12,6 +12,7 @@ interface ConfigRepository {
 export class EditCommand extends TextCommandHandler {
   commandName = "edit";
   subCommandName = null;
+  requiresPrimaryServer = false;
 
   aliases = ["e"];
 

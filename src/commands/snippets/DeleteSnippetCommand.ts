@@ -7,6 +7,7 @@ import { SnippetCommandView } from "views/SnippetCommandView";
 export class DeleteSnippetCommand extends TextCommandHandler {
   commandName = "snippet";
   subCommandName = "delete";
+  requiresPrimaryServer = true;
 
   aliases = ["remove"];
 

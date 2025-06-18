@@ -12,6 +12,7 @@ export class CloseCommand extends TextCommandHandler {
   commandName = "close";
   subCommandName = null;
   aliases = ["c"];
+  requiresPrimaryServer = false;
 
   private threadService: ThreadService;
   private configRepository: ConfigRepository;

@@ -7,6 +7,7 @@ import { SnippetCommandView } from "views/SnippetCommandView";
 export class EditSnippetCommand extends TextCommandHandler {
   commandName = "snippet";
   subCommandName = "edit";
+  requiresPrimaryServer = true;
 
   aliases = ["update", "modify"];
 

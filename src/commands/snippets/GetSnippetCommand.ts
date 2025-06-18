@@ -7,6 +7,7 @@ import { SnippetCommandView } from "views/SnippetCommandView";
 export class GetSnippetCommand extends TextCommandHandler {
   commandName = "snippet";
   subCommandName = null;
+  requiresPrimaryServer = true;
   aliases = [];
 
   private snippetService: SnippetService;

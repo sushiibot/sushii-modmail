@@ -3,6 +3,8 @@ import type TextCommandHandler from "./commands/CommandHandler";
 import parentLogger from "./utils/logger";
 import type { Logger } from "pino";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
+import type { BotConfig } from "models/botConfig.model";
+import { CommandErrorView } from "views/CommandErrorView";
 
 interface CommandEntry {
   handler: TextCommandHandler | null;
@@ -20,12 +22,15 @@ export default class CommandRouter {
   logger: Logger;
 
   private runtimeConfigRepository: RuntimeConfigRepository;
+  private config: BotConfig;
 
   constructor(
     runtimeConfigRepository: RuntimeConfigRepository,
+    config: BotConfig,
     commands?: TextCommandHandler[]
   ) {
     this.runtimeConfigRepository = runtimeConfigRepository;
+    this.config = config;
 
     this.commands = new Map();
     this.logger = parentLogger.child({ module: "CommandRouter" });
@@ -248,6 +253,20 @@ export default class CommandRouter {
       this.logger.warn(
         `Command handler not found: ${rootCommand} ${subCommandName}`
       );
+
+      return;
+    }
+
+    // Check if command requires primary server validation
+    if (handler.requiresPrimaryServer && msg.guildId !== this.config.guildId) {
+      const guild = msg.client.guilds.cache.get(this.config.guildId);
+      const name = guild?.name ?? "Unknown Server";
+
+      const errorMessage = CommandErrorView.primaryServerOnlyError(
+        name,
+        this.config.guildId
+      );
+      await msg.channel.send(errorMessage);
 
       return;
     }
