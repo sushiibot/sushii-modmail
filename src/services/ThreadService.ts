@@ -335,7 +335,11 @@ export class ThreadService {
     return thread;
   }
 
-  async closeThread(thread: Thread, userId: string): Promise<void> {
+  async closeThread(
+    thread: Thread,
+    userId: string,
+    closeReason?: string
+  ): Promise<void> {
     const threadChannel = await this.client.channels.fetch(thread.channelId);
     if (!threadChannel) {
       throw new Error(`Thread channel not found: ${thread.channelId}`);
@@ -349,7 +353,8 @@ export class ThreadService {
 
     // Send closed message with embed and jump link
     const closedMessage = StaffThreadView.threadClosedMessage(
-      thread.originalMessageLink
+      thread.originalMessageLink,
+      closeReason
     );
     await threadChannel.send(closedMessage);
 

@@ -81,8 +81,11 @@ export class CloseCommand extends TextCommandHandler {
     }
 
     try {
+      // Parse optional close reason from remaining arguments
+      const closeReason = args.length > 0 ? args.join(" ") : undefined;
+
       // Close the thread
-      await this.threadService.closeThread(thread, msg.author.id);
+      await this.threadService.closeThread(thread, msg.author.id, closeReason);
     } catch (error) {
       this.logger.error(`Error closing thread: ${error}`);
 

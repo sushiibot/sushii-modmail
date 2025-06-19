@@ -620,20 +620,34 @@ export class StaffThreadView {
   /**
    * Creates a Components v2 message for when a thread is closed
    */
-  static threadClosedMessage(threadLink: string): MessageCreateOptions {
+  static threadClosedMessage(
+    threadLink: string,
+    closeReason?: string
+  ): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Gray);
 
     let content = "## Thread Closed";
-    content += `\nNo more replies can be sent in this thread.`;
+    content += `\nNo more replies can be sent in this thread. Please create a new thread if you need to contact the user again.`;
 
     const titleText = new TextDisplayBuilder().setContent(content);
     container.addTextDisplayComponents(titleText);
 
+    if (closeReason) {
+      container.addSeparatorComponents(new SeparatorBuilder());
+
+      let closeContent = `### Close Reason`;
+      closeContent += `\n${quoteText(closeReason)}`;
+      closeContent += `\n-# This reason is only visible to staff and was **not** sent to the user.`;
+
+      const reasonText = new TextDisplayBuilder().setContent(closeContent);
+      container.addTextDisplayComponents(reasonText);
+    }
+
     container.addSeparatorComponents(new SeparatorBuilder());
 
-    const linkText = new TextDisplayBuilder().setContent(
-      `[Jump to start of thread](${threadLink})`
-    );
+    let linkContent = `Click to jump to the beginning of the thread:`;
+    linkContent += `\n${threadLink}`;
+    const linkText = new TextDisplayBuilder().setContent(linkContent);
     container.addTextDisplayComponents(linkText);
 
     return {
