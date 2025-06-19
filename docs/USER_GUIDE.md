@@ -44,10 +44,17 @@ username to the user, so they know who they're talking to.
 formatting so things like invite links actually function.
 There's also `-apreply` (or `-apr`) if you want anonymous plain text.
 
-Made a typo or need to clarify something? No problem! Reply to the message you
-want to edit with `-edit [new content]` (or just `e`).
+## Editing and Deleting Messages
 
-If you need to remove a message entirely, reply with `delete` (or `d`).
+Made a typo or need to clarify something? No problem! **Reply** to the message
+you want to edit with `-edit [new content]` (or just `e`).
+
+![Edit message](./images/edit_message.png)
+
+If you need to delete a message entirely, **reply** to the message you want to
+delete with `delete` (or `d`).
+
+![Delete message](./images/delete_message.png)
 
 > [!TIP]
 > Any staff member can edit or delete messages in the thread.
