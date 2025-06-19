@@ -455,7 +455,20 @@ export class MessageRelayService {
     // -------------------------------------------------
     // USER DM
     // Format the message for user facing DM
-    const message = await UserThreadView.staffMessage(guild, msg, options);
+
+    // Create a new message object with extracted attachment URLs
+    const msgWithExtractedAttachments: StaffToUserMessage = {
+      ...msg,
+      attachments: attachmentURLs.map((url, index) => ({
+        id: `extracted-${index}`,
+        name: msg.attachments[index]?.name || `attachment-${index}`,
+        url,
+      })),
+      stickers,
+    };
+
+    // Use the extracted attachment URLs and stickers to build the message
+    const message = await UserThreadView.staffMessage(guild, msgWithExtractedAttachments, options);
 
     let relayedMsg;
     try {

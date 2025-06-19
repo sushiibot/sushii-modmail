@@ -274,13 +274,17 @@ export class StaffThreadView {
       container.addSeparatorComponents(new SeparatorBuilder());
 
       const attachmentItems = msg.attachments.map(
-        // Reference file links
+        // Reference re-uploaded files
         (attachment) => {
           if (typeof attachment === "string") {
             return new MediaGalleryItemBuilder().setURL(attachment);
           }
 
-          return new MediaGalleryItemBuilder().setURL(attachment.url);
+          // This is a re-uploaded attachment, bot downloads original attachment
+          // and re-uploads as an attachment.
+          return new MediaGalleryItemBuilder().setURL(
+            `attachment://${attachment.name}`
+          );
         }
       );
       const attachmentText = new MediaGalleryBuilder()
