@@ -185,6 +185,7 @@ export class StaffThreadView {
     return {
       components: [container],
       flags: MessageFlags.IsComponentsV2,
+      allowedMentions,
     };
   }
 
