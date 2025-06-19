@@ -347,8 +347,11 @@ export class ThreadService {
 
     this.logger.debug(`Locking and closing thread: ${thread.channelId}`);
 
-    // Send closed message
-    await threadChannel.send("Thread closed.");
+    // Send closed message with embed and jump link
+    const closedMessage = StaffThreadView.threadClosedMessage(
+      thread.originalMessageLink
+    );
+    await threadChannel.send(closedMessage);
 
     const config = await this.runtimeConfigRepository.getConfig(
       this.config.guildId

@@ -331,6 +331,9 @@ export class StaffThreadView {
       metadataStr += `\n${emojis.snippet} Sent from snippet${name}`;
     }
 
+    // Add user ID
+    metadataStr += `\n${emojis.user} User ID: \`${msg.author.id}\``;
+
     // Only add if there's content
     if (metadataStr.trim().length > 1) {
       container.addSeparatorComponents(new SeparatorBuilder());
@@ -612,6 +615,34 @@ export class StaffThreadView {
     container.addTextDisplayComponents(editTextDisplay);
 
     return [container];
+  }
+
+  /**
+   * Creates a Components v2 message for when a thread is closed
+   */
+  static threadClosedMessage(threadLink: string): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Gray);
+
+    let content = "## Thread Closed";
+    content += `\nNo more replies can be sent in this thread.`;
+
+    const titleText = new TextDisplayBuilder().setContent(content);
+    container.addTextDisplayComponents(titleText);
+
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    const linkText = new TextDisplayBuilder().setContent(
+      `[Jump to start of thread](${threadLink})`
+    );
+    container.addTextDisplayComponents(linkText);
+
+    return {
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: {
+        parse: [],
+      },
+    };
   }
 
   /**

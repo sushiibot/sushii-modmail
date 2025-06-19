@@ -540,7 +540,11 @@ describe("ThreadService", () => {
     });
 
     it("should close the thread and mark it as closed in the repository", async () => {
-      const thread = { channelId: "channelId" } as Thread;
+      const thread = {
+        channelId: "channelId",
+        guildId: "guildId",
+        originalMessageLink: "https://discord.com/channels/guildId/channelId/messageId",
+      } as Thread;
       const openTagId = "openTagId123";
       const closedTagId = "closedTagId456";
 
@@ -562,7 +566,13 @@ describe("ThreadService", () => {
 
       await threadService.closeThread(thread, "userId");
 
-      expect(threadChannel.send).toHaveBeenCalledWith("Thread closed.");
+      expect(threadChannel.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          components: expect.any(Array),
+          flags: expect.any(Number),
+          allowedMentions: expect.any(Object),
+        })
+      );
       expect(threadService.getClosedTagId).toHaveBeenCalled();
       expect(threadChannel.edit).toHaveBeenCalledWith({
         archived: true,

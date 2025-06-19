@@ -52,6 +52,10 @@ export class Thread {
     return `https://discord.com/channels/${this.guildId}/${this.channelId}`;
   }
 
+  get originalMessageLink(): string {
+    return `https://discord.com/channels/${this.guildId}/${this.channelId}/${this.channelId}`;
+  }
+
   public toString(): string {
     const timestampS = this.createdAt.getTime() / 1000;
     const timestamp = `<t:${timestampS}:D>`;
