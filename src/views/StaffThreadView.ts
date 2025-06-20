@@ -337,7 +337,7 @@ export class StaffThreadView {
 
     // Add Discord timestamp
     const messageTimestamp = Math.floor(msg.createdTimestamp / 1000);
-    metadataStr += `\n${emojis.clock} Message Sent <t:${messageTimestamp}:R>`;
+    metadataStr += `\n${emojis.clock} Message sent <t:${messageTimestamp}:R>`;
 
     // Only add if there's content
     if (metadataStr.trim().length > 1) {
@@ -451,19 +451,29 @@ export class StaffThreadView {
     // 3. Attachments, stickers
     // 4. Metadata (links to attachments, stickers, timestamps, ID)
 
-    // 1. Author
-    const author = `### User - ${userMessage.author.displayName}`;
-    const authorText = new TextDisplayBuilder().setContent(author);
-    primaryContainer.addTextDisplayComponents(authorText);
+    const authorContentSection = new SectionBuilder().setThumbnailAccessory(
+      (t) => t.setURL(userMessage.author.displayAvatarURL())
+    );
 
-    // 2. Content (optional)
+    // 1. Author
+    let authorAndContent = `### User - ${userMessage.author.displayName}`;
+
+    // 2. Content - ADD to existing author section (optional)
+    // So the thumbnail is next to the content instead of pushing it down.
     if (userMessage.content) {
-      primaryContainer.addSeparatorComponents(new SeparatorBuilder());
-      const contentText = new TextDisplayBuilder().setContent(
-        userMessage.content
-      );
-      primaryContainer.addTextDisplayComponents(contentText);
+      authorAndContent += `\n${userMessage.content}`;
     }
+
+    const authorAndContentText = new TextDisplayBuilder().setContent(
+      authorAndContent
+    );
+
+    // Add the text to section
+    authorContentSection.addTextDisplayComponents(authorAndContentText);
+
+    //primaryContainer.addTextDisplayComponents(authorText);
+    // Add the section to the container
+    primaryContainer.addSectionComponents(authorContentSection);
 
     if (messageVersions.length > 0) {
       primaryContainer.addSeparatorComponents(new SeparatorBuilder());
@@ -564,7 +574,7 @@ export class StaffThreadView {
 
     // Add message timestamp
     const messageTimestamp = Math.floor(userMessage.createdTimestamp / 1000);
-    metadataStr += `\n${emojis.clock} Message Sent <t:${messageTimestamp}:R>`;
+    metadataStr += `\n${emojis.clock} Message sent <t:${messageTimestamp}:R>`;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     primaryContainer.addTextDisplayComponents(metadataText);
