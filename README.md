@@ -48,8 +48,11 @@ Thread
 - `preply` - Plain text reply to a thread.
 - `apreply` - Anonymous plain text reply to a thread.
 - `edit` - Edit a previous thread message, reply to the message you want to edit.
-- `delete` - Delete a previous thread message, reply to the message you want to delete.
-- `close` - Close the current thread.
+- `delete` - Delete a previous thread message, reply to the message you want to
+  delete.
+- `close [optional reason]` - Close the current thread, optionally with a
+  reason. The reason will **not** be sent to the user, but will be logged in the
+  thread.
 
 User information
 - `logs` - Links to previous threads by the same user.
@@ -71,10 +74,16 @@ Snippets
 
 ## Deployment
 
-You can run sushii-modmail with Docker and uses SQLite as the database so there
-is no need to run a separate database server.
+The recommended way to run sushii-modmail is via Docker. It uses an embedded
+SQLite database, so no separate database service is required.
 
-Images are built and published to [Github container registry](https://github.com/sushiibot/sushii-modmail/pkgs/container/modmail)
+Images are built and published to [Github container registry](https://github.com/sushiibot/sushii-modmail/pkgs/container/modmail). 
+
+> [!NOTE]
+> sushii-modmail follows a rolling-release model. Each commit is built and
+> tagged with it's short SHA hash. There are no fixed (e.g. `v1.0.0`) releases.
+> You can use the `latest` tag to always get the latest version, or specify a
+> specific commit hash to pin to a specific version.
 
 Images contain a [Litestream](https://litestream.io/) binary for automatic
 replication of the SQLite database to a remote S3-compatible storage. This is

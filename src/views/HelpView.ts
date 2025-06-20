@@ -26,7 +26,7 @@ export class HelpCommandView {
       `\n\`apreply\` - Anonymous plain text reply to a thread`,
       `\n\`edit\` - Edit a previous thread message, reply to the message you want to edit`,
       `\n\`delete\` - Delete a previous thread message, reply to the message you want to delete`,
-      `\n\`close\` - Close the current thread`,
+      `\n\`close [optional message]\` - Close the current thread, optionally providing staff-only reason for closure`,
 
       `\n## User Information`,
       `\n\`logs\` - Links to previous threads by the same user`,
