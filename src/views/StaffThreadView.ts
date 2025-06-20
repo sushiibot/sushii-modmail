@@ -337,7 +337,7 @@ export class StaffThreadView {
 
     // Add Discord timestamp
     const messageTimestamp = Math.floor(msg.createdTimestamp / 1000);
-    metadataStr += `\n${emojis.clock} Message sent <t:${messageTimestamp}:R>`;
+    metadataStr += `\n${emojis.clock} Message sent <t:${messageTimestamp}:R> — <t:${messageTimestamp}:f>`;
 
     // Only add if there's content
     if (metadataStr.trim().length > 1) {
@@ -574,7 +574,7 @@ export class StaffThreadView {
 
     // Add message timestamp
     const messageTimestamp = Math.floor(userMessage.createdTimestamp / 1000);
-    metadataStr += `\n${emojis.clock} Message sent <t:${messageTimestamp}:R>`;
+    metadataStr += `\n${emojis.clock} Message sent <t:${messageTimestamp}:R> — <t:${messageTimestamp}:f>`;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     primaryContainer.addTextDisplayComponents(metadataText);
