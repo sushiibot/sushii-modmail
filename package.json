@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run ./src/index.ts",
+    "typecheck": "bun run tsc --skipLibCheck --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },

@@ -93,6 +93,7 @@ export class DMController {
             stickers: Array.from(snapshot.stickers.values()),
             // Mark as forwarded
             forwarded: true,
+            createdTimestamp: message.createdTimestamp,
           }
         );
       } else {

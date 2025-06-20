@@ -160,6 +160,7 @@ export class SnippetController {
           ...message,
           attachments: Array.from(message.attachments.values()),
           stickers: Array.from(message.stickers.values()),
+          createdTimestamp: message.createdTimestamp,
         },
         options
       );

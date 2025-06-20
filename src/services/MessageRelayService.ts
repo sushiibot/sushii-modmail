@@ -468,7 +468,11 @@ export class MessageRelayService {
     };
 
     // Use the extracted attachment URLs and stickers to build the message
-    const message = await UserThreadView.staffMessage(guild, msgWithExtractedAttachments, options);
+    const message = await UserThreadView.staffMessage(
+      guild,
+      msgWithExtractedAttachments,
+      options
+    );
 
     let relayedMsg;
     try {
@@ -662,6 +666,7 @@ export class MessageRelayService {
         attachments: attachmentUrls,
         stickers: stickers,
         forwarded: msg.forwarded,
+        createdTimestamp: msg.createdTimestamp,
       },
       emojis,
       {
@@ -802,6 +807,7 @@ export class MessageRelayService {
         attachments: attachmentURLs,
         stickers: stickers,
         forwarded: messageData.forwarded,
+        createdTimestamp: originalMessage.createdTimestamp,
       },
       emojis,
       {

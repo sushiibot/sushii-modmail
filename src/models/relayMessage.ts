@@ -23,6 +23,7 @@ export interface UserToStaffMessage {
   attachments: RelayAttachment[];
   stickers: MessageSticker[];
   forwarded?: boolean;
+  createdTimestamp: number;
 }
 
 // Message from staff to user
@@ -33,6 +34,7 @@ export interface StaffToUserMessage {
   attachments: RelayAttachment[];
   stickers: MessageSticker[];
   forwarded?: boolean;
+  createdTimestamp: number;
 }
 
 // For edits (can be further split if needed)
@@ -43,6 +45,7 @@ export interface StaffToUserMessageEdit {
   attachments: string[]; // Array of URLs
   stickers: MessageSticker[];
   forwarded?: boolean;
+  createdTimestamp: number;
 }
 
 export type StaffRelayMessage = StaffToUserMessage | StaffToUserMessageEdit;

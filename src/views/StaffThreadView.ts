@@ -44,6 +44,7 @@ export const StaffThreadEmojis = [
   "snippet",
   "plain_text",
   "arrow_down_right",
+  "clock",
 ] as const satisfies readonly BotEmojiName[];
 
 export type StaffThreadEmojis = MessageEmojiMap<typeof StaffThreadEmojis>;
@@ -332,7 +333,11 @@ export class StaffThreadView {
     }
 
     // Add user ID
-    metadataStr += `\n${emojis.user} User ID: \`${msg.author.id}\``;
+    metadataStr += `\n${emojis.user} Staff User ID: \`${msg.author.id}\``;
+
+    // Add Discord timestamp
+    const messageTimestamp = Math.floor(msg.createdTimestamp / 1000);
+    metadataStr += `\n${emojis.clock} Message Sent <t:${messageTimestamp}:R>`;
 
     // Only add if there's content
     if (metadataStr.trim().length > 1) {
@@ -556,6 +561,10 @@ export class StaffThreadView {
     }
 
     metadataStr += `\n${emojis.user} User ID: \`${userMessage.author.id}\``;
+
+    // Add message timestamp
+    const messageTimestamp = Math.floor(userMessage.createdTimestamp / 1000);
+    metadataStr += `\n${emojis.clock} Message Sent <t:${messageTimestamp}:R>`;
 
     const metadataText = new TextDisplayBuilder().setContent(metadataStr);
     primaryContainer.addTextDisplayComponents(metadataText);

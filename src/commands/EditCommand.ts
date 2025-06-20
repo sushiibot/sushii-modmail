@@ -115,6 +115,7 @@ export class EditCommand extends TextCommandHandler {
           attachments: Array.from(msg.attachments.values()),
           stickers: Array.from(msg.stickers.values()),
           forwarded: false,
+          createdTimestamp: msg.createdTimestamp,
         }
       );
 

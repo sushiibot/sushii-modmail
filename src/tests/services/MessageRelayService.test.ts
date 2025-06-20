@@ -88,6 +88,7 @@ describe("MessageRelayService", () => {
         content: "Hello, staff!",
         attachments: [],
         stickers: [],
+        createdTimestamp: Date.now(),
       };
 
       const threadChannel = {
@@ -147,6 +148,7 @@ describe("MessageRelayService", () => {
           },
         ],
         stickers: [],
+        createdTimestamp: Date.now(),
       };
 
       const threadChannel = {
@@ -201,6 +203,7 @@ describe("MessageRelayService", () => {
         content: "Hello, staff!",
         attachments: [],
         stickers: [],
+        createdTimestamp: Date.now(),
       };
 
       spyOn(client.channels, "fetch").mockResolvedValue(null);
@@ -223,6 +226,7 @@ describe("MessageRelayService", () => {
         content: "Hello, staff!",
         attachments: [],
         stickers: [],
+        createdTimestamp: Date.now(),
       };
 
       const threadChannel = {
@@ -257,6 +261,7 @@ describe("MessageRelayService", () => {
         content,
         attachments: [],
         stickers: [],
+        createdTimestamp: Date.now(),
       };
 
       const relayedMsg = {
