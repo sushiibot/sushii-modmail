@@ -256,7 +256,7 @@ export class StaffThreadView {
       authorName += ` [Failed to send message]`;
     }
 
-    authorName += ` Staff - ${msg.author.displayName}`;
+    authorName += ` Staff - ${msg.author.username}`;
     if (options.anonymous) {
       authorName += " (Anonymous)";
     }
@@ -456,7 +456,7 @@ export class StaffThreadView {
     );
 
     // 1. Author
-    let authorAndContent = `### User - ${userMessage.author.displayName}`;
+    let authorAndContent = `### User - ${userMessage.author.username}`;
 
     // 2. Content - ADD to existing author section (optional)
     // So the thumbnail is next to the content instead of pushing it down.

@@ -100,7 +100,7 @@ export class UserThreadView {
     if (options.anonymous) {
       authorText = `### Message from ${guild.name}`;
     } else {
-      authorText = `### Message from ${guild.name} - ${msg.author.displayName}`;
+      authorText = `### Message from ${guild.name} - ${msg.author.username}`;
     }
 
     const authorTextComponent = new TextDisplayBuilder().setContent(authorText);
