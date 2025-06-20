@@ -24,6 +24,38 @@ import { SettingsService } from "services/SettingsService";
 import { MemberNotificationController } from "controllers/MemberNotificationController";
 import { MemberNotificationService } from "services/MemberNotificationService";
 
+/**
+ * Updates bot presence based on runtime configuration
+ */
+async function updateBotPresence(
+  client: Client,
+  runtimeConfigRepository: RuntimeConfigRepository,
+  guildId: string,
+  logger: ReturnType<typeof getLogger>,
+  context: string = ""
+): Promise<void> {
+  try {
+    const runtimeConfig = await runtimeConfigRepository.getConfig(guildId);
+
+    if (runtimeConfig.botStatus) {
+      client.user?.setPresence({
+        activities: [{ name: runtimeConfig.botStatus, type: 0 }],
+        status: "online",
+      });
+
+      const logMessage = context
+        ? `Bot status ${context}: ${runtimeConfig.botStatus}`
+        : `Bot status set to: ${runtimeConfig.botStatus}`;
+      logger.info(logMessage);
+    }
+  } catch (err) {
+    logger.error(
+      err,
+      `Failed to set bot status${context ? ` ${context}` : ""}`
+    );
+  }
+}
+
 export function registerEventHandlers(
   config: BotConfig,
   client: Client,
@@ -109,20 +141,13 @@ export function registerEventHandlers(
     logger.info(`Invite link: ${inviteLink}`);
 
     // Set bot status from config
-    try {
-      const runtimeConfig = await runtimeConfigRepository.getConfig(
-        config.guildId
-      );
-      if (runtimeConfig.botStatus) {
-        await client.user.setPresence({
-          activities: [{ name: runtimeConfig.botStatus, type: 0 }],
-          status: "online",
-        });
-        logger.info(`Bot status set to: ${runtimeConfig.botStatus}`);
-      }
-    } catch (err) {
-      logger.error(err, "Failed to set bot status on startup");
-    }
+    await updateBotPresence(
+      client,
+      runtimeConfigRepository,
+      config.guildId,
+      logger,
+      "on startup"
+    );
 
     // Sync emojis on startup
     try {
@@ -142,27 +167,22 @@ export function registerEventHandlers(
     logger.info("Bot is reconnecting...");
   });
 
-  client.on("ready", async () => {
-    // Set bot status on reconnect
-    try {
-      const runtimeConfig = await runtimeConfigRepository.getConfig(
-        config.guildId
-      );
+  client.on(Events.ShardResume, async (replayedEvents) => {
+    logger.info(
+      {
+        replayedEvents,
+      },
+      "Bot resumed"
+    );
 
-      if (!runtimeConfig.botStatus || !client.user) {
-        return;
-      }
-
-      client.user.setPresence({
-        activities: [{ name: runtimeConfig.botStatus, type: 0 }],
-        status: "online",
-      });
-      logger.debug(
-        `Bot status restored after reconnect: ${runtimeConfig.botStatus}`
-      );
-    } catch (err) {
-      logger.error(err, "Failed to restore bot status after reconnect");
-    }
+    // Set bot status from config
+    await updateBotPresence(
+      client,
+      runtimeConfigRepository,
+      config.guildId,
+      logger,
+      "after reconnect"
+    );
   });
 
   client.on(Events.MessageCreate, async (message) => {
