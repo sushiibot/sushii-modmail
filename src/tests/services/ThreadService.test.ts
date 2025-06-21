@@ -349,7 +349,8 @@ describe("ThreadService", () => {
       );
       expect(threadService["createNewThread"]).toHaveBeenCalledWith(
         userId,
-        username
+        username,
+        undefined
       );
     });
   });
@@ -543,7 +544,8 @@ describe("ThreadService", () => {
       const thread = {
         channelId: "channelId",
         guildId: "guildId",
-        originalMessageLink: "https://discord.com/channels/guildId/channelId/messageId",
+        originalMessageLink:
+          "https://discord.com/channels/guildId/channelId/messageId",
       } as Thread;
       const openTagId = "openTagId123";
       const closedTagId = "closedTagId456";
