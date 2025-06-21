@@ -85,7 +85,8 @@ export class StaffThreadView {
     emojis: StaffThreadEmojis,
     userInfo: UserThreadInfo,
     notificationRoleId: string | null,
-    silent: boolean
+    silent: boolean,
+    manuallyCreated?: boolean
   ): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Gray);
 
@@ -155,6 +156,10 @@ export class StaffThreadView {
         notificationContent += ` (silent)`;
       }
 
+      if (manuallyCreated) {
+        notificationContent += ` (silent because this thread was manually created)`;
+      }
+
       const notificationText = new TextDisplayBuilder().setContent(
         notificationContent
       );
@@ -171,7 +176,7 @@ export class StaffThreadView {
       allowedMentions.parse = undefined;
     }
 
-    if (silent) {
+    if (silent || manuallyCreated) {
       return {
         components: [container],
         flags: [

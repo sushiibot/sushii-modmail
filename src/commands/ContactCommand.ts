@@ -46,7 +46,8 @@ export class ContactCommand extends TextCommandHandler {
 
     const { thread, isNew } = await this.threadService.getOrCreateThread(
       targetUser.id,
-      targetUser.username
+      targetUser.username,
+      true // force silent notification role
     );
 
     if (!isNew) {

@@ -223,14 +223,15 @@ export class ThreadService {
 
   async getOrCreateThread(
     userId: string,
-    username: string
+    username: string,
+    forceSilent?: boolean
   ): Promise<{ thread: Thread; isNew: boolean }> {
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
     const isNew = !thread;
 
     if (!thread) {
       this.logger.debug(`Creating new thread for user ${userId}`);
-      thread = await this.createNewThread(userId, username);
+      thread = await this.createNewThread(userId, username, forceSilent);
     }
 
     return { thread, isNew };
@@ -238,7 +239,8 @@ export class ThreadService {
 
   private async createNewThread(
     userId: string,
-    username: string
+    username: string,
+    forceSilent?: boolean
   ): Promise<Thread> {
     const guild = this.client.guilds.cache.get(this.config.guildId);
     if (!guild) {
@@ -312,7 +314,8 @@ export class ThreadService {
         mutualGuilds: mutualServers,
       },
       runtimeConfig.notificationRoleId,
-      runtimeConfig.notificationSilent
+      runtimeConfig.notificationSilent,
+      forceSilent
     );
 
     const discordThread = await modmailForumChannel.threads.create({
