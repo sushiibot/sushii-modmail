@@ -154,9 +154,9 @@ export class StaffThreadView {
       let notificationContent = `-# Notification role: <@&${notificationRoleId}>`;
       if (silent) {
         notificationContent += ` (silent)`;
-      }
-
-      if (manuallyCreated) {
+      } else if (manuallyCreated) {
+        // Don't double say it's silent, only say this if it's not already
+        // silent AND manually created.
         notificationContent += ` (silent because this thread was manually created)`;
       }
 
