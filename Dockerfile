@@ -6,7 +6,7 @@ RUN go install \
     -tags osusergo,netgo,sqlite_omit_load_extension \
      github.com/benbjohnson/litestream/cmd/litestream@latest
 
-FROM oven/bun:1.2.7-debian
+FROM oven/bun:1.2.17-debian
 
 # Static labels
 LABEL org.opencontainers.image.source=https://github.com/sushiibot/sushii-modmail
