@@ -555,10 +555,10 @@ export class StaffThreadView {
 
     if (!isEdited && userMessage.attachments.length > 0) {
       const attachmentLinks = userMessage.attachments
-        .map((attachment) => `[${attachment.name}](${attachment.url})`)
+        .map((attachment) => `> [${attachment.name}](${attachment.url})`)
         .join("\n");
 
-      metadataStr += `\n**Attachment links:**`;
+      metadataStr += `\n**Original Attachment links**`;
       metadataStr += `\n${attachmentLinks}`;
     }
 
