@@ -5,6 +5,7 @@ import {
   RESTJSONErrorCodes,
 } from "discord.js";
 import type { Message } from "models/message.model";
+import type { ThreadRepository } from "repositories/thread.repository";
 import { getLogger } from "utils/logger";
 import { StaffThreadView } from "views/StaffThreadView";
 
@@ -21,16 +22,19 @@ interface MessageRepository {
 export class ReactionRelayService {
   private config: Config;
   private client: Client;
+  private threadRepository: ThreadRepository;
   private messageRepository: MessageRepository;
   private logger = getLogger("ReactionRelayService");
 
   constructor(
     config: Config,
     client: Client,
+    threadRepository: ThreadRepository,
     messageRepository: MessageRepository
   ) {
     this.config = config;
     this.client = client;
+    this.threadRepository = threadRepository;
     this.messageRepository = messageRepository;
   }
 
@@ -62,6 +66,20 @@ export class ReactionRelayService {
         { userDmMessageId },
         "No corresponding thread message found for user reaction"
       );
+      return;
+    }
+
+    // Get the thread to check if it's closed or not
+    const thread = await this.threadRepository.getThreadByChannelId(
+      message.threadId
+    );
+
+    if (!thread || thread.isClosed) {
+      this.logger.debug(
+        { threadId: message.threadId },
+        "Thread is closed, not relaying user reaction"
+      );
+
       return;
     }
 
@@ -157,6 +175,20 @@ export class ReactionRelayService {
         { userDmMessageId },
         "No corresponding thread message found for user reaction removal"
       );
+      return;
+    }
+
+    // Get the thread to check if it's closed or not
+    const thread = await this.threadRepository.getThreadByChannelId(
+      message.threadId
+    );
+
+    if (!thread || thread.isClosed) {
+      this.logger.debug(
+        { threadId: message.threadId },
+        "Thread is closed, not relaying user reaction"
+      );
+
       return;
     }
 
@@ -258,6 +290,20 @@ export class ReactionRelayService {
       return;
     }
 
+    // Get the thread to check if it's closed or not
+    const thread = await this.threadRepository.getThreadByChannelId(
+      message.threadId
+    );
+
+    if (!thread || thread.isClosed) {
+      this.logger.debug(
+        { threadId: message.threadId },
+        "Thread is closed, not relaying staff reaction"
+      );
+
+      return;
+    }
+
     try {
       this.logger.debug(
         {
@@ -354,6 +400,20 @@ export class ReactionRelayService {
       this.logger.debug(
         { threadMessageId },
         "Staff react on staff message, ignoring staff reaction removal"
+      );
+
+      return;
+    }
+
+    // Get the thread to check if it's closed or not
+    const thread = await this.threadRepository.getThreadByChannelId(
+      message.threadId
+    );
+
+    if (!thread || thread.isClosed) {
+      this.logger.debug(
+        { threadId: message.threadId },
+        "Thread is closed, not relaying staff reaction"
       );
 
       return;

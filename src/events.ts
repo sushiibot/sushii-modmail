@@ -88,6 +88,7 @@ export function registerEventHandlers(
   const reactionService = new ReactionRelayService(
     config,
     client,
+    threadRepository,
     messageRepository
   );
   const logService = new DiscordLogService(

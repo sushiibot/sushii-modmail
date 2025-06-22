@@ -51,8 +51,6 @@ export class UserReactionController {
         return;
       }
 
-      reaction.emoji.identifier;
-
       await this.reactionService.relayUserReactionToStaff(
         reaction.message.id,
         user.id,
