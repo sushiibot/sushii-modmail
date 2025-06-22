@@ -63,12 +63,15 @@ export async function downloadAttachments(
     return [];
   }
 
-  const fileDownloads = attachments.map(async (file) => {
+  const fileDownloads = attachments.map(async (file, i) => {
     const res = await fetch(file.url);
     const arrBuf = await res.arrayBuffer();
-    const attachment = new AttachmentBuilder(Buffer.from(arrBuf)).setName(
-      file.name
-    );
+
+    const attachment = new AttachmentBuilder(Buffer.from(arrBuf));
+    // Unique name for each attachment by adding index.
+    // If the name is the same, it would show up as the same attachment when
+    // referenced in embed / components.
+    attachment.setName(`${i}-${file.name}`);
 
     return attachment;
   });
