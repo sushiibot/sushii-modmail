@@ -10,7 +10,6 @@ export interface RelayUser {
 
 // Attachments relayed with a message
 export interface RelayAttachment {
-  id: string;
   name: string;
   url: string;
 }

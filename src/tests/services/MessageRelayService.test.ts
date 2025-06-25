@@ -142,7 +142,6 @@ describe("MessageRelayService", () => {
         content: "Hello, staff!",
         attachments: [
           {
-            id: "attachment1",
             name: "file1.txt",
             url: "https://example.com/file1.txt",
           },

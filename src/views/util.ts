@@ -15,7 +15,6 @@ import {
 import type { MessageSticker } from "models/message.model";
 
 interface Attachment {
-  id: string;
   name: string;
   url: string;
 }

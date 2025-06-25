@@ -419,7 +419,16 @@ export class MessageRelayService {
 
     // Re-send to show the message was sent and how it looks
     const components = StaffThreadView.staffReplyComponents(
-      msg,
+      {
+        ...msg,
+        attachments: files.map((file) => ({
+          // Need to use the file name from the downloadedAttachments, as the
+          // name is modified to be unique.
+          name: file.name!,
+          // Does not use URL, only name for reference
+          url: "DUMMY",
+        })),
+      },
       emojis,
       options
     );
