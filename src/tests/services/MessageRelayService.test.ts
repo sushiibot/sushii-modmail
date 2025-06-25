@@ -6,6 +6,7 @@ import {
   User,
   Guild,
   MessageFlags,
+  AttachmentBuilder,
 } from "discord.js";
 import {
   MessageRelayService,
@@ -322,6 +323,172 @@ describe("MessageRelayService", () => {
       });
       expect(client.channels.fetch).toHaveBeenCalledWith(threadId);
       expect(staffThreadChannel.send).toHaveBeenCalled();
+    });
+
+    it("should relay staff message with attachments using proper attachment names", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const content = "Here are the files you requested";
+      const options = { anonymous: false, plainText: false, snippet: false };
+
+      // Staff message with multiple attachments
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff Member",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content,
+        attachments: [
+          {
+            name: "document.pdf",
+            url: "https://cdn.discord.com/attachments/original/document.pdf",
+          },
+          {
+            name: "image.png",
+            url: "https://cdn.discord.com/attachments/original/image.png",
+          },
+        ],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+
+      const user = {
+        send: mock().mockResolvedValue({
+          id: "user-dm-message-id",
+          channel: { id: "dm-channel-id" },
+        }),
+      } as unknown as User;
+
+      // Mock downloaded attachments with proper naming from downloadAttachments function
+      const mockDownloadedAttachments = [
+        { name: "0-document.pdf", attachment: Buffer.from("pdf-data") },
+        { name: "1-image.png", attachment: Buffer.from("image-data") },
+      ] as AttachmentBuilder[];
+
+      // Mock staff thread message after sending with attachments
+      const staffThreadMessage = {
+        id: "staff-thread-message-id",
+        attachments: {
+          values: () => [
+            {
+              id: "reup-attachment1",
+              name: "0-document.pdf", // Name as modified by downloadAttachments
+              url: "https://cdn.discord.com/attachments/thread/0-document.pdf",
+            },
+            {
+              id: "reup-attachment2",
+              name: "1-image.png", // Name as modified by downloadAttachments
+              url: "https://cdn.discord.com/attachments/thread/1-image.png",
+            },
+          ],
+        },
+        stickers: [],
+      };
+
+      const staffThreadChannel = {
+        send: mock().mockResolvedValue(staffThreadMessage),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+
+      // Mock downloadAttachments to return properly named attachments
+      spyOn(util, "downloadAttachments").mockResolvedValue(
+        mockDownloadedAttachments
+      );
+
+      // Mock extractComponentImages to return the re-uploaded attachment URLs
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [
+          "https://cdn.discord.com/attachments/thread/0-document.pdf",
+          "https://cdn.discord.com/attachments/thread/1-image.png",
+        ],
+        stickers: [],
+      });
+
+      // Mock StaffThreadView.staffReplyComponents to verify proper attachment names are passed
+      const mockStaffReplyComponents = mock().mockReturnValue([]);
+      spyOn(StaffThreadView, "staffReplyComponents").mockImplementation(
+        mockStaffReplyComponents
+      );
+
+      // Mock UserThreadView.staffMessage
+      spyOn(UserThreadView, "staffMessage").mockResolvedValue({
+        content: "Formatted message with attachments",
+        files: [
+          "https://cdn.discord.com/attachments/thread/0-document.pdf",
+          "https://cdn.discord.com/attachments/thread/1-image.png",
+        ],
+      });
+
+      await service.relayStaffMessageToUser(
+        threadId,
+        userId,
+        guild,
+        msg,
+        options
+      );
+
+      // Verify downloadAttachments was called with original attachments
+      expect(util.downloadAttachments).toHaveBeenCalledWith(msg.attachments);
+
+      // Verify StaffThreadView.staffReplyComponents received attachments with proper names
+      expect(StaffThreadView.staffReplyComponents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: [
+            { name: "0-document.pdf", url: "DUMMY" },
+            { name: "1-image.png", url: "DUMMY" },
+          ],
+        }),
+        expect.any(Map), // emoji map
+        options
+      );
+
+      // Verify staff thread message was sent with downloaded files
+      expect(staffThreadChannel.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: mockDownloadedAttachments,
+        })
+      );
+
+      // Verify extractComponentImages was called on the staff thread message
+      expect(util.extractComponentImages).toHaveBeenCalledWith(
+        staffThreadMessage
+      );
+
+      // Verify UserThreadView.staffMessage received message with extracted attachment URLs
+      expect(UserThreadView.staffMessage).toHaveBeenCalledWith(
+        guild,
+        expect.objectContaining({
+          attachments: [
+            {
+              id: "extracted-0",
+              name: "document.pdf", // Original name preserved for user
+              url: "https://cdn.discord.com/attachments/thread/0-document.pdf",
+            },
+            {
+              id: "extracted-1",
+              name: "image.png", // Original name preserved for user
+              url: "https://cdn.discord.com/attachments/thread/1-image.png",
+            },
+          ],
+        }),
+        options
+      );
+
+      // Verify user received the formatted message
+      expect(user.send).toHaveBeenCalledWith({
+        content: "Formatted message with attachments",
+        files: [
+          "https://cdn.discord.com/attachments/thread/0-document.pdf",
+          "https://cdn.discord.com/attachments/thread/1-image.png",
+        ],
+      });
     });
   });
 
