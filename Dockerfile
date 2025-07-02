@@ -11,7 +11,7 @@ FROM oven/bun:1.2.17-debian
 # Static labels
 LABEL org.opencontainers.image.source=https://github.com/sushiibot/sushii-modmail
 LABEL org.opencontainers.image.description="Discord Modmail Bot"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 
 WORKDIR /app
 
