@@ -33,6 +33,7 @@ describe("MessageRelayService", () => {
   let service: MessageRelayService;
   let config: BotConfig;
   let configRepository: any;
+  let threadRepository: any;
   let messageRepository: any;
   let emojiRepository: any;
   let emojiMap: Map<any, any>;
@@ -50,6 +51,10 @@ describe("MessageRelayService", () => {
       }),
     } as unknown as {
       getConfig: () => Promise<BotConfig>;
+    };
+
+    threadRepository = {
+      // Add any thread repository methods that might be needed
     };
 
     messageRepository = {
@@ -70,6 +75,7 @@ describe("MessageRelayService", () => {
       config,
       client,
       configRepository,
+      threadRepository,
       messageRepository,
       emojiRepository
     );
