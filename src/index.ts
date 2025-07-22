@@ -58,6 +58,7 @@ function buildCommandRouter(
     config,
     client,
     runtimeConfigRepository,
+    threadRepository,
     messageRepository,
     botEmojiRepository
   );

@@ -99,11 +99,16 @@ interface MessageRepository {
   ): Promise<void>;
 }
 
+interface ThreadRepository {
+  closeThread(threadId: string, closedById: string): Promise<void>;
+}
+
 export class MessageRelayService {
   private config: Config;
   private client: Client;
 
   private configRepository: ConfigRepository;
+  private threadRepository: ThreadRepository
   private messageRepository: MessageRepository;
   private emojiRepository: BotEmojiRepository;
 
@@ -113,6 +118,7 @@ export class MessageRelayService {
     config: Config,
     client: Client,
     configRepository: ConfigRepository,
+    threadRepository: ThreadRepository,
     messageRepository: MessageRepository,
     emojiRepository: BotEmojiRepository
   ) {
@@ -120,6 +126,7 @@ export class MessageRelayService {
     this.client = client;
 
     this.configRepository = configRepository;
+    this.threadRepository = threadRepository;
     this.messageRepository = messageRepository;
     this.emojiRepository = emojiRepository;
   }
@@ -131,7 +138,24 @@ export class MessageRelayService {
     threadId: string,
     message: UserToStaffMessage
   ): Promise<boolean> {
-    const threadChannel = await this.client.channels.fetch(threadId);
+    let threadChannel
+    try {
+      threadChannel = await this.client.channels.fetch(threadId);
+    } catch (err) {
+      if (err instanceof DiscordAPIError && err.code === RESTJSONErrorCodes.UnknownChannel) {
+        this.logger.error(
+          { threadId: threadId, error: err.message },
+          "Unknown thread channel when relaying user message to staff, likely deleted. Marking as closed"
+        );
+
+        // Close channel in DB to prevent re-using this channel
+        // Closed by bot user
+        await this.threadRepository.closeThread(threadId, this.client.user?.id || "0");
+
+        return false;
+      }
+    }
+
     if (!threadChannel) {
       throw new Error(`Channel not found: ${threadId}`);
     }
