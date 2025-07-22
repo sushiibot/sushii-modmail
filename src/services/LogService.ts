@@ -5,7 +5,7 @@ import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { UpdateConfig } from "repositories/runtimeConfig.repository";
 
 export interface LogService {
-  logError(error: Error | any, context: string, source: string): Promise<void>;
+  logError(error: Error | any, context: string, source: string, message?: string): Promise<void>;
 }
 
 interface ConfigRepository {
@@ -37,11 +37,13 @@ export class DiscordLogService implements LogService {
    * @param error The error to log
    * @param context Additional context about the error
    * @param source The source of the error (e.g. class name)
+   * @param message Optional message to include in the log
    */
   async logError(
     error: Error | any,
     context: string,
-    source: string
+    source: string,
+    message?: string
   ): Promise<void> {
     // Always log to console first
     this.logger.error(error, `[${source}] ${context}`);
@@ -121,20 +123,29 @@ export class DiscordLogService implements LogService {
         ? error.stack.substring(0, 1024)
         : "No stack trace available";
 
+      const fields = [
+        {
+          name: "Error Message",
+          value: `\`\`\`\n${errMessage}\`\`\``,
+        },
+        {
+          name: "Stack Trace",
+          value: `\`\`\`\n${stackTrace}\`\`\``,
+        }
+      ];
+
+      if (message) {
+        fields.push({
+          name: "User Message",
+          value: message.substring(0, 1024),
+        });
+      }
+
       const errorEmbed = new EmbedBuilder()
         .setColor(Colors.Red)
         .setTitle(`Error in ${source}`)
         .setDescription(context)
-        .addFields(
-          {
-            name: "Error Message",
-            value: `\`\`\`\n${errMessage}\`\`\``,
-          },
-          {
-            name: "Stack Trace",
-            value: `\`\`\`\n${stackTrace}\`\`\``,
-          }
-        )
+        .addFields(fields)
         .setTimestamp();
 
       await channel.send({ embeds: [errorEmbed] });

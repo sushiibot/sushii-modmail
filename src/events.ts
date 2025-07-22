@@ -82,6 +82,7 @@ export function registerEventHandlers(
     config,
     client,
     runtimeConfigRepository,
+    threadRepository,
     messageRepository,
     botEmojiRepository
   );

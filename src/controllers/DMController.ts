@@ -133,8 +133,8 @@ export class DMController {
         message.author?.tag || "unknown user"
       }`;
 
-      // Log to both Discord and console via logService
-      await this.logService.logError(err, contextMsg, this.constructor.name);
+      // Log to both Discord and console via logService, include user's message
+      await this.logService.logError(err, contextMsg, this.constructor.name, message.content);
 
       // Send an error message to the user
       await message.author.send(
@@ -177,7 +177,7 @@ export class DMController {
         newMessage.author?.tag || "unknown user"
       }`;
 
-      await this.logService.logError(err, contextMsg, this.constructor.name);
+      await this.logService.logError(err, contextMsg, this.constructor.name, newMessage.content);
     }
   }
 
