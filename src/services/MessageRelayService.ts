@@ -152,8 +152,13 @@ export class MessageRelayService {
         // Closed by bot user
         await this.threadRepository.closeThread(threadId, this.client.user?.id || "0");
 
-        return false;
+        // We want the user to receive the error message, so that they know staff
+        // did not receive their message, and they may send it again.
+        throw new Error(`Thread channel not found, marking thread as closed: ${threadId}`);
       }
+
+      // Unrelated error
+      throw err;
     }
 
     if (!threadChannel) {
