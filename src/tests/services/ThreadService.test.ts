@@ -379,10 +379,12 @@ describe("ThreadService", () => {
 
       // Verify both calls get the same thread
       expect(result1.thread).toBe(result2.thread);
-      expect(result1.isNew).toBe(true);
-      expect(result2.isNew).toBe(true);
       expect(result1.thread.channelId).toBe(newThread.channelId);
       expect(result2.thread.channelId).toBe(newThread.channelId);
+      
+      // Verify only the first request gets isNew: true
+      expect(result1.isNew).toBe(true);
+      expect(result2.isNew).toBe(false);
 
       // Verify createNewThread was called only once (not twice)
       expect(createNewThreadSpy).toHaveBeenCalledTimes(1);

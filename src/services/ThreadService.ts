@@ -232,12 +232,14 @@ export class ThreadService {
     // Check if there's already a thread creation in progress for this user
     const existingLock = this.threadCreationLocks.get(userId);
     if (existingLock) {
-      // Wait for the existing creation to complete and return its result
-      return await existingLock;
+      // Wait for the existing creation to complete and return the thread
+      // For concurrent requests, isNew is false since they didn't create the thread
+      const result = await existingLock;
+      return { thread: result.thread, isNew: false };
     }
 
     // Create a new promise for this thread creation
-    const creationPromise = this.doGetOrCreateThread(userId, username, forceSilent);
+    const creationPromise = this.doGetOrCreateThreadInternal(userId, username, forceSilent);
 
     // Store it in the map to block other concurrent requests. Safe to do right
     // after creating the promise since it's non-async
@@ -252,7 +254,7 @@ export class ThreadService {
     }
   }
 
-  private async doGetOrCreateThread(
+  private async doGetOrCreateThreadInternal(
     userId: string,
     username: string,
     forceSilent?: boolean
