@@ -111,12 +111,11 @@ jobs:
 
           # Only run deploy tag, docker_image_check_version is directly set
           ansible-playbook \
-            -i inventory/hosts.yml \
             --vault-password-file ./vault-env \
+            -l apps \
             playbooks/deploy.yml \
-            -e "target_host=sushii" \
-            -e "service=sushii-modmail-staging" \
-            -e "docker_image_check_version=${{ needs.docker-build.outputs.sha_short }}" \
+            -e "service=modmail/sushii-modmail-staging" \
+            -e "image_version=${{ needs.docker-build.outputs.sha_short }}" \
             -e "docker_registry_password=${{ secrets.GITHUB_TOKEN }}" \
             -e "docker_registry_user=${{ github.repository_owner }}" \
             -t deploy
