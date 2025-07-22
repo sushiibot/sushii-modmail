@@ -353,6 +353,130 @@ describe("ThreadService", () => {
         undefined
       );
     });
+
+    it("should handle concurrent thread creation requests (race condition)", async () => {
+      const username = "testuser";
+      const userId = randomSnowflakeID();
+      const newThread = mockThread({ userId });
+
+      // Mock the repository to return null initially (no existing thread)
+      mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(null);
+      
+      // Mock createNewThread to simulate a slow operation
+      const createNewThreadSpy = spyOn(threadService as any, "createNewThread")
+        .mockImplementation(() => {
+          return new Promise((resolve) => {
+            setTimeout(() => resolve(newThread), 50); // 50ms delay
+          });
+        });
+
+      // Simulate two concurrent DM requests
+      const promise1 = threadService.getOrCreateThread(userId, username);
+      const promise2 = threadService.getOrCreateThread(userId, username);
+
+      // Both should resolve to the same result
+      const [result1, result2] = await Promise.all([promise1, promise2]);
+
+      // Verify both calls get the same thread
+      expect(result1.thread).toBe(result2.thread);
+      expect(result1.isNew).toBe(true);
+      expect(result2.isNew).toBe(true);
+      expect(result1.thread.channelId).toBe(newThread.channelId);
+      expect(result2.thread.channelId).toBe(newThread.channelId);
+
+      // Verify createNewThread was called only once (not twice)
+      expect(createNewThreadSpy).toHaveBeenCalledTimes(1);
+      expect(createNewThreadSpy).toHaveBeenCalledWith(userId, username, undefined);
+    });
+
+    it("should handle concurrent requests when thread already exists", async () => {
+      const username = "testuser";
+      const existingThread = mockThread();
+      const userId = existingThread.userId;
+
+      // Mock the repository to return existing thread
+      mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(existingThread);
+      
+      // Spy on createNewThread to ensure it's not called
+      const createNewThreadSpy = spyOn(threadService as any, "createNewThread");
+
+      // Simulate two concurrent DM requests
+      const promise1 = threadService.getOrCreateThread(userId, username);
+      const promise2 = threadService.getOrCreateThread(userId, username);
+
+      // Both should resolve to the same existing thread
+      const [result1, result2] = await Promise.all([promise1, promise2]);
+
+      // Verify both calls get the same existing thread
+      expect(result1.thread).toBe(result2.thread);
+      expect(result1.isNew).toBe(false);
+      expect(result2.isNew).toBe(false);
+      expect(result1.thread.channelId).toBe(existingThread.channelId);
+      expect(result2.thread.channelId).toBe(existingThread.channelId);
+
+      // Verify createNewThread was never called
+      expect(createNewThreadSpy).not.toHaveBeenCalled();
+    });
+
+    it("should clean up lock on thread creation failure", async () => {
+      const username = "testuser";
+      const userId = randomSnowflakeID();
+      const error = new Error("Thread creation failed");
+
+      // Mock the repository to return null (no existing thread)
+      mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(null);
+      
+      // Mock createNewThread to throw an error
+      const createNewThreadSpy = spyOn(threadService as any, "createNewThread")
+        .mockRejectedValue(error);
+
+      // First request should fail
+      await expect(threadService.getOrCreateThread(userId, username)).rejects.toThrow("Thread creation failed");
+
+      // Second request should try again (lock should be cleaned up)
+      const newThread = mockThread({ userId });
+      createNewThreadSpy.mockResolvedValue(newThread);
+      
+      const result = await threadService.getOrCreateThread(userId, username);
+      
+      expect(result.thread).toBe(newThread);
+      expect(result.isNew).toBe(true);
+      
+      // Verify createNewThread was called twice (once failed, once succeeded)
+      expect(createNewThreadSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("should handle concurrent requests with shared failure", async () => {
+      const username = "testuser";
+      const userId = randomSnowflakeID();
+      const error = new Error("Creation failed");
+
+      // Mock the repository to return null (no existing thread)
+      mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(null);
+      
+      // Mock createNewThread to fail
+      const createNewThreadSpy = spyOn(threadService as any, "createNewThread")
+        .mockRejectedValue(error);
+
+      // Both concurrent requests should fail with the same error
+      const promise1 = threadService.getOrCreateThread(userId, username);
+      const promise2 = threadService.getOrCreateThread(userId, username);
+
+      // Both should reject, and we'll collect the results
+      const results = await Promise.allSettled([promise1, promise2]);
+
+      // Both should be rejected
+      expect(results[0].status).toBe("rejected");
+      expect(results[1].status).toBe("rejected");
+      
+      if (results[0].status === "rejected" && results[1].status === "rejected") {
+        expect(results[0].reason.message).toBe("Creation failed");
+        expect(results[1].reason.message).toBe("Creation failed");
+      }
+
+      // Verify createNewThread was called only once (shared failure)
+      expect(createNewThreadSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("createNewThread", () => {

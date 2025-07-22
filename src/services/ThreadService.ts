@@ -65,6 +65,9 @@ export class ThreadService {
 
   private logger = getLogger("ThreadService");
 
+  // Promise-based locking to prevent race conditions in thread creation
+  private threadCreationLocks = new Map<string, Promise<{ thread: Thread; isNew: boolean }>>();
+
   constructor(
     config: Config,
     client: Client,
@@ -226,6 +229,35 @@ export class ThreadService {
     username: string,
     forceSilent?: boolean
   ): Promise<{ thread: Thread; isNew: boolean }> {
+    // Check if there's already a thread creation in progress for this user
+    const existingLock = this.threadCreationLocks.get(userId);
+    if (existingLock) {
+      // Wait for the existing creation to complete and return its result
+      return await existingLock;
+    }
+
+    // Create a new promise for this thread creation
+    const creationPromise = this.doGetOrCreateThread(userId, username, forceSilent);
+
+    // Store it in the map to block other concurrent requests. Safe to do right
+    // after creating the promise since it's non-async
+    this.threadCreationLocks.set(userId, creationPromise);
+
+    try {
+      const result = await creationPromise;
+      return result;
+    } finally {
+      // Always clean up the lock when done (success or failure)
+      this.threadCreationLocks.delete(userId);
+    }
+  }
+
+  private async doGetOrCreateThread(
+    userId: string,
+    username: string,
+    forceSilent?: boolean
+  ): Promise<{ thread: Thread; isNew: boolean }> {
+    // Double-check if thread exists (in case it was created while waiting for lock)
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
     const isNew = !thread;
 
