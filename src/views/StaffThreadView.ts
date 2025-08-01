@@ -465,9 +465,10 @@ export class StaffThreadView {
 
     // 2. Content - ADD to existing author section (optional)
     // So the thumbnail is next to the content instead of pushing it down.
-    if (userMessage.content && userMessage.forwarded === false) {
+    if (userMessage.content && !userMessage.forwarded) {
+      // Not forwarded, note that forwarded can be undefined as well
       authorAndContent += `\n${userMessage.content}`;
-    } else if (userMessage.content && userMessage.forwarded === true) {
+    } else if (userMessage.content && userMessage.forwarded) {
       // More clear if forwarded
       authorAndContent += `\n`;
       authorAndContent += `-# ${emojis.forward} *Forwarded message*`;
