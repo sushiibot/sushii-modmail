@@ -468,6 +468,7 @@ export class StaffThreadView {
     if (userMessage.content && userMessage.forwarded === false) {
       authorAndContent += `\n${userMessage.content}`;
     } else if (userMessage.content && userMessage.forwarded === true) {
+      // More clear if forwarded
       authorAndContent += `\n`;
       authorAndContent += `-# ${emojis.forward} *Forwarded message*`;
       authorAndContent += `\n${quoteText(userMessage.content)}`;

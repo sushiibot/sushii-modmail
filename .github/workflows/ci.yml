@@ -81,6 +81,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
+    environment: staging
     steps:
       - name: Checkout deployment playbook
         uses: actions/checkout@v4
