@@ -465,8 +465,12 @@ export class StaffThreadView {
 
     // 2. Content - ADD to existing author section (optional)
     // So the thumbnail is next to the content instead of pushing it down.
-    if (userMessage.content) {
+    if (userMessage.content && userMessage.forwarded === false) {
       authorAndContent += `\n${userMessage.content}`;
+    } else if (userMessage.content && userMessage.forwarded === true) {
+      authorAndContent += `\n`;
+      authorAndContent += `-# ${emojis.forward} *Forwarded message*`;
+      authorAndContent += `\n${quoteText(userMessage.content)}`;
     }
 
     const authorAndContentText = new TextDisplayBuilder().setContent(
@@ -572,7 +576,7 @@ export class StaffThreadView {
     }
 
     if (userMessage.forwarded === true) {
-      metadataStr += `\n\n${emojis.forward} Forwarded message`;
+      metadataStr += `\n\n${emojis.forward} **Forwarded message**`;
     }
 
     metadataStr += `\n${emojis.user} User ID: \`${userMessage.author.id}\``;
