@@ -76,11 +76,8 @@ export class SnippetCommandView {
 
   static snippetAdded(name: string, content: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
-      .setDescription(`Successfully added snippet \`${name}\`.`)
-      .addFields({
-        name: "Content",
-        value: content,
-      })
+      .setTitle(`Successfully added snippet: ${name}`)
+      .setDescription(content)
       .setColor(Color.Blue);
 
     return {
@@ -91,11 +88,8 @@ export class SnippetCommandView {
 
   static snippetUpdated(name: string, content: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
-      .setDescription(`Successfully updated snippet \`${name}\`.`)
-      .addFields({
-        name: "Content",
-        value: content,
-      })
+      .setTitle(`Successfully updated snippet: ${name}`)
+      .setDescription(content)
       .setColor(Color.Blue);
 
     return {

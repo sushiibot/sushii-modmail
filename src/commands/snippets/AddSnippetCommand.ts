@@ -53,8 +53,11 @@ export class AddSnippetCommand extends TextCommandHandler {
       await this.snippetService.createSnippet(msg.guildId, name, content);
 
       await msg.reply(SnippetCommandView.snippetAdded(name, content));
-    } catch (error) {
-      this.logger.error(`Error creating snippet: ${error}`);
+    } catch (err) {
+      this.logger.error({
+        err: err,
+      }, `Failed to create snippet`);
+
       await msg.reply(SnippetCommandView.errorCreatingSnippet());
     }
   }
