@@ -130,13 +130,20 @@ export class StaffThreadView {
       content += `\n${mutualServers || "None"}`;
     }
 
-    // Previous threads
+    // Previous threads - show only the latest 5
     if (userInfo.previousThreads) {
       content += `\n### Previous Threads`;
-      const previousThreads = userInfo.previousThreads
+      // Get the last 5 threads (most recent) since they're ordered by createdAt ascending
+      const latestThreads = userInfo.previousThreads.slice(-5);
+      const previousThreads = latestThreads
         .map((thread) => thread.toString())
         .join("\n");
       content += `\n${previousThreads || "None"}`;
+
+      // Show count if there are more threads
+      if (userInfo.previousThreads.length > 5) {
+        content += `\n-# *Showing latest 5 of ${userInfo.previousThreads.length} total threads*`;
+      }
     }
 
     const userinfoText = new TextDisplayBuilder().setContent(content);
