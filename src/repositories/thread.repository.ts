@@ -1,6 +1,6 @@
 import { type DB } from "../database/db";
 import { threads } from "../database/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { Thread } from "../models/thread.model";
 
 // ThreadRepository (data access)
@@ -75,18 +75,20 @@ export class ThreadRepository {
   }
 
   /**
-   * Get all threads created by a specific user
+   * Get latest threads created by a specific user
    * @param userId The Discord user ID
+   * @param count Number of threads to retrieve
    * @returns Array of threads created by the user
    */
-  async getAllThreadsByUserId(userId: string): Promise<Thread[]> {
+  async getLatestThreadsByUserId(userId: string, count: number): Promise<Thread[]> {
     // Assuming there's a database connection and threads table
     // This query should get all threads for the specified user, ordered by creation date
     const result = await this.db
       .select()
       .from(threads)
       .where(eq(threads.recipientId, userId))
-      .orderBy(threads.createdAt)
+      .orderBy(desc(threads.createdAt))
+      .limit(count)
       .execute();
 
     return result.map(Thread.fromDatabaseRow);

@@ -33,7 +33,7 @@ import * as mutualServersUtil from "utils/mutualServers";
 const mockThreadRepository = {
   getOpenThreadByUserID: mock(),
   getThreadByChannelId: mock(),
-  getAllThreadsByUserId: mock(),
+  getLatestThreadsByUserId: mock(),
   createThread: mock(),
   closeThread: mock(),
 };
@@ -566,7 +566,7 @@ describe("ThreadService", () => {
 
       const thread = mockThread();
       mockThreadRepository.createThread.mockResolvedValue(thread);
-      mockThreadRepository.getAllThreadsByUserId.mockResolvedValue([]);
+      mockThreadRepository.getLatestThreadsByUserId.mockResolvedValue([]);
 
       const result = await threadService["createNewThread"](userId, username);
 
@@ -629,7 +629,7 @@ describe("ThreadService", () => {
 
       const thread = mockThread();
       mockThreadRepository.createThread.mockResolvedValue(thread);
-      mockThreadRepository.getAllThreadsByUserId.mockResolvedValue([]);
+      mockThreadRepository.getLatestThreadsByUserId.mockResolvedValue([]);
 
       const result = await threadService["createNewThread"](userId, username);
 
@@ -731,7 +731,7 @@ describe("ThreadService", () => {
     });
   });
 
-  describe("getAllThreadsByUserId", () => {
+  describe("getLatestThreadsByUserId", () => {
     it("should return all threads by user ID", async () => {
       const userId = randomSnowflakeID();
       const threadOpts = {
@@ -748,13 +748,14 @@ describe("ThreadService", () => {
         mockThread(threadClosedOpts),
       ];
 
-      mockThreadRepository.getAllThreadsByUserId.mockResolvedValue(threads);
+      mockThreadRepository.getLatestThreadsByUserId.mockResolvedValue(threads);
 
-      const result = await threadService.getAllThreadsByUserId(userId);
+      const result = await threadService.getLatestThreadsByUserId(userId, 10);
 
       expect(result).toBe(threads);
-      expect(mockThreadRepository.getAllThreadsByUserId).toHaveBeenCalledWith(
-        userId
+      expect(mockThreadRepository.getLatestThreadsByUserId).toHaveBeenCalledWith(
+        userId,
+        10
       );
     });
   });

@@ -63,7 +63,7 @@ export class LogsCommand extends TextCommandHandler {
       const userId = args[0];
 
       // Find all previous threads by the same user
-      const threads = await this.threadService.getAllThreadsByUserId(userId);
+      const threads = await this.threadService.getLatestThreadsByUserId(userId, 100);
 
       // Format and show links to all previous threads
       const formattedThreads = StaffThreadView.formatThreadList(threads);
@@ -88,8 +88,9 @@ export class LogsCommand extends TextCommandHandler {
     }
 
     // Find all previous threads by the same user
-    const threads = await this.threadService.getAllThreadsByUserId(
-      thread.userId
+    const threads = await this.threadService.getLatestThreadsByUserId(
+      thread.userId,
+      100,
     );
 
     // Format and show links to all previous threads

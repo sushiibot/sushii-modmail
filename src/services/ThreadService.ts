@@ -40,7 +40,7 @@ interface Config {
 interface ThreadRepository {
   getOpenThreadByUserID(userId: string): Promise<Thread | null>;
   getThreadByChannelId(channelId: string): Promise<Thread | null>;
-  getAllThreadsByUserId(userId: string): Promise<Thread[]>;
+  getLatestThreadsByUserId(userId: string, count: number): Promise<Thread[]>;
   createThread(
     guildId: string,
     userId: string,
@@ -324,8 +324,9 @@ export class ThreadService {
 
     // -------------------------------------------------------------------------
     // Get user metadata, previous threads and mutual servers
-    const previousThreads = await this.threadRepository.getAllThreadsByUserId(
-      userId
+    const previousThreads = await this.threadRepository.getLatestThreadsByUserId(
+      userId,
+      10
     );
 
     const mutualServers = await getMutualServers(this.client, userId);
@@ -442,11 +443,12 @@ export class ThreadService {
   }
 
   /**
-   * Get all threads created by a specific user
+   * Get latest threads created by a specific user
    * @param userId The Discord user ID
+   * @param count The number of threads to retrieve
    * @returns Array of threads created by the user
    */
-  async getAllThreadsByUserId(userId: string): Promise<Thread[]> {
-    return this.threadRepository.getAllThreadsByUserId(userId);
+  async getLatestThreadsByUserId(userId: string, count: number): Promise<Thread[]> {
+    return this.threadRepository.getLatestThreadsByUserId(userId, count);
   }
 }
