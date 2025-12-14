@@ -311,6 +311,10 @@ describe("ThreadService", () => {
       const existingThread = mockThread();
       const userId = existingThread.userId;
 
+      // Mock guild and channel fetch for thread validation
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      guildMock.channels = { fetch: mock(() => Promise.resolve({})) } as any;
+
       mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(
         existingThread
       );
@@ -396,6 +400,10 @@ describe("ThreadService", () => {
       const existingThread = mockThread();
       const userId = existingThread.userId;
 
+      // Mock guild and channel fetch for thread validation
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      guildMock.channels = { fetch: mock(() => Promise.resolve({})) } as any;
+
       // Mock the repository to return existing thread
       mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(existingThread);
       
@@ -418,6 +426,44 @@ describe("ThreadService", () => {
 
       // Verify createNewThread was never called
       expect(createNewThreadSpy).not.toHaveBeenCalled();
+    });
+
+    it("should create new thread when existing thread is manually deleted", async () => {
+      const username = "testuser";
+      const existingThread = mockThread();
+      const userId = existingThread.userId;
+      const newThread = mockThread();
+
+      // Mock guild for thread validation
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      
+      // Mock channel fetch to throw "Unknown Channel" error (deleted thread)
+      const channelFetchError = new DiscordAPIError(
+        { message: "Unknown Channel", code: RESTJSONErrorCodes.UnknownChannel },
+        RESTJSONErrorCodes.UnknownChannel,
+        404,
+        "GET",
+        "test-url",
+        {}
+      );
+      guildMock.channels = { fetch: mock(() => Promise.reject(channelFetchError)) } as any;
+
+      // First call returns existing thread, second call returns null (after it's closed)
+      mockThreadRepository.getOpenThreadByUserID
+        .mockResolvedValueOnce(existingThread)
+        .mockResolvedValueOnce(null);
+
+      // Spy on createNewThread to return new thread
+      spyOn(threadService as any, "createNewThread").mockResolvedValue(newThread);
+
+      const { thread, isNew } = await threadService.getOrCreateThread(userId, username);
+
+      // Should return new thread since existing one was deleted
+      expect(isNew).toBe(true);
+      expect(thread).toBe(newThread);
+      
+      // Verify existing thread was marked as closed
+      expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(existingThread.channelId, "");
     });
 
     it("should clean up lock on thread creation failure", async () => {

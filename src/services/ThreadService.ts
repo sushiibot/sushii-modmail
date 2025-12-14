@@ -83,6 +83,26 @@ export class ThreadService {
     this.emojiRepository = emojiRepository;
   }
 
+  private async validateThreadExists(threadId: string): Promise<boolean> {
+    const guild = this.client.guilds.cache.get(this.config.guildId);
+    
+    if (!guild) {
+      throw new Error(`Guild not found: ${this.config.guildId}`);
+    }
+
+    try {
+      const channel = await guild.channels.fetch(threadId);
+      return channel !== null;
+    } catch (error) {
+      if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownChannel) {
+        return false;
+      }
+
+      // Re-throw other API errors (rate limits, permissions, etc.)
+      throw error;
+    }
+  }
+
   private async getForumChannel(forumChannelId: string): Promise<ForumChannel> {
     // Ensure channel exists and is a forum channel
     const forumChannel = await this.client.channels.fetch(forumChannelId);
@@ -261,6 +281,20 @@ export class ThreadService {
   ): Promise<{ thread: Thread; isNew: boolean }> {
     // Double-check if thread exists (in case it was created while waiting for lock)
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
+    
+    if (thread) {
+      // Validate that the Discord thread still exists
+      const threadExists = await this.validateThreadExists(thread.channelId);
+
+      if (!threadExists) {
+        this.logger.debug(`Discord thread ${thread.channelId} was manually deleted, marking as closed`);
+        // Mark the thread as closed using existing repository method
+        await this.threadRepository.closeThread(thread.channelId, "");
+        // Reset thread to null so we create a new one
+        thread = null;
+      }
+    }
+
     const isNew = !thread;
 
     if (!thread) {
