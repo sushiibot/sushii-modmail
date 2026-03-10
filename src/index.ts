@@ -32,6 +32,7 @@ import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
 import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
 import { HealthcheckService } from "services/HealthcheckService";
+import * as Sentry from "@sentry/bun";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
@@ -119,6 +120,13 @@ function buildCommandRouter(
 }
 
 async function main() {
+  Sentry.init({
+    // DSN read from SENTRY_DSN env var
+    // Environment read from SENTRY_ENVIRONMENT env var
+    release: process.env.GIT_HASH,
+    tracesSampleRate: 0,
+  });
+
   const rawConfig = getConfigFromEnv();
   const config = BotConfig.fromConfigType(rawConfig);
 
