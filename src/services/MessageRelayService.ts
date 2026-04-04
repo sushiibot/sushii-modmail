@@ -236,6 +236,21 @@ export class MessageRelayService {
     threadId: string,
     message: UserToStaffMessage
   ): Promise<void> {
+    return withSpan(
+      "message.relay_edit_to_staff",
+      {
+        "thread.id": threadId,
+        "user.id": message.author.id,
+        "message.attachment_count": message.attachments.length,
+      },
+      async () => this._relayUserEditedMessageToStaff(threadId, message)
+    );
+  }
+
+  private async _relayUserEditedMessageToStaff(
+    threadId: string,
+    message: UserToStaffMessage
+  ): Promise<void> {
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
       throw new Error(`Channel not found: ${threadId}`);
@@ -392,6 +407,20 @@ export class MessageRelayService {
   }
 
   async relayUserDeletedMessageToStaff(
+    threadId: string,
+    messageId: string
+  ): Promise<void> {
+    return withSpan(
+      "message.relay_delete_to_staff",
+      {
+        "thread.id": threadId,
+        "message.id": messageId,
+      },
+      async () => this._relayUserDeletedMessageToStaff(threadId, messageId)
+    );
+  }
+
+  private async _relayUserDeletedMessageToStaff(
     threadId: string,
     messageId: string
   ): Promise<void> {
@@ -671,6 +700,22 @@ export class MessageRelayService {
     guild: UserThreadViewGuild,
     msg: StaffToUserMessage
   ): Promise<EditStaffMessageResult> {
+    return withSpan(
+      "message.edit_staff",
+      {
+        "message.id": staffViewMessageId,
+        "user.id": userId,
+      },
+      async () => this._editStaffMessage(staffViewMessageId, userId, guild, msg)
+    );
+  }
+
+  private async _editStaffMessage(
+    staffViewMessageId: string,
+    userId: string,
+    guild: UserThreadViewGuild,
+    msg: StaffToUserMessage
+  ): Promise<EditStaffMessageResult> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
 
@@ -798,6 +843,22 @@ export class MessageRelayService {
    * @param messageId The ID of the deleted message
    */
   async deleteStaffMessage(
+    recipientUserId: string,
+    staffViewMessageId: string,
+    deletedById: string
+  ): Promise<DeleteStaffMessageResult> {
+    return withSpan(
+      "message.delete_staff",
+      {
+        "message.id": staffViewMessageId,
+        "user.id": recipientUserId,
+        "deleted_by.id": deletedById,
+      },
+      async () => this._deleteStaffMessage(recipientUserId, staffViewMessageId, deletedById)
+    );
+  }
+
+  private async _deleteStaffMessage(
     recipientUserId: string,
     staffViewMessageId: string,
     deletedById: string
