@@ -1,3 +1,4 @@
+import { setupOtel } from "./instrumentation";
 import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { getConfigFromEnv, type ConfigType } from "./config/config";
 import logger, { initLogger } from "./utils/logger";
@@ -120,6 +121,8 @@ function buildCommandRouter(
 }
 
 async function main() {
+  const otel = setupOtel();
+
   Sentry.init({
     // DSN read from SENTRY_DSN env var
     // Environment read from SENTRY_ENVIRONMENT env var
@@ -177,15 +180,23 @@ async function main() {
   await client.login(config.discordToken);
 
   // Graceful shutdown handlers
-  const shutdown = (signal: string) => {
+  const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     healthcheckService.stop();
+    await otel.shutdown();
     client.destroy();
     process.exit(0);
   };
 
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  const handleSignal = (signal: string) =>
+    shutdown(signal).catch((err) => {
+      logger.error(err, "Error during shutdown");
+      process.exit(1);
+    });
+
+  process.on("SIGINT", () => handleSignal("SIGINT"));
+  process.on("SIGTERM", () => handleSignal("SIGTERM"));
+
 }
 
 main().catch((error) => {

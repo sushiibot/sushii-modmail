@@ -8,6 +8,8 @@ import {
 import { getLogger } from "../utils/logger";
 import type { UserToStaffMessage } from "../models/relayMessage";
 import type { LogService } from "../services/LogService";
+import { tracer } from "../tracing";
+import { SpanStatusCode } from "@opentelemetry/api";
 
 export interface MessageRelayService {
   relayUserMessageToStaff(
@@ -56,91 +58,111 @@ export class DMController {
   }
 
   async handleUserDM(client: Client, message: Message): Promise<void> {
-    try {
-      if (message.channel.type !== ChannelType.DM) {
-        return;
-      }
+    if (message.channel.type !== ChannelType.DM) {
+      return;
+    }
 
-      this.logger.debug(`Handling DM from ${message.author.tag}`);
+    if (message.author.bot) {
+      return;
+    }
 
-      if (message.author.bot) {
-        return;
-      }
+    const userId = message.author.id;
+    const forwarded = message.messageSnapshots.size > 0;
 
-      this.logger.debug(`Handling DM from ${message.author.tag}`);
+    // Not using withSpan here: the catch block handles errors gracefully
+    // (logs + notifies the user) without re-throwing, so withSpan's re-throw
+    // would change the behaviour. We record the exception manually instead.
+    await tracer.startActiveSpan("dm.receive", async (span) => {
+      span.setAttributes({
+        "user.id": userId,
+        "message.forwarded": forwarded,
+      });
 
-      const userId = message.author.id;
-      let { thread, isNew } = await this.threadService.getOrCreateThread(
-        userId,
-        message.author.username
-      );
+      try {
+        this.logger.debug(`Handling DM from ${message.author.tag}`);
 
-      let success = false;
-
-      if (message.messageSnapshots.size > 0) {
-        // Forwarded message
-        const snapshot = message.messageSnapshots.first()!;
-
-        success = await this.messageService.relayUserMessageToStaff(
-          thread.channelId,
-          {
-            // ThreadDB stores main message ID, not forwarded message ID
-            id: message.id,
-            author: message.author,
-            // Only use snapshot for the content itself
-            content: snapshot.content,
-            attachments: Array.from(snapshot.attachments.values()),
-            stickers: Array.from(snapshot.stickers.values()),
-            // Mark as forwarded
-            forwarded: true,
-            createdTimestamp: message.createdTimestamp,
-          }
+        let { thread, isNew } = await this.threadService.getOrCreateThread(
+          userId,
+          message.author.username
         );
-      } else {
-        // Normal message
-        success = await this.messageService.relayUserMessageToStaff(
-          thread.channelId,
-          {
-            ...message,
-            attachments: Array.from(message.attachments.values()),
-            stickers: Array.from(message.stickers.values()),
-          }
-        );
-      }
 
-      if (success) {
-        // React to the user's message to indicate that it was received
-        await message.react("✅");
+        span.setAttributes({
+          "thread.id": thread.channelId,
+          "thread.is_new": isNew,
+        });
 
-        // If this is a new thread, send the initial message
-        if (isNew) {
-          const content = await this.messageService.sendInitialMessageToUser(
-            userId
-          );
+        let success = false;
 
-          // Also relay the initial message to the staff -- just for transparency
-          // so staff knows what the user received, otherwise sometimes forget
-          // people get an initial message and less likely to adjust it if needed
+        if (forwarded) {
+          // Forwarded message
+          const snapshot = message.messageSnapshots.first()!;
 
-          this.messageService.sendInitialMessageToStaff(
+          success = await this.messageService.relayUserMessageToStaff(
             thread.channelId,
-            content
+            {
+              // ThreadDB stores main message ID, not forwarded message ID
+              id: message.id,
+              author: message.author,
+              // Only use snapshot for the content itself
+              content: snapshot.content,
+              attachments: Array.from(snapshot.attachments.values()),
+              stickers: Array.from(snapshot.stickers.values()),
+              // Mark as forwarded
+              forwarded: true,
+              createdTimestamp: message.createdTimestamp,
+            }
+          );
+        } else {
+          // Normal message
+          success = await this.messageService.relayUserMessageToStaff(
+            thread.channelId,
+            {
+              ...message,
+              attachments: Array.from(message.attachments.values()),
+              stickers: Array.from(message.stickers.values()),
+            }
           );
         }
+
+        if (success) {
+          // React to the user's message to indicate that it was received
+          await message.react("✅");
+
+          // If this is a new thread, send the initial message
+          if (isNew) {
+            const content = await this.messageService.sendInitialMessageToUser(
+              userId
+            );
+
+            // Also relay the initial message to the staff -- just for transparency
+            // so staff knows what the user received, otherwise sometimes forget
+            // people get an initial message and less likely to adjust it if needed
+
+            this.messageService.sendInitialMessageToStaff(
+              thread.channelId,
+              content
+            );
+          }
+        }
+      } catch (err) {
+        span.recordException(err instanceof Error ? err : String(err));
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
+
+        const contextMsg = `Error handling DM from ${
+          message.author?.tag || "unknown user"
+        }`;
+
+        // Log to both Discord and console via logService, include user's message
+        await this.logService.logError(err, contextMsg, this.constructor.name, message.content);
+
+        // Send an error message to the user
+        await message.author.send(
+          "An error occurred while processing your message. Please try again later or notify staff in the server."
+        );
+      } finally {
+        span.end();
       }
-    } catch (err) {
-      const contextMsg = `Error handling DM from ${
-        message.author?.tag || "unknown user"
-      }`;
-
-      // Log to both Discord and console via logService, include user's message
-      await this.logService.logError(err, contextMsg, this.constructor.name, message.content);
-
-      // Send an error message to the user
-      await message.author.send(
-        "An error occurred while processing your message. Please try again later or notify staff in the server."
-      );
-    }
+    });
   }
 
   async handleUserDMEdit(newMessage: Message): Promise<void> {

@@ -5,6 +5,7 @@ import type { Logger } from "pino";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { BotConfig } from "models/botConfig.model";
 import { CommandErrorView } from "views/CommandErrorView";
+import { withSpan } from "./tracing";
 
 interface CommandEntry {
   handler: TextCommandHandler | null;
@@ -272,7 +273,14 @@ export default class CommandRouter {
     }
 
     try {
-      await handler.handler(msg, args);
+      await withSpan(
+        "command.handle",
+        {
+          "command.name": commandName,
+          ...(subCommandName ? { "command.subcommand": subCommandName } : {}),
+        },
+        () => handler.handler(msg, args)
+      );
     } catch (error) {
       this.logger.error(
         error,

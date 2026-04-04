@@ -16,6 +16,7 @@ import type { runtimeConfig } from "database/schema";
 import type { UpdateConfig } from "repositories/runtimeConfig.repository";
 import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { getMutualServers } from "utils/mutualServers";
+import { withSpan } from "../tracing";
 
 // Global constant for the open tag name
 const OPEN_TAG_NAME = "Open";
@@ -249,29 +250,31 @@ export class ThreadService {
     username: string,
     forceSilent?: boolean
   ): Promise<{ thread: Thread; isNew: boolean }> {
-    // Check if there's already a thread creation in progress for this user
-    const existingLock = this.threadCreationLocks.get(userId);
-    if (existingLock) {
-      // Wait for the existing creation to complete and return the thread
-      // For concurrent requests, isNew is false since they didn't create the thread
-      const result = await existingLock;
-      return { thread: result.thread, isNew: false };
-    }
+    return withSpan("thread.get_or_create", { "user.id": userId }, async () => {
+      // Check if there's already a thread creation in progress for this user
+      const existingLock = this.threadCreationLocks.get(userId);
+      if (existingLock) {
+        // Wait for the existing creation to complete and return the thread
+        // For concurrent requests, isNew is false since they didn't create the thread
+        const result = await existingLock;
+        return { thread: result.thread, isNew: false };
+      }
 
-    // Create a new promise for this thread creation
-    const creationPromise = this.doGetOrCreateThreadInternal(userId, username, forceSilent);
+      // Create a new promise for this thread creation
+      const creationPromise = this.doGetOrCreateThreadInternal(userId, username, forceSilent);
 
-    // Store it in the map to block other concurrent requests. Safe to do right
-    // after creating the promise since it's non-async
-    this.threadCreationLocks.set(userId, creationPromise);
+      // Store it in the map to block other concurrent requests. Safe to do right
+      // after creating the promise since it's non-async
+      this.threadCreationLocks.set(userId, creationPromise);
 
-    try {
-      const result = await creationPromise;
-      return result;
-    } finally {
-      // Always clean up the lock when done (success or failure)
-      this.threadCreationLocks.delete(userId);
-    }
+      try {
+        const result = await creationPromise;
+        return result;
+      } finally {
+        // Always clean up the lock when done (success or failure)
+        this.threadCreationLocks.delete(userId);
+      }
+    });
   }
 
   private async doGetOrCreateThreadInternal(
@@ -412,59 +415,61 @@ export class ThreadService {
     userId: string,
     closeReason?: string
   ): Promise<void> {
-    const threadChannel = await this.client.channels.fetch(thread.channelId);
-    if (!threadChannel) {
-      throw new Error(`Thread channel not found: ${thread.channelId}`);
-    }
+    return withSpan("thread.close", { "thread.id": thread.channelId, "user.id": userId }, async () => {
+      const threadChannel = await this.client.channels.fetch(thread.channelId);
+      if (!threadChannel) {
+        throw new Error(`Thread channel not found: ${thread.channelId}`);
+      }
 
-    if (!threadChannel.isThread()) {
-      throw new Error(`Not thread: ${thread.channelId}`);
-    }
+      if (!threadChannel.isThread()) {
+        throw new Error(`Not thread: ${thread.channelId}`);
+      }
 
-    this.logger.debug(`Locking and closing thread: ${thread.channelId}`);
+      this.logger.debug(`Locking and closing thread: ${thread.channelId}`);
 
-    // Send closed message with embed and jump link
-    const closedMessage = StaffThreadView.threadClosedMessage(
-      thread.originalMessageLink,
-      closeReason
-    );
-    await threadChannel.send(closedMessage);
+      // Send closed message with embed and jump link
+      const closedMessage = StaffThreadView.threadClosedMessage(
+        thread.originalMessageLink,
+        closeReason
+      );
+      await threadChannel.send(closedMessage);
 
-    const config = await this.runtimeConfigRepository.getConfig(
-      this.config.guildId
-    );
+      const config = await this.runtimeConfigRepository.getConfig(
+        this.config.guildId
+      );
 
-    // Remove open tag, but keep the rest if there's any custom
-    const remainingTags = threadChannel.appliedTags.filter(
-      (tagId) => tagId !== config.openTagId
-    );
+      // Remove open tag, but keep the rest if there's any custom
+      const remainingTags = threadChannel.appliedTags.filter(
+        (tagId) => tagId !== config.openTagId
+      );
 
-    // Get / create closed tag
-    let closedTagId = await this.getClosedTagId();
+      // Get / create closed tag
+      let closedTagId = await this.getClosedTagId();
 
-    // Push closed tag if not already present
-    if (!remainingTags.includes(closedTagId)) {
-      remainingTags.push(closedTagId);
-    }
+      // Push closed tag if not already present
+      if (!remainingTags.includes(closedTagId)) {
+        remainingTags.push(closedTagId);
+      }
 
-    this.logger.debug(
-      {
-        threadId: thread.channelId,
-        userId: userId,
-        remainingTags: remainingTags,
-      },
-      `Closing thread`
-    );
+      this.logger.debug(
+        {
+          threadId: thread.channelId,
+          userId: userId,
+          remainingTags: remainingTags,
+        },
+        `Closing thread`
+      );
 
-    // Lock and close the forum thread as completed
-    await threadChannel.edit({
-      archived: true,
-      locked: true,
-      appliedTags: remainingTags,
+      // Lock and close the forum thread as completed
+      await threadChannel.edit({
+        archived: true,
+        locked: true,
+        appliedTags: remainingTags,
+      });
+
+      // Mark as closed in db
+      await this.threadRepository.closeThread(thread.channelId, userId);
     });
-
-    // Mark as closed in db
-    await this.threadRepository.closeThread(thread.channelId, userId);
   }
 
   /**

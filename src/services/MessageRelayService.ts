@@ -33,6 +33,7 @@ import {
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 import type { MessageVersion } from "models/messageVersion.model";
+import { withSpan } from "../tracing";
 
 interface Config {
   guildId: string;
@@ -135,6 +136,22 @@ export class MessageRelayService {
   // User -> Staff
 
   async relayUserMessageToStaff(
+    threadId: string,
+    message: UserToStaffMessage
+  ): Promise<boolean> {
+    return withSpan(
+      "message.relay_to_staff",
+      {
+        "thread.id": threadId,
+        "user.id": message.author.id,
+        "message.forwarded": message.forwarded ?? false,
+        "message.attachment_count": message.attachments.length,
+      },
+      async () => this._relayUserMessageToStaff(threadId, message)
+    );
+  }
+
+  private async _relayUserMessageToStaff(
     threadId: string,
     message: UserToStaffMessage
   ): Promise<boolean> {
@@ -424,6 +441,26 @@ export class MessageRelayService {
     guild: UserThreadViewGuild,
     msg: StaffToUserMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
+  ): Promise<void> {
+    return withSpan(
+      "message.relay_to_user",
+      {
+        "thread.id": threadId,
+        "user.id": userId,
+        "message.anonymous": options.anonymous,
+        "message.plain_text": options.plainText,
+        "message.is_snippet": options.snippet,
+      },
+      async () => this._relayStaffMessageToUser(threadId, userId, guild, msg, options)
+    );
+  }
+
+  private async _relayStaffMessageToUser(
+    threadId: string,
+    userId: string,
+    guild: UserThreadViewGuild,
+    msg: StaffToUserMessage,
+    options: StaffMessageOptions
   ): Promise<void> {
     // Fetch the user to DM
     const user = await this.client.users.fetch(userId);
