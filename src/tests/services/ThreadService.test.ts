@@ -313,7 +313,7 @@ describe("ThreadService", () => {
 
       // Mock guild and channel fetch for thread validation
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
-      guildMock.channels = { fetch: mock(() => Promise.resolve({})) } as any;
+      guildMock.channels = { fetch: mock(() => Promise.resolve({ isThread: () => true, archived: false, locked: false })) } as any;
 
       mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(
         existingThread
@@ -402,7 +402,7 @@ describe("ThreadService", () => {
 
       // Mock guild and channel fetch for thread validation
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
-      guildMock.channels = { fetch: mock(() => Promise.resolve({})) } as any;
+      guildMock.channels = { fetch: mock(() => Promise.resolve({ isThread: () => true, archived: false, locked: false })) } as any;
 
       // Mock the repository to return existing thread
       mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(existingThread);
