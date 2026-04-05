@@ -93,7 +93,21 @@ export class ThreadService {
 
     try {
       const channel = await guild.channels.fetch(threadId);
-      return channel !== null;
+      if (!channel || !channel.isThread()) {
+        return false;
+      }
+
+      // Treat archived or locked threads as gone — close the DB record and
+      // create a fresh thread. Discord allows sending to archived threads
+      // (auto-unarchive), but discord.js throws locally before hitting the API,
+      // so the relay silently fails. More importantly, reviving an archived
+      // thread means new DMs land in a conversation mods already considered
+      // closed and won't be watching.
+      if (channel.archived || channel.locked) {
+        return false;
+      }
+
+      return true;
     } catch (error) {
       if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownChannel) {
         return false;
