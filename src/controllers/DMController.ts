@@ -152,13 +152,18 @@ export class DMController {
           message.author?.tag || "unknown user"
         }`;
 
-        // Log to both Discord and console via logService, include user's message
-        await this.logService.logError(err, contextMsg, this.constructor.name, message.content);
+        try {
+          // Log to both Discord and console via logService, include user's message
+          await this.logService.logError(err, contextMsg, this.constructor.name, message.content);
 
-        // Send an error message to the user
-        await message.author.send(
-          "An error occurred while processing your message. Please try again later or notify staff in the server."
-        );
+          // Send an error message to the user
+          await message.author.send(
+            "An error occurred while processing your message. Please try again later or notify staff in the server."
+          );
+        } catch (notifyErr) {
+          // Last-resort console log so errors are never silently swallowed
+          this.logger.error({ err, notifyErr }, contextMsg);
+        }
       } finally {
         span.end();
       }
