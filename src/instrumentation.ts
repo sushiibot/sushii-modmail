@@ -1,20 +1,23 @@
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
-import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
 } from "@opentelemetry/sdk-metrics";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-grpc";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import {
-  defaultResource,
+  detectResources,
+  envDetector,
   resourceFromAttributes,
 } from "@opentelemetry/resources";
 import { ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
-import { metrics, trace } from "@opentelemetry/api";
+import { context, metrics, trace } from "@opentelemetry/api";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
 
-// Standard OTel env vars (read automatically by the SDK):
-//   OTEL_EXPORTER_OTLP_ENDPOINT     — gRPC collector (default: http://localhost:4317)
+// Standard OTel env vars (read via envDetector below):
+//   OTEL_EXPORTER_OTLP_ENDPOINT     — HTTP collector (default: http://localhost:4318)
 //   OTEL_EXPORTER_OTLP_HEADERS      — auth headers (key=value,key2=value2)
 //   OTEL_SERVICE_NAME               — service name
 //   OTEL_RESOURCE_ATTRIBUTES        — e.g. deployment.environment=production
@@ -26,15 +29,15 @@ import { metrics, trace } from "@opentelemetry/api";
 //                                     (PeriodicExportingMetricReader doesn't read this automatically)
 
 export interface OtelSDK {
-  tracerProvider: NodeTracerProvider;
+  tracerProvider: BasicTracerProvider;
   meterProvider: MeterProvider;
   shutdown: () => Promise<void>;
 }
 
 export function setupOtel(): OtelSDK {
-  // defaultResource() already reads OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES.
-  // We only need to merge our custom GIT_HASH → service.version mapping.
-  const resource = defaultResource().merge(
+  // BasicTracerProvider doesn't auto-read OTEL_* env vars — use envDetector explicitly.
+  // envDetector reads OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES.
+  const resource = detectResources({ detectors: [envDetector] }).merge(
     resourceFromAttributes({
       [ATTR_SERVICE_VERSION]: process.env.GIT_HASH ?? "unknown",
     })
@@ -44,11 +47,23 @@ export function setupOtel(): OtelSDK {
   // Traces
   // ---------------------------------------------------------------------------
   const traceExporter = new OTLPTraceExporter();
-  const tracerProvider = new NodeTracerProvider({
+  const tracerProvider = new BasicTracerProvider({
     resource,
     spanProcessors: [new BatchSpanProcessor(traceExporter)],
   });
-  tracerProvider.register(); // also calls trace.setGlobalTracerProvider internally
+  trace.setGlobalTracerProvider(tracerProvider);
+
+  // AsyncLocalStorage is supported by Bun — use it for context propagation so
+  // that startActiveSpan correctly tracks parent-child span relationships.
+  const contextManager = new AsyncLocalStorageContextManager();
+  contextManager.enable();
+  context.setGlobalContextManager(contextManager);
+
+  // diagnostics_channel-based — no module patching, works in Bun.
+  // Captures all undici HTTP requests, including those made by discord.js.
+  registerInstrumentations({
+    instrumentations: [new UndiciInstrumentation()],
+  });
 
   // ---------------------------------------------------------------------------
   // Metrics
