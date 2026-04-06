@@ -193,6 +193,16 @@ export function registerEventHandlers(
         return;
       }
 
+      logger.debug(
+        {
+          messageId: message.id,
+          userId: message.author.id,
+          guildId: message.guildId ?? null,
+          channelType: message.channel.type,
+        },
+        "MessageCreate event received"
+      );
+
       await Promise.allSettled([
         commandRouter.handleMessage(message),
         dmController.handleUserDM(message.client, message),
