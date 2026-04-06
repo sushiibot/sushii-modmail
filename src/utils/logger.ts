@@ -4,11 +4,15 @@ import pino from "pino";
 const logger = pino({
   level: "debug",
   mixin() {
-    const span = trace.getActiveSpan();
-    if (!span) return {};
-    const { traceId, spanId, traceFlags } = span.spanContext();
-    if (!traceId) return {};
-    return { trace_id: traceId, span_id: spanId, trace_flags: traceFlags };
+    const spanContext = trace.getActiveSpan()?.spanContext();
+    if (!spanContext?.traceId) {
+      return {};
+    }
+    return {
+      trace_id: spanContext.traceId,
+      span_id: spanContext.spanId,
+      trace_flags: spanContext.traceFlags,
+    };
   },
 });
 
