@@ -182,8 +182,28 @@ export class MessageRelayService {
       throw new Error(`Channel not found: ${threadId}`);
     }
 
-    if (!threadChannel.isSendable()) {
-      throw new Error(`Cannot send to channel: ${threadId}`);
+    this.logger.debug(
+      {
+        threadId,
+        channelType: threadChannel.type,
+        isSendable: threadChannel.isSendable(),
+        isThread: threadChannel.isThread(),
+        ...(threadChannel.isThread() ? {
+          archived: threadChannel.archived,
+          locked: threadChannel.locked,
+        } : {}),
+      },
+      "Thread channel fetched for relay"
+    );
+
+    // Intentionally do NOT gate on isSendable() here. isSendable() relies on
+    // guild.members.me being cached for permission checks, which may not be
+    // true right after a bot restart — causing a false-negative that silently
+    // drops the message. The thread's existence and state (not locked/archived)
+    // were already verified by validateThreadExists. If Discord rejects the send
+    // (e.g. 403 Missing Permissions), the API error will propagate naturally.
+    if (!threadChannel.isThread()) {
+      throw new Error(`Channel is not a thread: ${threadId}`);
     }
 
     this.logger.debug(

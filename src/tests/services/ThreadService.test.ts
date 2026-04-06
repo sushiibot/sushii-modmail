@@ -473,31 +473,31 @@ describe("ThreadService", () => {
       expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(existingThread.channelId, "0");
     });
 
-    it("should create new thread when existing Discord thread is archived", async () => {
+    it("should unarchive and reuse thread when existing Discord thread is auto-archived (not locked)", async () => {
       const username = "testuser";
       const existingThread = mockThread();
       const userId = existingThread.userId;
-      const newThread = mockThread();
 
+      const setArchived = mock(() => Promise.resolve());
       spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
-      // Archived thread — validateThreadExists should return false
+      // Auto-archived (not locked) thread — should be unarchived and reused
       guildMock.channels = {
         fetch: mock(() =>
-          Promise.resolve({ isThread: () => true, archived: true, locked: false })
+          Promise.resolve({ isThread: () => true, archived: true, locked: false, setArchived })
         ),
       } as any;
 
       mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(existingThread);
-      spyOn(threadService as any, "createNewThread").mockResolvedValue(newThread);
 
       const { thread, isNew } = await threadService.getOrCreateThread(userId, username);
 
-      expect(isNew).toBe(true);
-      expect(thread).toBe(newThread);
-      expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(
-        existingThread.channelId,
-        "0"
-      );
+      // Should NOT create a new thread — should reuse existing
+      expect(isNew).toBe(false);
+      expect(thread).toBe(existingThread);
+      // Should have unarchived the thread
+      expect(setArchived).toHaveBeenCalledWith(false, "Unarchiving for continued modmail conversation");
+      // Should NOT have closed the DB record
+      expect(mockThreadRepository.closeThread).not.toHaveBeenCalled();
     });
 
     it("should create new thread when existing Discord thread is locked", async () => {

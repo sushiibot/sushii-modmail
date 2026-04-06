@@ -101,13 +101,34 @@ export class ThreadService {
         return false;
       }
 
-      // Treat archived or locked threads as gone — close the DB record and
-      // create a fresh thread. Archived threads would be auto-unarchived by
-      // Discord when the bot sends to them, but that revives a conversation
-      // mods already considered closed. Locked threads will reject the send
-      // with 403 if the bot lacks MANAGE_THREADS, causing a silent failure.
-      if (channel.archived || channel.locked) {
+      // Locked threads were explicitly closed by staff (closeThread sets both
+      // archived+locked). Treat them as gone — close the DB record and create
+      // a fresh thread.
+      if (channel.locked) {
         return false;
+      }
+
+      // Auto-archived (archived but NOT locked) means Discord silently archived
+      // the thread due to inactivity — the conversation is not intentionally
+      // closed. Unarchive it so the DM can be relayed to the existing thread.
+      // discord.js refuses to send to an archived thread client-side, so we
+      // must unarchive before returning true.
+      if (channel.archived) {
+        try {
+          await channel.setArchived(false, "Unarchiving for continued modmail conversation");
+          this.logger.info(
+            { threadId },
+            "Auto-archived thread unarchived, continuing existing conversation"
+          );
+        } catch (unarchiveErr) {
+          // If we can't unarchive (e.g. missing MANAGE_THREADS), fall back to
+          // creating a new thread so the message isn't lost.
+          this.logger.error(
+            { threadId, err: unarchiveErr },
+            "Failed to unarchive thread, treating as closed and creating new thread"
+          );
+          return false;
+        }
       }
 
       return true;
@@ -301,27 +322,44 @@ export class ThreadService {
   ): Promise<{ thread: Thread; isNew: boolean }> {
     // Double-check if thread exists (in case it was created while waiting for lock)
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
-    
+
+    this.logger.debug(
+      { userId, threadId: thread?.channelId ?? null },
+      thread ? "Found open thread in DB, validating Discord state" : "No open thread in DB, will create new thread"
+    );
+
     if (thread) {
       // Validate that the Discord thread still exists
       const threadExists = await this.validateThreadExists(thread.channelId);
 
       if (!threadExists) {
-        this.logger.debug(`Discord thread ${thread.channelId} was manually deleted, marking as closed`);
+        this.logger.info(
+          { threadId: thread.channelId, userId },
+          "Discord thread is locked/deleted — closing DB record and creating new thread"
+        );
         // Mark the thread as closed using existing repository method.
         // "0" signals a system/bot close (no specific user), consistent
         // with how MessageRelayService closes orphaned threads.
         await this.threadRepository.closeThread(thread.channelId, "0");
         // Reset thread to null so we create a new one
         thread = null;
+      } else {
+        this.logger.debug(
+          { threadId: thread.channelId, userId },
+          "Existing Discord thread is valid, reusing"
+        );
       }
     }
 
     const isNew = !thread;
 
     if (!thread) {
-      this.logger.debug(`Creating new thread for user ${userId}`);
+      this.logger.debug({ userId }, "Creating new thread for user");
       thread = await this.createNewThread(userId, username, forceSilent);
+      this.logger.info(
+        { threadId: thread.channelId, userId },
+        "New thread created"
+      );
     }
 
     return { thread, isNew };

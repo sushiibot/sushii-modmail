@@ -79,11 +79,19 @@ export class DMController {
       });
 
       try {
-        this.logger.debug(`Handling DM from ${message.author.tag}`);
+        this.logger.info(
+          { userId, messageId: message.id, forwarded },
+          `Received DM from ${message.author.tag}`
+        );
 
         let { thread, isNew } = await this.threadService.getOrCreateThread(
           userId,
           message.author.username
+        );
+
+        this.logger.info(
+          { threadId: thread.channelId, isNew, userId },
+          `Got thread for DM, relaying to staff`
         );
 
         span.setAttributes({
@@ -123,6 +131,11 @@ export class DMController {
             }
           );
         }
+
+        this.logger.info(
+          { threadId: thread.channelId, userId, success },
+          "Relay attempt complete"
+        );
 
         if (success) {
           // React to the user's message to indicate that it was received

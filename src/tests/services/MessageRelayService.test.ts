@@ -101,6 +101,7 @@ describe("MessageRelayService", () => {
       const threadChannel = {
         send: mock().mockResolvedValue({ id: "relayed-message-id" }),
         isSendable: mock().mockReturnValue(true),
+        isThread: mock().mockReturnValue(true),
       } as unknown as TextChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
@@ -160,6 +161,7 @@ describe("MessageRelayService", () => {
       const threadChannel = {
         send: mock().mockResolvedValue({ id: "relayed-message-id" }),
         isSendable: mock().mockReturnValue(true),
+        isThread: mock().mockReturnValue(true),
       } as unknown as TextChannel;
 
       spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
@@ -219,7 +221,7 @@ describe("MessageRelayService", () => {
       ).rejects.toThrow(`Channel not found: ${channelId}`);
     });
 
-    it("should throw an error if channel is not sendable", async () => {
+    it("should throw an error if channel is not a thread", async () => {
       const channelId = randomSnowflakeID();
       const message: UserToStaffMessage = {
         id: randomSnowflakeID(),
@@ -235,15 +237,19 @@ describe("MessageRelayService", () => {
         createdTimestamp: Date.now(),
       };
 
-      const threadChannel = {
-        isSendable: mock().mockReturnValue(false),
+      // A non-thread channel (e.g. regular text channel) should be rejected.
+      // We no longer gate on isSendable() since it can return false after restart
+      // due to guild.members.me not being cached yet.
+      const nonThreadChannel = {
+        isSendable: mock().mockReturnValue(true),
+        isThread: mock().mockReturnValue(false),
       } as unknown as TextChannel;
 
-      spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
+      spyOn(client.channels, "fetch").mockResolvedValue(nonThreadChannel);
 
       expect(
         service.relayUserMessageToStaff(channelId, message)
-      ).rejects.toThrow(`Cannot send to channel: ${channelId}`);
+      ).rejects.toThrow(`Channel is not a thread: ${channelId}`);
     });
   });
 
