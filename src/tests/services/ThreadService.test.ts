@@ -59,6 +59,13 @@ describe("ThreadService", () => {
   let guildMock: Guild;
 
   beforeEach(() => {
+    // Reset shared repository mocks between tests so call history doesn't bleed
+    mockThreadRepository.getOpenThreadByUserID.mockReset();
+    mockThreadRepository.getThreadByChannelId.mockReset();
+    mockThreadRepository.getLatestThreadsByUserId.mockReset();
+    mockThreadRepository.createThread.mockReset();
+    mockThreadRepository.closeThread.mockReset();
+
     config = {
       guildId: randomSnowflakeID(),
     } as unknown as BotConfig;
@@ -462,8 +469,62 @@ describe("ThreadService", () => {
       expect(isNew).toBe(true);
       expect(thread).toBe(newThread);
       
-      // Verify existing thread was marked as closed
-      expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(existingThread.channelId, "");
+      // Verify existing thread was marked as closed (system close, no specific user)
+      expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(existingThread.channelId, "0");
+    });
+
+    it("should create new thread when existing Discord thread is archived", async () => {
+      const username = "testuser";
+      const existingThread = mockThread();
+      const userId = existingThread.userId;
+      const newThread = mockThread();
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      // Archived thread — validateThreadExists should return false
+      guildMock.channels = {
+        fetch: mock(() =>
+          Promise.resolve({ isThread: () => true, archived: true, locked: false })
+        ),
+      } as any;
+
+      mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(existingThread);
+      spyOn(threadService as any, "createNewThread").mockResolvedValue(newThread);
+
+      const { thread, isNew } = await threadService.getOrCreateThread(userId, username);
+
+      expect(isNew).toBe(true);
+      expect(thread).toBe(newThread);
+      expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(
+        existingThread.channelId,
+        "0"
+      );
+    });
+
+    it("should create new thread when existing Discord thread is locked", async () => {
+      const username = "testuser";
+      const existingThread = mockThread();
+      const userId = existingThread.userId;
+      const newThread = mockThread();
+
+      spyOn(client.guilds.cache, "get").mockReturnValue(guildMock);
+      // Locked (but not necessarily archived) thread
+      guildMock.channels = {
+        fetch: mock(() =>
+          Promise.resolve({ isThread: () => true, archived: false, locked: true })
+        ),
+      } as any;
+
+      mockThreadRepository.getOpenThreadByUserID.mockResolvedValue(existingThread);
+      spyOn(threadService as any, "createNewThread").mockResolvedValue(newThread);
+
+      const { thread, isNew } = await threadService.getOrCreateThread(userId, username);
+
+      expect(isNew).toBe(true);
+      expect(thread).toBe(newThread);
+      expect(mockThreadRepository.closeThread).toHaveBeenCalledWith(
+        existingThread.channelId,
+        "0"
+      );
     });
 
     it("should clean up lock on thread creation failure", async () => {

@@ -92,17 +92,20 @@ export class ThreadService {
     }
 
     try {
-      const channel = await guild.channels.fetch(threadId);
+      // force: true bypasses the discord.js channel cache. Without it,
+      // a thread that was archived/locked externally (while the bot was
+      // running) can be returned as still-active from the stale cache,
+      // letting the relay silently fail or auto-revive a closed thread.
+      const channel = await guild.channels.fetch(threadId, { force: true });
       if (!channel || !channel.isThread()) {
         return false;
       }
 
       // Treat archived or locked threads as gone — close the DB record and
-      // create a fresh thread. Discord allows sending to archived threads
-      // (auto-unarchive), but discord.js throws locally before hitting the API,
-      // so the relay silently fails. More importantly, reviving an archived
-      // thread means new DMs land in a conversation mods already considered
-      // closed and won't be watching.
+      // create a fresh thread. Archived threads would be auto-unarchived by
+      // Discord when the bot sends to them, but that revives a conversation
+      // mods already considered closed. Locked threads will reject the send
+      // with 403 if the bot lacks MANAGE_THREADS, causing a silent failure.
       if (channel.archived || channel.locked) {
         return false;
       }
@@ -305,8 +308,10 @@ export class ThreadService {
 
       if (!threadExists) {
         this.logger.debug(`Discord thread ${thread.channelId} was manually deleted, marking as closed`);
-        // Mark the thread as closed using existing repository method
-        await this.threadRepository.closeThread(thread.channelId, "");
+        // Mark the thread as closed using existing repository method.
+        // "0" signals a system/bot close (no specific user), consistent
+        // with how MessageRelayService closes orphaned threads.
+        await this.threadRepository.closeThread(thread.channelId, "0");
         // Reset thread to null so we create a new one
         thread = null;
       }
@@ -413,7 +418,7 @@ export class ThreadService {
 
     // -------------------------------------------------------------------------
     // Save to database
-    const thread = this.threadRepository.createThread(
+    const thread = await this.threadRepository.createThread(
       discordThread.guildId,
       userId,
       discordThread.id
