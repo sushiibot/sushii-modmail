@@ -184,23 +184,25 @@ export class SnippetCommandView {
   }
 
   static snippetList(snippets: Snippet[]): MessageCreateOptions {
+    const PREVIEW_MAX = 80;
+
     const snippetStringItems = snippets.map((snippet) => {
-      let s = `### \`${snippet.name}\``;
-      s += "\n";
+      const firstLine = snippet.content.split("\n")[0];
+      const preview =
+        firstLine.length > PREVIEW_MAX
+          ? firstLine.slice(0, PREVIEW_MAX) + "…"
+          : firstLine;
 
-      // Add a > to the start of each line
-      s += quoteText(snippet.content);
-
-      return s;
+      return `• \`${snippet.name}\`\n> ${preview}`;
     });
-
-    const snippetString = snippetStringItems.join("\n");
 
     const embed = new EmbedBuilder()
       .setTitle("Available Snippets")
       .setColor(Color.Purple)
-      .setDescription(snippetString)
-      .setFooter({ text: `Total snippets: ${snippets.length}` });
+      .setDescription(snippetStringItems.join("\n\n"))
+      .setFooter({
+        text: `${snippets.length} snippet${snippets.length === 1 ? "" : "s"} — use !snippet <name> to view full content`,
+      });
 
     return { embeds: [embed], allowedMentions: { parse: [] } };
   }
