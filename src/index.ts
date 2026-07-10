@@ -1,6 +1,7 @@
 import { setupOtel } from "./instrumentation";
 import { Client, GatewayIntentBits, Partials } from "discord.js";
-import { getConfigFromEnv, type ConfigType } from "./config/config";
+import { getConfigFromEnv } from "./config/config";
+import { EnvBotRegistry, type BotRosterEntry } from "./config/botRegistry";
 import logger, { initLogger } from "./utils/logger";
 import CommandRouter from "./CommandRouter";
 import dotenv from "dotenv";
@@ -11,7 +12,7 @@ import { MessageRelayService } from "services/MessageRelayService";
 import { ThreadService } from "services/ThreadService";
 import { ThreadRepository } from "repositories/thread.repository";
 import { AnonymousReplyCommand } from "commands/reply/AnonymousReplyCommand";
-import { BotConfig } from "models/botConfig.model";
+import { BotConfig, type GlobalConfig } from "models/botConfig.model";
 import { CloseCommand } from "commands/CloseCommand";
 import { LogsCommand } from "commands/LogsCommand";
 import { PlainReplyCommand } from "commands/reply/PlainReplyCommand";
@@ -32,7 +33,7 @@ import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
 import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
-import { HealthcheckService } from "services/HealthcheckService";
+import { HealthcheckService, type BotInstance } from "services/HealthcheckService";
 import * as Sentry from "@sentry/bun";
 
 // Load environment variables from .env file, mostly for development
@@ -45,9 +46,12 @@ function buildCommandRouter(
 ): CommandRouter {
   const threadRepository = new ThreadRepository(db);
   const snippetRepository = new SnippetRepository(db);
-  const runtimeConfigRepository = new RuntimeConfigRepository(db);
+  const runtimeConfigRepository = new RuntimeConfigRepository(
+    db,
+    config.discordClientId
+  );
   const messageRepository = new MessageRepository(db);
-  const botEmojiRepository = new BotEmojiRepository(db);
+  const botEmojiRepository = new BotEmojiRepository(db, config.discordClientId);
 
   const threadService = new ThreadService(
     config,
@@ -120,24 +124,24 @@ function buildCommandRouter(
   return router;
 }
 
-async function main() {
-  const otel = setupOtel();
+interface StartedBot {
+  config: BotConfig;
+  client: Client;
+}
 
-  Sentry.init({
-    // DSN read from SENTRY_DSN env var
-    // Environment read from SENTRY_ENVIRONMENT env var
-    release: process.env.GIT_HASH,
-    tracesSampleRate: 0,
-  });
-
-  const rawConfig = getConfigFromEnv();
-  const config = BotConfig.fromConfigType(rawConfig);
-
-  // Update log level from config
-  logger.info(`Setting log level to ${config.logLevel}`);
-  initLogger(config.logLevel);
-
-  const db = getDb(config.databaseUri);
+/**
+ * Builds the client, command router, and event handlers for one roster
+ * entry -- everything up to (but not including) the Discord login. Kept
+ * separate from the login step so the healthcheck server can start, and
+ * report every bot's status, before any login has settled (see
+ * startBot's login step below).
+ */
+function createBot(
+  entry: BotRosterEntry,
+  globals: GlobalConfig,
+  db: DB
+): StartedBot {
+  const config = BotConfig.fromRosterEntry(entry, globals);
 
   const client = new Client({
     intents: [
@@ -163,28 +167,127 @@ async function main() {
     ],
   });
 
-  // Start healthcheck server before Discord client
-  const healthcheckService = new HealthcheckService(client, config.healthcheckPort);
-  healthcheckService.start();
-
-  logger.info("Initializing command router...");
+  logger.info({ bot: config.name }, "Initializing command router...");
   const router = buildCommandRouter(config, client, db);
 
-  // Event handlers
-  logger.info("Registering event handlers...");
+  logger.info({ bot: config.name }, "Registering event handlers...");
   registerEventHandlers(config, client, db, router);
 
-  logger.info("Starting Discord client...");
+  return { config, client };
+}
 
-  // Start client, connect to Discord gateway and listen for events
-  await client.login(config.discordToken);
+async function loginBot(bot: StartedBot): Promise<void> {
+  logger.info({ bot: bot.config.name }, "Starting Discord client...");
+  await bot.client.login(bot.config.discordToken);
+}
+
+async function main() {
+  const otel = setupOtel();
+
+  Sentry.init({
+    // DSN read from SENTRY_DSN env var
+    // Environment read from SENTRY_ENVIRONMENT env var
+    release: process.env.GIT_HASH,
+    tracesSampleRate: 0,
+  });
+
+  // unhandledRejection/uncaughtException didn't exist before this change,
+  // since a crash previously just took down one single-bot container. Now
+  // an error in one bot's event handler must not kill the others sharing
+  // this process -- log and continue rather than process.exit().
+  //
+  // This is a deliberate, incomplete mitigation (see design.md Risks): it
+  // covers the common case of an unhandled rejection/exception deep in a
+  // discord.js event callback, but a genuinely corrupted process state
+  // (e.g. a synchronous stack overflow) can still leave things in a bad
+  // spot after an uncaughtException specifically -- Node's own guidance
+  // is to treat that handler as a last-resort log-and-exit, not a resume
+  // point. The log-and-continue choice here trades that residual risk for
+  // not taking every other bot down over one bad event handler; revisit
+  // if it proves insufficient in production.
+  process.on("unhandledRejection", (reason) => {
+    logger.error({ err: reason }, "Unhandled promise rejection");
+  });
+
+  process.on("uncaughtException", (err) => {
+    logger.error({ err }, "Uncaught exception");
+  });
+
+  const globals = getConfigFromEnv();
+
+  // Update log level from config
+  logger.info(`Setting log level to ${globals.LOG_LEVEL}`);
+  initLogger(globals.LOG_LEVEL);
+
+  const db = getDb(globals.DATABASE_URI);
+
+  const registry = new EnvBotRegistry();
+  const roster = await registry.getBotConfigs();
+
+  // Construct every bot's client/router/handlers (fast, no network I/O)
+  // before starting the healthcheck server or attempting any login. A bad
+  // roster entry (rare -- this is DI wiring, not I/O) is isolated the
+  // same way a failed login is below, not allowed to take down the batch.
+  const bots: StartedBot[] = [];
+  for (const entry of roster) {
+    try {
+      bots.push(createBot(entry, globals, db));
+    } catch (err) {
+      logger.error(
+        { err, bot: entry.name },
+        `Failed to initialize bot "${entry.name}"`
+      );
+    }
+  }
+
+  if (bots.length === 0) {
+    throw new Error("All bots failed to initialize");
+  }
+
+  // Start the healthcheck server before any login attempt completes, with
+  // every constructed client (including ones whose login later fails or
+  // hangs) -- /live must not depend on login completing, and a failed
+  // login must show as unhealthy rather than silently disappearing from
+  // /ready. getSummary() reads client.isReady()/ws.status live, so this
+  // reflects each bot's real-time status regardless of when/whether its
+  // login settles.
+  const healthInstances: BotInstance[] = bots.map((b) => ({
+    name: b.config.name,
+    client: b.client,
+  }));
+  const healthcheckService = new HealthcheckService(
+    healthInstances,
+    globals.HEALTHCHECK_PORT
+  );
+  healthcheckService.start();
+
+  const loginResults = await Promise.allSettled(bots.map(loginBot));
+
+  let loggedInCount = 0;
+  for (const [i, result] of loginResults.entries()) {
+    if (result.status === "fulfilled") {
+      loggedInCount += 1;
+    } else {
+      logger.error(
+        { err: result.reason, bot: bots[i].config.name },
+        `Failed to log in bot "${bots[i].config.name}"`
+      );
+    }
+  }
+
+  if (loggedInCount === 0) {
+    healthcheckService.stop();
+    throw new Error("All bots failed to log in");
+  }
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     healthcheckService.stop();
     await otel.shutdown();
-    client.destroy();
+    for (const b of bots) {
+      b.client.destroy();
+    }
     process.exit(0);
   };
 
@@ -196,7 +299,6 @@ async function main() {
 
   process.on("SIGINT", () => handleSignal("SIGINT"));
   process.on("SIGTERM", () => handleSignal("SIGTERM"));
-
 }
 
 main().catch((error) => {

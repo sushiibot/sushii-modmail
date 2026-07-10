@@ -1,9 +1,20 @@
 import { type ConfigType } from "../config/config";
+import type { BotRosterEntry } from "../config/botRegistry";
+
+/**
+ * Process-wide settings shared by every bot instance, independent of any
+ * one bot's identity.
+ */
+export type GlobalConfig = Pick<
+  ConfigType,
+  "LOG_LEVEL" | "DATABASE_URI" | "HEALTHCHECK_PORT" | "GIT_HASH" | "BUILD_DATE"
+>;
 
 /**
  * Model representation of application configuration with standard TypeScript casing
  */
 export class BotConfig {
+  public readonly name: string;
   public readonly logLevel: string;
   public readonly discordToken: string;
   public readonly discordClientId: string;
@@ -16,6 +27,7 @@ export class BotConfig {
   public readonly buildDate?: Date;
 
   constructor(
+    name: string,
     logLevel: string,
     discordToken: string,
     discordClientId: string,
@@ -25,6 +37,7 @@ export class BotConfig {
     gitHash?: string,
     buildDate?: Date
   ) {
+    this.name = name;
     this.logLevel = logLevel;
     this.discordToken = discordToken;
     this.discordClientId = discordClientId;
@@ -36,18 +49,23 @@ export class BotConfig {
   }
 
   /**
-   * Create a ConfigModel from the environment ConfigType
+   * Create a BotConfig from one BotRosterEntry plus the process-wide
+   * globals shared by every bot instance.
    */
-  static fromConfigType(config: ConfigType): BotConfig {
+  static fromRosterEntry(
+    entry: BotRosterEntry,
+    globals: GlobalConfig
+  ): BotConfig {
     return new BotConfig(
-      config.LOG_LEVEL,
-      config.DISCORD_TOKEN,
-      config.DISCORD_CLIENT_ID,
-      config.DATABASE_URI,
-      config.MAIL_GUILD_ID,
-      config.HEALTHCHECK_PORT,
-      config.GIT_HASH,
-      config.BUILD_DATE
+      entry.name,
+      globals.LOG_LEVEL,
+      entry.discordToken,
+      entry.discordClientId,
+      globals.DATABASE_URI,
+      entry.mailGuildId,
+      globals.HEALTHCHECK_PORT,
+      globals.GIT_HASH,
+      globals.BUILD_DATE
     );
   }
 
