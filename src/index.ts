@@ -38,7 +38,7 @@ import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
 import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
 import { HealthcheckService, type BotInstance } from "services/HealthcheckService";
-import { registerBotGatewayMetrics } from "utils/metrics";
+import { initMetrics, registerBotGatewayMetrics } from "utils/metrics";
 import * as Sentry from "@sentry/bun";
 
 // Load environment variables from .env file, mostly for development
@@ -189,6 +189,7 @@ async function loginBot(bot: StartedBot): Promise<void> {
 
 async function main() {
   const otel = setupOtel();
+  initMetrics();
 
   Sentry.init({
     // DSN read from SENTRY_DSN env var
