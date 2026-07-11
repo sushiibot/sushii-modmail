@@ -1,11 +1,10 @@
 import { z } from "zod";
+import { REST, Routes } from "discord.js";
 
 export interface BotRosterEntry {
   // Stable id for logs/health, e.g. "lisa"
   name: string;
   discordToken: string;
-  // Discord application id
-  discordClientId: string;
   mailGuildId: string;
 }
 
@@ -16,17 +15,21 @@ export interface BotRegistry {
 const rosterEntrySchema = z.object({
   name: z.string().min(1),
   discordToken: z.string().min(1),
-  discordClientId: z.string().min(1),
   mailGuildId: z.string().min(1),
 });
 
 /**
  * Reads the bot roster from numbered env vars: BOT_1_NAME,
- * BOT_1_DISCORD_TOKEN, BOT_1_DISCORD_CLIENT_ID, BOT_1_MAIL_GUILD_ID,
- * BOT_2_*, etc, scanning from n = 1 until a gap. If no BOT_1_NAME is set,
- * falls back to a single implicit entry built from the legacy
- * DISCORD_TOKEN/DISCORD_CLIENT_ID/MAIL_GUILD_ID vars, so a deployment
- * that never adopts the numbered format keeps working unchanged.
+ * BOT_1_DISCORD_TOKEN, BOT_1_MAIL_GUILD_ID, BOT_2_*, etc, scanning from
+ * n = 1 until a gap. If no BOT_1_NAME is set, falls back to a single
+ * implicit entry built from the legacy DISCORD_TOKEN/MAIL_GUILD_ID vars,
+ * so a deployment that never adopts the numbered format keeps working
+ * unchanged.
+ *
+ * There is no client/application id here -- it's resolved from each
+ * token via the Discord API at startup (see resolveApplicationId) rather
+ * than configured, since a hand-entered id can silently drift from the
+ * token it's paired with.
  */
 export class EnvBotRegistry implements BotRegistry {
   constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
@@ -52,13 +55,11 @@ export class EnvBotRegistry implements BotRegistry {
       }
 
       const discordToken = this.env[`BOT_${n}_DISCORD_TOKEN`];
-      const discordClientId = this.env[`BOT_${n}_DISCORD_CLIENT_ID`];
       const mailGuildId = this.env[`BOT_${n}_MAIL_GUILD_ID`];
 
       const parsed = rosterEntrySchema.safeParse({
         name,
         discordToken,
-        discordClientId,
         mailGuildId,
       });
 
@@ -76,20 +77,18 @@ export class EnvBotRegistry implements BotRegistry {
 
   private readLegacyFallback(): BotRosterEntry[] {
     const discordToken = this.env.DISCORD_TOKEN;
-    const discordClientId = this.env.DISCORD_CLIENT_ID;
     const mailGuildId = this.env.MAIL_GUILD_ID;
 
     const parsed = rosterEntrySchema.safeParse({
       name: "default",
       discordToken,
-      discordClientId,
       mailGuildId,
     });
 
     if (!parsed.success) {
       throw new Error(
         `No BOT_1_* roster entries found and legacy DISCORD_TOKEN/` +
-          `DISCORD_CLIENT_ID/MAIL_GUILD_ID vars are missing or incomplete: ${parsed.error}`
+          `MAIL_GUILD_ID vars are missing or incomplete: ${parsed.error}`
       );
     }
 
@@ -99,7 +98,12 @@ export class EnvBotRegistry implements BotRegistry {
   private validateRoster(roster: BotRosterEntry[]): void {
     this.assertUnique(roster, (e) => e.mailGuildId, "mailGuildId");
     this.assertUnique(roster, (e) => e.name, "name");
-    this.assertUnique(roster, (e) => e.discordClientId, "discordClientId");
+    // Two roster entries sharing a token would resolve to the same
+    // Discord application id downstream (a token uniquely identifies its
+    // application) -- catching it here, synchronously, is equivalent to
+    // an "duplicate application id" check but doesn't need the network
+    // round trip that resolving each token's id would require.
+    this.assertUnique(roster, (e) => e.discordToken, "discordToken");
   }
 
   private assertUnique(
@@ -122,4 +126,19 @@ export class EnvBotRegistry implements BotRegistry {
       seen.set(value, entry.name);
     }
   }
+}
+
+/**
+ * Resolves a bot token's real Discord application id via the REST API
+ * (GET /oauth2/applications/@me), rather than trusting a hand-configured
+ * env var that could silently drift from the token it's meant to pair
+ * with. Requires only the token -- no gateway login.
+ */
+export async function resolveApplicationId(discordToken: string): Promise<string> {
+  const rest = new REST({ version: "10" }).setToken(discordToken);
+  const application = (await rest.get(
+    Routes.oauth2CurrentApplication()
+  )) as { id: string };
+
+  return application.id;
 }

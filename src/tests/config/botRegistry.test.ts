@@ -12,7 +12,6 @@ describe("EnvBotRegistry", () => {
         env({
           BOT_1_NAME: "lisa",
           BOT_1_DISCORD_TOKEN: "token1",
-          BOT_1_DISCORD_CLIENT_ID: "client1",
           BOT_1_MAIL_GUILD_ID: "guild1",
         })
       );
@@ -23,7 +22,6 @@ describe("EnvBotRegistry", () => {
         {
           name: "lisa",
           discordToken: "token1",
-          discordClientId: "client1",
           mailGuildId: "guild1",
         },
       ]);
@@ -34,16 +32,13 @@ describe("EnvBotRegistry", () => {
         env({
           BOT_1_NAME: "lisa",
           BOT_1_DISCORD_TOKEN: "token1",
-          BOT_1_DISCORD_CLIENT_ID: "client1",
           BOT_1_MAIL_GUILD_ID: "guild1",
           BOT_2_NAME: "bp",
           BOT_2_DISCORD_TOKEN: "token2",
-          BOT_2_DISCORD_CLIENT_ID: "client2",
           BOT_2_MAIL_GUILD_ID: "guild2",
           // BOT_3_* intentionally absent -- BOT_4_* should be ignored
           BOT_4_NAME: "twice",
           BOT_4_DISCORD_TOKEN: "token4",
-          BOT_4_DISCORD_CLIENT_ID: "client4",
           BOT_4_MAIL_GUILD_ID: "guild4",
         })
       );
@@ -58,8 +53,7 @@ describe("EnvBotRegistry", () => {
       const registry = new EnvBotRegistry(
         env({
           BOT_1_NAME: "lisa",
-          BOT_1_DISCORD_TOKEN: "token1",
-          // missing BOT_1_DISCORD_CLIENT_ID
+          // missing BOT_1_DISCORD_TOKEN
           BOT_1_MAIL_GUILD_ID: "guild1",
         })
       );
@@ -73,7 +67,6 @@ describe("EnvBotRegistry", () => {
       const registry = new EnvBotRegistry(
         env({
           DISCORD_TOKEN: "legacy-token",
-          DISCORD_CLIENT_ID: "legacy-client",
           MAIL_GUILD_ID: "legacy-guild",
         })
       );
@@ -84,7 +77,6 @@ describe("EnvBotRegistry", () => {
         {
           name: "default",
           discordToken: "legacy-token",
-          discordClientId: "legacy-client",
           mailGuildId: "legacy-guild",
         },
       ]);
@@ -101,10 +93,8 @@ describe("EnvBotRegistry", () => {
         env({
           BOT_1_NAME: "lisa",
           BOT_1_DISCORD_TOKEN: "token1",
-          BOT_1_DISCORD_CLIENT_ID: "client1",
           BOT_1_MAIL_GUILD_ID: "guild1",
           DISCORD_TOKEN: "legacy-token",
-          DISCORD_CLIENT_ID: "legacy-client",
           MAIL_GUILD_ID: "legacy-guild",
         })
       );
@@ -122,11 +112,9 @@ describe("EnvBotRegistry", () => {
         env({
           BOT_1_NAME: "lisa",
           BOT_1_DISCORD_TOKEN: "token1",
-          BOT_1_DISCORD_CLIENT_ID: "client1",
           BOT_1_MAIL_GUILD_ID: "same-guild",
           BOT_2_NAME: "bp",
           BOT_2_DISCORD_TOKEN: "token2",
-          BOT_2_DISCORD_CLIENT_ID: "client2",
           BOT_2_MAIL_GUILD_ID: "same-guild",
         })
       );
@@ -139,11 +127,9 @@ describe("EnvBotRegistry", () => {
         env({
           BOT_1_NAME: "same-name",
           BOT_1_DISCORD_TOKEN: "token1",
-          BOT_1_DISCORD_CLIENT_ID: "client1",
           BOT_1_MAIL_GUILD_ID: "guild1",
           BOT_2_NAME: "same-name",
           BOT_2_DISCORD_TOKEN: "token2",
-          BOT_2_DISCORD_CLIENT_ID: "client2",
           BOT_2_MAIL_GUILD_ID: "guild2",
         })
       );
@@ -151,21 +137,19 @@ describe("EnvBotRegistry", () => {
       expect(() => registry.getBotConfigs()).toThrow(/name/);
     });
 
-    it("throws on duplicate discordClientId", () => {
+    it("throws on duplicate discordToken", () => {
       const registry = new EnvBotRegistry(
         env({
           BOT_1_NAME: "lisa",
-          BOT_1_DISCORD_TOKEN: "token1",
-          BOT_1_DISCORD_CLIENT_ID: "same-client",
+          BOT_1_DISCORD_TOKEN: "same-token",
           BOT_1_MAIL_GUILD_ID: "guild1",
           BOT_2_NAME: "bp",
-          BOT_2_DISCORD_TOKEN: "token2",
-          BOT_2_DISCORD_CLIENT_ID: "same-client",
+          BOT_2_DISCORD_TOKEN: "same-token",
           BOT_2_MAIL_GUILD_ID: "guild2",
         })
       );
 
-      expect(() => registry.getBotConfigs()).toThrow(/discordClientId/);
+      expect(() => registry.getBotConfigs()).toThrow(/discordToken/);
     });
   });
 });

@@ -28,7 +28,8 @@ function makeFakeClient(): Client {
 async function wireBot(name: string, discordClientId: string, guildId: string) {
   const db = getDb(":memory:");
   const config = BotConfig.fromRosterEntry(
-    { name, discordToken: "token", discordClientId, mailGuildId: guildId },
+    { name, discordToken: "token", mailGuildId: guildId },
+    discordClientId,
     globals
   );
   const runtimeConfigRepository = new RuntimeConfigRepository(

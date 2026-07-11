@@ -7,7 +7,6 @@ const configSchema = z.object({
   // remain a fully supported way to run one bot (EnvBotRegistry's legacy
   // fallback), used when no BOT_1_* numbered roster vars are present.
   DISCORD_TOKEN: z.string().optional(),
-  DISCORD_CLIENT_ID: z.string().optional(),
   MAIL_GUILD_ID: z.string().optional(),
 
   DATABASE_URI: z.string(),

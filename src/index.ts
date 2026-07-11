@@ -1,7 +1,11 @@
 import { setupOtel } from "./instrumentation";
 import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { getConfigFromEnv } from "./config/config";
-import { EnvBotRegistry, type BotRosterEntry } from "./config/botRegistry";
+import {
+  EnvBotRegistry,
+  resolveApplicationId,
+  type BotRosterEntry,
+} from "./config/botRegistry";
 import logger, { initLogger } from "./utils/logger";
 import CommandRouter from "./CommandRouter";
 import dotenv from "dotenv";
@@ -138,10 +142,11 @@ interface StartedBot {
  */
 function createBot(
   entry: BotRosterEntry,
+  applicationId: string,
   globals: GlobalConfig,
   db: DB
 ): StartedBot {
-  const config = BotConfig.fromRosterEntry(entry, globals);
+  const config = BotConfig.fromRosterEntry(entry, applicationId, globals);
 
   const client = new Client({
     intents: [
@@ -224,14 +229,36 @@ async function main() {
   const registry = new EnvBotRegistry();
   const roster = await registry.getBotConfigs();
 
+  // Resolve each bot's real Discord application id from its token via the
+  // API before constructing anything -- this is the source of truth
+  // rather than a hand-configured id that could drift from the token.
+  // Isolated per bot: a bad/revoked token only takes that bot out, same
+  // as a failed login below, not the whole process.
+  const applicationIdResults = await Promise.allSettled(
+    roster.map((entry) => resolveApplicationId(entry.discordToken))
+  );
+
+  const resolvedEntries: { entry: BotRosterEntry; applicationId: string }[] =
+    [];
+  for (const [i, result] of applicationIdResults.entries()) {
+    if (result.status === "fulfilled") {
+      resolvedEntries.push({ entry: roster[i], applicationId: result.value });
+    } else {
+      logger.error(
+        { err: result.reason, bot: roster[i].name },
+        `Failed to resolve Discord application id for bot "${roster[i].name}"`
+      );
+    }
+  }
+
   // Construct every bot's client/router/handlers (fast, no network I/O)
   // before starting the healthcheck server or attempting any login. A bad
   // roster entry (rare -- this is DI wiring, not I/O) is isolated the
   // same way a failed login is below, not allowed to take down the batch.
   const bots: StartedBot[] = [];
-  for (const entry of roster) {
+  for (const { entry, applicationId } of resolvedEntries) {
     try {
-      bots.push(createBot(entry, globals, db));
+      bots.push(createBot(entry, applicationId, globals, db));
     } catch (err) {
       logger.error(
         { err, bot: entry.name },

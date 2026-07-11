@@ -50,17 +50,21 @@ export class BotConfig {
 
   /**
    * Create a BotConfig from one BotRosterEntry plus the process-wide
-   * globals shared by every bot instance.
+   * globals shared by every bot instance. `applicationId` is resolved
+   * from the entry's token via the Discord API (see
+   * config/botRegistry.ts's resolveApplicationId) rather than read off
+   * the roster entry itself.
    */
   static fromRosterEntry(
     entry: BotRosterEntry,
+    applicationId: string,
     globals: GlobalConfig
   ): BotConfig {
     return new BotConfig(
       entry.name,
       globals.LOG_LEVEL,
       entry.discordToken,
-      entry.discordClientId,
+      applicationId,
       globals.DATABASE_URI,
       entry.mailGuildId,
       globals.HEALTHCHECK_PORT,
