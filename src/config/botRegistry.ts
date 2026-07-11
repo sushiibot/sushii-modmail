@@ -102,14 +102,19 @@ export class EnvBotRegistry implements BotRegistry {
     // Discord application id downstream (a token uniquely identifies its
     // application) -- catching it here, synchronously, is equivalent to
     // an "duplicate application id" check but doesn't need the network
-    // round trip that resolving each token's id would require.
-    this.assertUnique(roster, (e) => e.discordToken, "discordToken");
+    // round trip that resolving each token's id would require. The token
+    // itself is a secret, so redact it from the thrown message -- unlike
+    // mailGuildId/name, it must never end up in a log line or Sentry event.
+    this.assertUnique(roster, (e) => e.discordToken, "discordToken", {
+      redactValue: true,
+    });
   }
 
   private assertUnique(
     roster: BotRosterEntry[],
     key: (entry: BotRosterEntry) => string,
-    fieldName: string
+    fieldName: string,
+    options: { redactValue?: boolean } = {}
   ): void {
     const seen = new Map<string, string>();
 
@@ -118,8 +123,9 @@ export class EnvBotRegistry implements BotRegistry {
       const existing = seen.get(value);
 
       if (existing !== undefined) {
+        const shown = options.redactValue ? "<redacted>" : `"${value}"`;
         throw new Error(
-          `Duplicate ${fieldName} "${value}" in roster: entries "${existing}" and "${entry.name}"`
+          `Duplicate ${fieldName} ${shown} in roster: entries "${existing}" and "${entry.name}"`
         );
       }
 

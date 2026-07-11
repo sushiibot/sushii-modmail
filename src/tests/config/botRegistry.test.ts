@@ -137,19 +137,26 @@ describe("EnvBotRegistry", () => {
       expect(() => registry.getBotConfigs()).toThrow(/name/);
     });
 
-    it("throws on duplicate discordToken", () => {
+    it("throws on duplicate discordToken without leaking the token value", () => {
       const registry = new EnvBotRegistry(
         env({
           BOT_1_NAME: "lisa",
-          BOT_1_DISCORD_TOKEN: "same-token",
+          BOT_1_DISCORD_TOKEN: "same-secret-token",
           BOT_1_MAIL_GUILD_ID: "guild1",
           BOT_2_NAME: "bp",
-          BOT_2_DISCORD_TOKEN: "same-token",
+          BOT_2_DISCORD_TOKEN: "same-secret-token",
           BOT_2_MAIL_GUILD_ID: "guild2",
         })
       );
 
       expect(() => registry.getBotConfigs()).toThrow(/discordToken/);
+      // The token is a secret -- the error must name the field, not the value.
+      try {
+        registry.getBotConfigs();
+        expect.unreachable();
+      } catch (err) {
+        expect(String(err)).not.toContain("same-secret-token");
+      }
     });
   });
 });
