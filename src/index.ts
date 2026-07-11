@@ -195,6 +195,11 @@ async function main() {
     // Environment read from SENTRY_ENVIRONMENT env var
     release: process.env.GIT_HASH,
     tracesSampleRate: 0,
+    // setupOtel() above already registered our own tracer/context
+    // providers -- without this, Sentry's own OTel auto-setup tries to
+    // register a second time and silently loses (ours ran first),
+    // logging "Attempted duplicate registration of API" on every startup.
+    skipOpenTelemetrySetup: true,
   });
 
   // unhandledRejection/uncaughtException didn't exist before this change,
