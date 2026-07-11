@@ -32,16 +32,18 @@ export interface BotForMetrics {
 export function initMetrics(): void {
   const gatewayMeter = metrics.getMeter("gateway", "1.0");
 
-  // Mirrors sushii-bot's shard_status/shard_latency pattern (see
-  // packages/sushii-worker/.../CoreMetrics.ts), labeled by bot name
-  // instead of shard id since each modmail bot is its own unsharded Client.
-  botStatusGauge = gatewayMeter.createObservableGauge("bot_status", {
+  // discord_gateway_* prefix distinguishes these from modmail's own
+  // internal metrics (e.g. guild_ownership_conflict_active) -- these
+  // describe discord.js's connection state, not modmail's own logic.
+  // Labeled by bot name instead of shard id since each modmail bot is
+  // its own unsharded Client.
+  botStatusGauge = gatewayMeter.createObservableGauge("discord_gateway_status", {
     description:
       "Discord gateway connection status per bot (discord.js Status enum; 0 = Ready)",
     valueType: ValueType.INT,
   });
 
-  botLatencyGauge = gatewayMeter.createObservableGauge("bot_latency", {
+  botLatencyGauge = gatewayMeter.createObservableGauge("discord_gateway_latency", {
     description: "Discord gateway heartbeat latency per bot",
     unit: "ms",
     valueType: ValueType.INT,
