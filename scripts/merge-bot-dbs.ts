@@ -233,8 +233,26 @@ export function mergeBotDbs(options: MergeOptions): void {
     for (const source of options.sources) {
       mergeSource(output, source);
     }
-  } finally {
+  } catch (err) {
+    // Don't leave a half-merged file on disk if a source fails partway
+    // through -- only the guildId-conflict pre-check (above) is cheap
+    // enough to run before the output file exists; any other failure
+    // (e.g. an unexpected constraint violation on a later source) is only
+    // detectable once we're already writing, so clean up here instead.
     output.close();
+    removeOutputFile(options.output);
+    throw err;
+  }
+
+  output.close();
+}
+
+function removeOutputFile(outputPath: string): void {
+  for (const suffix of ["", "-journal", "-wal", "-shm"]) {
+    const p = `${outputPath}${suffix}`;
+    if (fs.existsSync(p)) {
+      fs.unlinkSync(p);
+    }
   }
 }
 
