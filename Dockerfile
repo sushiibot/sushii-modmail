@@ -55,9 +55,12 @@ ENV BUILD_DATE=${BUILD_DATE}
 LABEL org.opencontainers.image.revision=${GIT_HASH}
 LABEL org.opencontainers.image.created=${BUILD_DATE}
 
-# Healthcheck using the built-in healthcheck endpoint
+# Process liveness only -- must not depend on any single bot's Discord
+# connection state, or one bot's transient disconnect restarts every bot
+# sharing this container. Use /ready or /health for orchestration-level
+# readiness checks instead.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+  CMD curl -f http://localhost:3000/live || exit 1
 
 # Set the command to run the bot
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]

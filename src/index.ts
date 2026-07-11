@@ -44,7 +44,7 @@ function buildCommandRouter(
   client: Client,
   db: DB
 ): CommandRouter {
-  const threadRepository = new ThreadRepository(db);
+  const threadRepository = new ThreadRepository(db, config.guildId);
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(
     db,

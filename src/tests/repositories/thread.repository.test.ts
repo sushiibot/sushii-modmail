@@ -9,7 +9,7 @@ describe("ThreadRepository", () => {
 
   beforeEach(() => {
     db = getDb(":memory:");
-    threadRepository = new ThreadRepository(db);
+    threadRepository = new ThreadRepository(db, "123");
   });
 
   describe("createThread", () => {
@@ -139,6 +139,34 @@ describe("ThreadRepository", () => {
       const result = await threadRepository.getOpenThreadByUserID(userId);
 
       expect(result).toBeNull();
+    });
+
+    it("should not return an open thread belonging to a different guild", async () => {
+      const otherGuildRepository = new ThreadRepository(db, "999");
+      const userId = "456";
+      const channelId = "789";
+
+      await otherGuildRepository.createThread("999", userId, channelId);
+
+      const result = await threadRepository.getOpenThreadByUserID(userId);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("getLatestThreadsByUserId", () => {
+    it("should not return threads belonging to a different guild", async () => {
+      const otherGuildRepository = new ThreadRepository(db, "999");
+      const userId = "456";
+
+      await otherGuildRepository.createThread("999", userId, "789");
+
+      const result = await threadRepository.getLatestThreadsByUserId(
+        userId,
+        10
+      );
+
+      expect(result).toEqual([]);
     });
   });
 });

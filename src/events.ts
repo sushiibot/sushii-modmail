@@ -67,7 +67,7 @@ export function registerEventHandlers(
 
   wrapClientDispatch(client, config.name);
 
-  const threadRepository = new ThreadRepository(db);
+  const threadRepository = new ThreadRepository(db, config.guildId);
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(
     db,

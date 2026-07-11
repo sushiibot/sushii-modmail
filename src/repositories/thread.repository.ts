@@ -6,9 +6,11 @@ import { Thread } from "../models/thread.model";
 // ThreadRepository (data access)
 export class ThreadRepository {
   private db: DB;
+  private guildId: string;
 
-  constructor(db: DB) {
+  constructor(db: DB, guildId: string) {
     this.db = db;
+    this.guildId = guildId;
   }
 
   async createThread(
@@ -38,7 +40,13 @@ export class ThreadRepository {
       .from(threads)
       // User match and thread is open
       // Thread open is just a check for closedAt being null
-      .where(and(eq(threads.recipientId, userId), isNull(threads.closedAt)))
+      .where(
+        and(
+          eq(threads.recipientId, userId),
+          eq(threads.guildId, this.guildId),
+          isNull(threads.closedAt)
+        )
+      )
       .limit(1)
       .execute();
 
@@ -86,7 +94,9 @@ export class ThreadRepository {
     const result = await this.db
       .select()
       .from(threads)
-      .where(eq(threads.recipientId, userId))
+      .where(
+        and(eq(threads.recipientId, userId), eq(threads.guildId, this.guildId))
+      )
       .orderBy(desc(threads.createdAt))
       .limit(count)
       .execute();
