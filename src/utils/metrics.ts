@@ -20,16 +20,30 @@ const botLatencyGauge = gatewayMeter.createObservableGauge("bot_latency", {
 
 const modmailMeter = metrics.getMeter("modmail", "1.0");
 
-const guildOwnershipConflictCounter = modmailMeter.createCounter(
-  "guild_ownership_conflicts",
+// MAIL_GUILD_ID only changes on a redeploy, so once a conflict is
+// observed it stays true for the rest of this process's life -- there's
+// no "it went away" until a restart with corrected config. A counter with
+// a rolling window would be misleading here: it resolves as soon as the
+// misconfigured guild goes quiet for one window, even though nothing was
+// fixed. Track it as a sticky gauge instead, set once and never cleared.
+const conflictedApplicationIds = new Set<string>();
+
+const guildOwnershipConflictGauge = modmailMeter.createObservableGauge(
+  "guild_ownership_conflict_active",
   {
     description:
-      "GuildOwnershipConflictError occurrences, per owning applicationId -- " +
-      "a nonzero rate means two bots' guild configs are colliding on the " +
-      "shared DB, almost always a misconfigured MAIL_GUILD_ID",
+      "1 if a GuildOwnershipConflictError has been observed for this " +
+      "owning applicationId since process start, else absent -- a known, " +
+      "unresolved MAIL_GUILD_ID misconfiguration, not an event rate",
     valueType: ValueType.INT,
   }
 );
+
+guildOwnershipConflictGauge.addCallback((result) => {
+  for (const applicationId of conflictedApplicationIds) {
+    result.observe(1, { applicationId });
+  }
+});
 
 export interface BotForMetrics {
   name: string;
@@ -57,5 +71,5 @@ export function registerBotGatewayMetrics(bots: BotForMetrics[]): void {
 }
 
 export function recordGuildOwnershipConflict(applicationId: string): void {
-  guildOwnershipConflictCounter.add(1, { applicationId });
+  conflictedApplicationIds.add(applicationId);
 }
