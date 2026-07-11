@@ -14,7 +14,9 @@ const globals: GlobalConfig = {
   HEALTHCHECK_PORT: 3000,
 };
 
-function makeFakeClient(): Client {
+function makeFakeClient(
+  guildsFetch: (id: string) => Promise<unknown> = async () => ({})
+): Client {
   const emitter = new EventEmitter();
   return Object.assign(emitter, {
     user: {
@@ -22,10 +24,16 @@ function makeFakeClient(): Client {
       tag: "TestBot#0000",
       setPresence: () => {},
     },
+    guilds: { fetch: guildsFetch },
   }) as unknown as Client;
 }
 
-async function wireBot(name: string, discordClientId: string, guildId: string) {
+async function wireBot(
+  name: string,
+  discordClientId: string,
+  guildId: string,
+  guildsFetch?: (id: string) => Promise<unknown>
+) {
   const db = getDb(":memory:");
   const config = BotConfig.fromRosterEntry(
     { name, discordToken: "token", mailGuildId: guildId },
@@ -37,7 +45,7 @@ async function wireBot(name: string, discordClientId: string, guildId: string) {
     config.discordClientId
   );
   const commandRouter = new CommandRouter(runtimeConfigRepository, config);
-  const client = makeFakeClient();
+  const client = makeFakeClient(guildsFetch);
 
   registerEventHandlers(config, client, db, commandRouter);
 
@@ -120,5 +128,53 @@ describe("GuildOwnershipConflictError fault isolation (via registerEventHandlers
     const goodRepo = new RuntimeConfigRepository(good.db, "app-bp");
     const goodConfig = await goodRepo.getConfig(healthyGuildId);
     expect(goodConfig.guildId).toBe(healthyGuildId);
+  });
+});
+
+// events.ts's ClientReady handler fetches config.guildId via
+// client.guilds.fetch to confirm the bot is actually a member of its
+// configured mailGuildId -- catches a mispasted BOT_N_MAIL_GUILD_ID the
+// same way resolveApplicationId (botRegistry.ts) catches a mispasted
+// client id.
+describe("guild membership check (via registerEventHandlers)", () => {
+  const unhandledRejections: unknown[] = [];
+  const onUnhandledRejection = (reason: unknown) => {
+    unhandledRejections.push(reason);
+  };
+
+  afterEach(() => {
+    process.off("unhandledRejection", onUnhandledRejection);
+    unhandledRejections.length = 0;
+  });
+
+  it("fetches the configured guild on startup", async () => {
+    const guildId = "444444444444444444";
+    const fetchedIds: string[] = [];
+    const { client } = await wireBot("lisa", "app-id", guildId, async (id) => {
+      fetchedIds.push(id);
+      return {};
+    });
+
+    (client as unknown as EventEmitter).emit(Events.ClientReady, client);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(fetchedIds).toEqual([guildId]);
+  });
+
+  it("logs and continues (does not crash) when the bot is not a member of its configured guild", async () => {
+    const guildId = "555555555555555555";
+    const { client } = await wireBot("lisa", "app-id", guildId, async () => {
+      throw new Error("Unknown Guild");
+    });
+
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    expect(() =>
+      (client as unknown as EventEmitter).emit(Events.ClientReady, client)
+    ).not.toThrow();
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(unhandledRejections).toEqual([]);
   });
 });

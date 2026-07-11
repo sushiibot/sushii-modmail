@@ -148,6 +148,20 @@ export function registerEventHandlers(
     const inviteLink = `https://discord.com/oauth2/authorize?client_id=${client.user?.id}&permissions=515396455488&integration_type=0&scope=applications.commands+bot`;
     logger.info(`Invite link: ${inviteLink}`);
 
+    // Confirm the bot is actually a member of its configured mailGuildId --
+    // catches a mispasted BOT_N_MAIL_GUILD_ID the same way
+    // resolveApplicationId (botRegistry.ts) catches a mispasted client id.
+    // A REST fetch, not client.guilds.cache, since cache population isn't
+    // guaranteed to have completed by the time ClientReady fires.
+    try {
+      await client.guilds.fetch(config.guildId);
+    } catch (err) {
+      logger.error(
+        err,
+        `Bot is not a member of its configured mailGuildId (${config.guildId}) -- check this bot's MAIL_GUILD_ID`
+      );
+    }
+
     // Set bot status from config
     await updateBotPresence(
       client,
