@@ -11,7 +11,14 @@ import {
   resourceFromAttributes,
 } from "@opentelemetry/resources";
 import { ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
-import { context, metrics, trace } from "@opentelemetry/api";
+import {
+  context,
+  diag,
+  DiagConsoleLogger,
+  DiagLogLevel,
+  metrics,
+  trace,
+} from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { registerInstrumentations } from "@opentelemetry/instrumentation";
 import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
@@ -35,6 +42,12 @@ export interface OtelSDK {
 }
 
 export function setupOtel(): OtelSDK {
+  // The SDK swallows exporter failures (network errors, bad responses) by
+  // default -- without a diag logger, a broken metrics/traces pipeline
+  // fails completely silently. WARN, not INFO/DEBUG: this is meant to
+  // surface real problems in production logs, not be a firehose.
+  diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
+
   // BasicTracerProvider doesn't auto-read OTEL_* env vars — use envDetector explicitly.
   // envDetector reads OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES.
   const resource = detectResources({ detectors: [envDetector] }).merge(
