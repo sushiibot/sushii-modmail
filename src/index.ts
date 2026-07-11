@@ -38,6 +38,7 @@ import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
 import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
 import { HealthcheckService, type BotInstance } from "services/HealthcheckService";
+import { registerBotGatewayMetrics } from "utils/metrics";
 import * as Sentry from "@sentry/bun";
 
 // Load environment variables from .env file, mostly for development
@@ -287,6 +288,10 @@ async function main() {
     globals.HEALTHCHECK_PORT
   );
   healthcheckService.start();
+
+  registerBotGatewayMetrics(
+    bots.map((b) => ({ name: b.config.name, client: b.client }))
+  );
 
   const loginResults = await Promise.allSettled(bots.map(loginBot));
 

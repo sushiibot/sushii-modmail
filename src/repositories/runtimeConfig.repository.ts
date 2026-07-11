@@ -3,6 +3,7 @@ import { runtimeConfig } from "../database/schema";
 import { eq, sql } from "drizzle-orm";
 import { RuntimeConfig } from "../models/runtimeConfig.model";
 import { getLogger } from "utils/logger";
+import { recordGuildOwnershipConflict } from "utils/metrics";
 import { GuildOwnershipConflictError } from "./errors";
 
 export type UpdateConfig = {
@@ -32,6 +33,7 @@ export class RuntimeConfigRepository {
       rowApplicationId !== null &&
       rowApplicationId !== this.applicationId
     ) {
+      recordGuildOwnershipConflict(rowApplicationId);
       throw new GuildOwnershipConflictError(
         guildId,
         this.applicationId,
