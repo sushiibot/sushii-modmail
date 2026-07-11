@@ -3,13 +3,14 @@ import { z } from "zod";
 const configSchema = z.object({
   LOG_LEVEL: z.string().optional().default("info"),
 
-  DISCORD_TOKEN: z.string(),
-  DISCORD_CLIENT_ID: z.string(),
+  // Legacy single-bot identity vars. Optional at the schema level -- they
+  // remain a fully supported way to run one bot (EnvBotRegistry's legacy
+  // fallback), used when no BOT_1_* numbered roster vars are present.
+  DISCORD_TOKEN: z.string().optional(),
+  DISCORD_CLIENT_ID: z.string().optional(),
+  MAIL_GUILD_ID: z.string().optional(),
 
   DATABASE_URI: z.string(),
-
-  // Where modmails get sent to
-  MAIL_GUILD_ID: z.string(),
 
   // Healthcheck server port
   HEALTHCHECK_PORT: z.coerce.number().optional().default(3000),

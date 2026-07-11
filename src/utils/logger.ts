@@ -1,17 +1,20 @@
 import { trace } from "@opentelemetry/api";
 import pino from "pino";
+import { getCurrentBot } from "./botContext";
 
 const logger = pino({
   level: "debug",
   mixin() {
     const spanContext = trace.getActiveSpan()?.spanContext();
-    if (!spanContext?.traceId) {
-      return {};
-    }
+    const bot = getCurrentBot();
+
     return {
-      trace_id: spanContext.traceId,
-      span_id: spanContext.spanId,
-      trace_flags: spanContext.traceFlags,
+      ...(spanContext?.traceId && {
+        trace_id: spanContext.traceId,
+        span_id: spanContext.spanId,
+        trace_flags: spanContext.traceFlags,
+      }),
+      ...(bot && { bot }),
     };
   },
 });

@@ -132,6 +132,71 @@ services:
       - LITESTREAM_FORCE_PATH_STYLE=true # Optional, default is false, some S3 providers require this
 ```
 
+### Running multiple bots in one process
+
+A single sushii-modmail process can run multiple independent bot instances
+(distinct Discord tokens/applications/guilds), sharing one database
+connection. This is entirely optional -- the single-bot env vars above
+(`DISCORD_TOKEN`/`DISCORD_CLIENT_ID`/`MAIL_GUILD_ID`) remain fully
+supported and are used automatically whenever no numbered `BOT_1_*` vars
+are set.
+
+To run more than one bot, use numbered env vars instead, one block per
+bot, starting at `1` with no gaps:
+
+```yml
+environment:
+  - LOG_LEVEL=info
+  - DATABASE_URI=/app/data/db.sqlite
+
+  - BOT_1_NAME=lisa
+  - BOT_1_DISCORD_TOKEN=bot-1-token
+  - BOT_1_DISCORD_CLIENT_ID=bot-1-client-id
+  - BOT_1_MAIL_GUILD_ID=bot-1-guild-id
+
+  - BOT_2_NAME=bp
+  - BOT_2_DISCORD_TOKEN=bot-2-token
+  - BOT_2_DISCORD_CLIENT_ID=bot-2-client-id
+  - BOT_2_MAIL_GUILD_ID=bot-2-guild-id
+```
+
+If `BOT_1_NAME` is present, the numbered format takes precedence and the
+legacy single-bot vars are ignored. Each bot must have a distinct `NAME`,
+`DISCORD_CLIENT_ID`, and `MAIL_GUILD_ID` -- the process refuses to start
+if any of those collide across entries.
+
+One bot's startup failure doesn't prevent the others from starting, and an
+unhandled error in one bot's event handler doesn't crash the others; the
+healthcheck server reports every bot's status on the same port
+(`/live` for process liveness, `/ready`/`/health` for per-bot Discord
+connection status).
+
+#### Migrating existing per-bot databases into a shared one
+
+If you're consolidating previously-separate single-bot deployments into
+one multi-bot process, use `scripts/merge-bot-dbs.ts` to merge their
+SQLite files into one, then `scripts/verify-merged-db.ts` to check the
+result before switching `DATABASE_URI` over:
+
+```bash
+bun run scripts/merge-bot-dbs.ts \
+  --source /path/to/lisa.sqlite:lisa-discord-client-id \
+  --source /path/to/bp.sqlite:bp-discord-client-id \
+  --output /path/to/merged.sqlite
+
+bun run scripts/verify-merged-db.ts \
+  --source /path/to/lisa.sqlite:lisa-discord-client-id \
+  --source /path/to/bp.sqlite:bp-discord-client-id \
+  --merged /path/to/merged.sqlite
+```
+
+Both scripts only ever read from the source files (safe to run against
+copies of live databases), and `merge-bot-dbs.ts` aborts with no output
+file written if it finds the same guild id in more than one source --
+that indicates two bots already serving the same guild, which isn't
+supported. `verify-merged-db.ts` exits non-zero with a JSON summary if
+anything doesn't match (row counts, ownership backfill).
+
 ## Bot Setup and Guide
 
 Once the bot is running, check out the:

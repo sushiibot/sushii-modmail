@@ -10,61 +10,97 @@ export enum HealthStatus {
   ERROR = "error",
 }
 
+export interface BotInstance {
+  name: string;
+  client: Client;
+}
+
 export class HealthcheckService {
   private app: Hono;
   private server: any;
-  private client: Client;
+  private bots: BotInstance[];
   private port: number;
 
-  constructor(client: Client, port: number = 3000) {
-    this.client = client;
+  constructor(bots: BotInstance[], port: number = 3000) {
+    this.bots = bots;
     this.port = port;
     this.app = new Hono();
     this.setupRoutes();
   }
 
   private setupRoutes() {
+    // Process-up liveness -- must NOT depend on any individual bot's
+    // Discord connection state, so a single bot's transient disconnect
+    // doesn't trigger an orchestrator restart that kills every other
+    // healthy bot.
+    this.app.get("/live", (c) => {
+      return c.json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+      });
+    });
+
     this.app.get("/health", (c) => {
-      const status = this.getDiscordStatus();
-      const isHealthy = status === HealthStatus.READY;
+      const summary = this.getSummary();
 
       return c.json(
         {
-          status,
+          status: summary.overallStatus,
           timestamp: new Date().toISOString(),
           version: {
             gitHash: process.env.GIT_HASH || "unknown",
             buildDate: process.env.BUILD_DATE || "unknown",
           },
-          discord: {
-            ready: this.client.isReady(),
-            uptime: this.client.uptime,
-            ping: this.client.ws.ping,
-          },
+          bots: summary.bots,
         },
-        isHealthy ? 200 : 503
+        summary.allReady ? 200 : 503
       );
     });
 
     this.app.get("/ready", (c) => {
-      const status = this.getDiscordStatus();
-      const isReady = status === HealthStatus.READY;
+      const summary = this.getSummary();
 
       return c.json(
         {
-          ready: isReady,
-          status,
+          ready: summary.allReady,
+          status: summary.overallStatus,
           timestamp: new Date().toISOString(),
+          bots: summary.bots,
         },
-        isReady ? 200 : 503
+        summary.allReady ? 200 : 503
       );
     });
   }
 
-  private getDiscordStatus(): HealthStatus {
-    if (!this.client.isReady()) {
+  private getSummary() {
+    const bots = this.bots.map((bot) => {
+      const status = this.getDiscordStatus(bot.client);
+
+      return {
+        name: bot.name,
+        status,
+        ready: status === HealthStatus.READY,
+        discord: {
+          ready: bot.client.isReady(),
+          uptime: bot.client.uptime,
+          ping: bot.client.ws.ping,
+        },
+      };
+    });
+
+    const allReady = bots.every((b) => b.ready);
+
+    return {
+      bots,
+      allReady,
+      overallStatus: allReady ? HealthStatus.READY : HealthStatus.DISCONNECTED,
+    };
+  }
+
+  private getDiscordStatus(client: Client): HealthStatus {
+    if (!client.isReady()) {
       // Check if we're still connecting or have failed
-      switch (this.client.ws.status) {
+      switch (client.ws.status) {
         case Status.Ready: {
           return HealthStatus.READY;
         }

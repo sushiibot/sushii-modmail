@@ -23,6 +23,7 @@ import { SettingsModalController } from "controllers/SettingsModalController";
 import { SettingsService } from "services/SettingsService";
 import { MemberNotificationController } from "controllers/MemberNotificationController";
 import { MemberNotificationService } from "services/MemberNotificationService";
+import { wrapClientDispatch } from "utils/clientDispatch";
 
 /**
  * Updates bot presence based on runtime configuration
@@ -64,11 +65,16 @@ export function registerEventHandlers(
 ) {
   const logger = getLogger("events");
 
+  wrapClientDispatch(client, config.name);
+
   const threadRepository = new ThreadRepository(db);
   const snippetRepository = new SnippetRepository(db);
-  const runtimeConfigRepository = new RuntimeConfigRepository(db);
+  const runtimeConfigRepository = new RuntimeConfigRepository(
+    db,
+    config.discordClientId
+  );
   const messageRepository = new MessageRepository(db);
-  const botEmojiRepository = new BotEmojiRepository(db);
+  const botEmojiRepository = new BotEmojiRepository(db, config.discordClientId);
 
   const threadService = new ThreadService(
     config,

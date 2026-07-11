@@ -6,6 +6,7 @@ import {
   text,
   primaryKey,
   index,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export const threads = sqliteTable(
@@ -174,6 +175,11 @@ export const runtimeConfig = sqliteTable(
   {
     guildId: text().notNull().primaryKey(),
 
+    // Discord application id of the bot that owns this guild's config.
+    // NULL means not yet claimed by any bot (legacy rows from before
+    // multi-bot support existed).
+    applicationId: text(),
+
     // Internal config -- not user facing
     openTagId: text(),
     closedTagId: text(),
@@ -205,8 +211,20 @@ export const runtimeConfig = sqliteTable(
   ]
 );
 
-export const botEmojis = sqliteTable("bot_emojis", {
-  name: text().notNull().unique(),
-  id: text().notNull().primaryKey(),
-  sha256: text().notNull(),
-});
+export const botEmojis = sqliteTable(
+  "bot_emojis",
+  {
+    name: text().notNull(),
+    id: text().notNull().primaryKey(),
+    sha256: text().notNull(),
+    // Discord application id. NULL means not yet claimed by any bot
+    // (legacy rows from before multi-bot support existed).
+    applicationId: text(),
+  },
+  (table) => [
+    uniqueIndex("bot_emojis_app_name_idx").on(
+      table.applicationId,
+      table.name
+    ),
+  ]
+);
