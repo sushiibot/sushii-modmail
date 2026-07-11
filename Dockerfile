@@ -30,7 +30,7 @@ COPY --from=litestream /go/bin/litestream /usr/local/bin/litestream
 COPY ./litestream.yml /etc/litestream.yml
 
 # Copy package.json and lockfile first for better caching
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock ./
 
 # Install dependencies
 RUN bun install --frozen-lockfile
