@@ -5,6 +5,8 @@ import {
   ForumChannel,
   GuildMember,
   RESTJSONErrorCodes,
+  ThreadAutoArchiveDuration,
+  type AnyThreadChannel,
   type GuildForumTagData,
   type GuildForumTagEmoji,
 } from "discord.js";
@@ -40,6 +42,7 @@ interface Config {
 
 interface ThreadRepository {
   getOpenThreadByUserID(userId: string): Promise<Thread | null>;
+  getOpenThreads(): Promise<Thread[]>;
   getThreadByChannelId(channelId: string): Promise<Thread | null>;
   getLatestThreadsByUserId(userId: string, count: number): Promise<Thread[]>;
   createThread(
@@ -56,6 +59,8 @@ interface RuntimeConfigRepository {
 }
 
 export class ThreadService {
+  private static readonly RECOVERY_CONCURRENCY = 3;
+
   private config: Config;
 
   private client: Client;
@@ -279,6 +284,109 @@ export class ThreadService {
     return this.getForumTagId("closedTagId");
   }
 
+  /**
+   * Reopens a modmail thread that Discord auto-archived while its database
+   * record is still open. Explicitly closed tickets are locked and are never
+   * reopened by this path.
+   */
+  async reopenIfOpen(threadChannel: AnyThreadChannel): Promise<boolean> {
+    if (!threadChannel.archived || threadChannel.locked) {
+      return false;
+    }
+
+    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
+      this.config.guildId
+    );
+    if (threadChannel.parentId !== runtimeConfig.forumChannelId) {
+      return false;
+    }
+
+    const thread = await this.threadRepository.getThreadByChannelId(
+      threadChannel.id
+    );
+    if (!thread?.isOpen) {
+      return false;
+    }
+
+    await threadChannel.setArchived(
+      false,
+      "Reopening database-open modmail thread"
+    );
+    return true;
+  }
+
+  /**
+   * Reconciles tickets that may have auto-archived while the bot was offline.
+   * This runs once after startup; normal operation is handled by threadUpdate.
+   */
+  async recoverOpenThreads(): Promise<void> {
+    const openThreads = await this.threadRepository.getOpenThreads();
+    if (openThreads.length === 0) {
+      this.logger.info("No open modmail threads require startup recovery");
+      return;
+    }
+
+    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
+      this.config.guildId
+    );
+    const forumChannelId = runtimeConfig.forumChannelId;
+    let reopened = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (let index = 0; index < openThreads.length; index += ThreadService.RECOVERY_CONCURRENCY) {
+      const batch = openThreads.slice(
+        index,
+        index + ThreadService.RECOVERY_CONCURRENCY
+      );
+      const results = await Promise.allSettled(
+        batch.map(async (thread) => {
+          const channel = await this.client.channels.fetch(thread.channelId, {
+            force: true,
+          });
+
+          if (
+            !channel ||
+            !channel.isThread() ||
+            channel.parentId !== forumChannelId ||
+            !channel.archived ||
+            channel.locked
+          ) {
+            return false;
+          }
+
+          await channel.setArchived(
+            false,
+            "Reopening database-open modmail thread after bot startup"
+          );
+          this.logger.info(
+            { threadId: thread.channelId, trigger: "startup_recovery" },
+            "Reopened auto-archived open modmail thread"
+          );
+          return true;
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          if (result.value) reopened += 1;
+          else skipped += 1;
+        } else {
+          failed += 1;
+          this.logger.warn(
+            { err: result.reason, trigger: "startup_recovery" },
+            "Failed to inspect open modmail thread during startup recovery"
+          );
+        }
+      }
+    }
+
+    this.logger.info(
+      { openThreads: openThreads.length, reopened, skipped, failed },
+      "Completed open modmail thread startup recovery"
+    );
+  }
+
   async getThread(userId: string): Promise<Thread | null> {
     return this.threadRepository.getOpenThreadByUserID(userId);
   }
@@ -452,6 +560,7 @@ export class ThreadService {
       reason: threadMetadata.reason,
       message: threadInitialMsg,
       appliedTags: [openTagID],
+      autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
     });
 
     // -------------------------------------------------------------------------

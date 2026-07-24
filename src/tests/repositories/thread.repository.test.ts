@@ -154,6 +154,21 @@ describe("ThreadRepository", () => {
     });
   });
 
+  describe("getOpenThreads", () => {
+    it("returns only open threads belonging to this guild", async () => {
+      await threadRepository.createThread("123", "456", "789");
+      await threadRepository.createThread("123", "457", "790");
+      await threadRepository.closeThread("790", "999");
+
+      const otherGuildRepository = new ThreadRepository(db, "999");
+      await otherGuildRepository.createThread("999", "458", "791");
+
+      const result = await threadRepository.getOpenThreads();
+
+      expect(result.map((thread) => thread.channelId)).toEqual(["789"]);
+    });
+  });
+
   describe("getLatestThreadsByUserId", () => {
     it("should not return threads belonging to a different guild", async () => {
       const otherGuildRepository = new ThreadRepository(db, "999");

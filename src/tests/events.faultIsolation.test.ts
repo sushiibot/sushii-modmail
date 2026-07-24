@@ -1,12 +1,13 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { describe, it, expect, afterEach, mock } from "bun:test";
 import { EventEmitter } from "events";
-import { Events, type Client } from "discord.js";
+import { Events, type Client, type ForumThreadChannel } from "discord.js";
 import { getDb } from "../database/db";
 import { registerEventHandlers } from "../events";
 import CommandRouter from "../CommandRouter";
 import { RuntimeConfigRepository } from "../repositories/runtimeConfig.repository";
 import { runtimeConfig } from "../database/schema";
 import { BotConfig, type GlobalConfig } from "../models/botConfig.model";
+import { ThreadRepository } from "../repositories/thread.repository";
 
 const globals: GlobalConfig = {
   LOG_LEVEL: "info",
@@ -176,5 +177,43 @@ describe("guild membership check (via registerEventHandlers)", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(unhandledRejections).toEqual([]);
+  });
+});
+
+describe("thread auto-archive recovery (via registerEventHandlers)", () => {
+  it("reopens an archived, unlocked database-open modmail thread", async () => {
+    const guildId = "666666666666666666";
+    const forumChannelId = "777777777777777777";
+    const threadId = "888888888888888888";
+    const { db, config, client } = await wireBot("lisa", "app-id", guildId);
+    const runtimeConfigRepository = new RuntimeConfigRepository(
+      db,
+      config.discordClientId
+    );
+    await runtimeConfigRepository.setConfig(guildId, { forumChannelId });
+
+    const threadRepository = new ThreadRepository(db, guildId);
+    await threadRepository.createThread(guildId, "999999999999999999", threadId);
+
+    const setArchived = mock(() => Promise.resolve());
+    const updatedThread = {
+      id: threadId,
+      parentId: forumChannelId,
+      archived: true,
+      locked: false,
+      setArchived,
+    } as unknown as ForumThreadChannel;
+
+    (client as unknown as EventEmitter).emit(
+      Events.ThreadUpdate,
+      updatedThread,
+      updatedThread
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(setArchived).toHaveBeenCalledWith(
+      false,
+      "Reopening database-open modmail thread"
+    );
   });
 });

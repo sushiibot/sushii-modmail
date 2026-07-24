@@ -59,6 +59,23 @@ export class ThreadRepository {
     return Thread.fromDatabaseRow(thread);
   }
 
+  /**
+   * Get every open thread for this repository's guild.
+   *
+   * Used to reconcile Discord's auto-archiving after the bot has been
+   * offline. Closed threads are deliberately excluded so they remain
+   * archived and locked.
+   */
+  async getOpenThreads(): Promise<Thread[]> {
+    const result = await this.db
+      .select()
+      .from(threads)
+      .where(and(eq(threads.guildId, this.guildId), isNull(threads.closedAt)))
+      .execute();
+
+    return result.map(Thread.fromDatabaseRow);
+  }
+
   async getThreadByChannelId(channelId: string): Promise<Thread | null> {
     const result = await this.db
       .select()

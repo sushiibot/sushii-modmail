@@ -12,6 +12,7 @@ import {
   Collection,
   DiscordAPIError,
   RESTJSONErrorCodes,
+  ThreadAutoArchiveDuration,
   type Snowflake,
 } from "discord.js";
 import { ThreadService } from "../../services/ThreadService";
@@ -36,6 +37,7 @@ const mockThreadRepository = {
   getLatestThreadsByUserId: mock(),
   createThread: mock(),
   closeThread: mock(),
+  getOpenThreads: mock(),
 };
 
 const mockRuntimeConfigRepository = {
@@ -65,6 +67,9 @@ describe("ThreadService", () => {
     mockThreadRepository.getLatestThreadsByUserId.mockReset();
     mockThreadRepository.createThread.mockReset();
     mockThreadRepository.closeThread.mockReset();
+    mockThreadRepository.getOpenThreads.mockReset();
+    mockRuntimeConfigRepository.getConfig.mockReset();
+    mockRuntimeConfigRepository.setConfig.mockReset();
 
     config = {
       guildId: randomSnowflakeID(),
@@ -308,6 +313,102 @@ describe("ThreadService", () => {
       expect(mockRuntimeConfigRepository.setConfig).toHaveBeenCalledWith(
         config.guildId,
         { closedTagId: newTagId }
+      );
+    });
+  });
+
+  describe("reopenIfOpen", () => {
+    it("reopens an archived, unlocked modmail thread with an open database record", async () => {
+      const forumChannelId = randomSnowflakeID();
+      const thread = mockThread();
+      const setArchived = mock().mockResolvedValue(undefined);
+      const channel = {
+        id: thread.channelId,
+        parentId: forumChannelId,
+        archived: true,
+        locked: false,
+        setArchived,
+      } as unknown as ForumThreadChannel;
+
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
+      mockThreadRepository.getThreadByChannelId.mockResolvedValue(thread);
+
+      await expect(threadService.reopenIfOpen(channel)).resolves.toBe(true);
+      expect(setArchived).toHaveBeenCalledWith(
+        false,
+        "Reopening database-open modmail thread"
+      );
+    });
+
+    it("does not reopen locked, closed, active, or unrelated threads", async () => {
+      const forumChannelId = randomSnowflakeID();
+      const setArchived = mock().mockResolvedValue(undefined);
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
+
+      const states = [
+        { id: randomSnowflakeID(), parentId: forumChannelId, archived: true, locked: true },
+        { id: randomSnowflakeID(), parentId: forumChannelId, archived: false, locked: false },
+        { id: randomSnowflakeID(), parentId: randomSnowflakeID(), archived: true, locked: false },
+      ];
+
+      for (const state of states) {
+        await expect(
+          threadService.reopenIfOpen({ ...state, setArchived } as unknown as ForumThreadChannel)
+        ).resolves.toBe(false);
+      }
+
+      mockThreadRepository.getThreadByChannelId.mockResolvedValue(mockThread({ closed: true }));
+      await expect(
+        threadService.reopenIfOpen({
+          id: randomSnowflakeID(),
+          parentId: forumChannelId,
+          archived: true,
+          locked: false,
+          setArchived,
+        } as unknown as ForumThreadChannel)
+      ).resolves.toBe(false);
+      expect(setArchived).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("recoverOpenThreads", () => {
+    it("reopens archived unlocked threads and continues after an individual fetch failure", async () => {
+      const forumChannelId = randomSnowflakeID();
+      const recoverableThread = mockThread();
+      const lockedThread = mockThread();
+      const failedThread = mockThread();
+      const setArchived = mock().mockResolvedValue(undefined);
+
+      mockThreadRepository.getOpenThreads.mockResolvedValue([
+        recoverableThread,
+        lockedThread,
+        failedThread,
+      ]);
+      mockRuntimeConfigRepository.getConfig.mockResolvedValue({
+        forumChannelId,
+      } as RuntimeConfig);
+      spyOn(client.channels, "fetch").mockImplementation((async (id: string) => {
+        if (id === failedThread.channelId) {
+          return Promise.reject(new Error("Unknown Channel"));
+        }
+        return Promise.resolve({
+          isThread: () => true,
+          parentId: forumChannelId,
+          archived: true,
+          locked: id === lockedThread.channelId,
+          setArchived,
+        } as unknown as ForumThreadChannel);
+      }) as any);
+
+      await expect(threadService.recoverOpenThreads()).resolves.toBeUndefined();
+      expect(setArchived).toHaveBeenCalledTimes(1);
+      expect(setArchived).toHaveBeenCalledWith(
+        false,
+        "Reopening database-open modmail thread after bot startup"
       );
     });
   });
@@ -689,6 +790,7 @@ describe("ThreadService", () => {
           content: "initialMessage",
         },
         appliedTags: [openTagId],
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       });
       expect(mockThreadRepository.createThread).toHaveBeenCalledWith(
         "guildId",
@@ -749,6 +851,7 @@ describe("ThreadService", () => {
           content: "initialMessage",
         },
         appliedTags: [newOpenTagId],
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       });
     });
   });

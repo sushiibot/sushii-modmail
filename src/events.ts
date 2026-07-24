@@ -171,6 +171,12 @@ export function registerEventHandlers(
       "on startup"
     );
 
+    try {
+      await threadService.recoverOpenThreads();
+    } catch (err) {
+      logger.error(err, "Failed to recover open modmail threads on startup");
+    }
+
     // Sync emojis on startup
     try {
       await botEmojiController.syncEmojis(client);
@@ -183,6 +189,23 @@ export function registerEventHandlers(
 
   client.on(Events.GuildCreate, (guild) => {
     logger.info(`Joined server: ${guild.name}`);
+  });
+
+  client.on(Events.ThreadUpdate, async (_, newThread) => {
+    try {
+      const reopened = await threadService.reopenIfOpen(newThread);
+      if (reopened) {
+        logger.info(
+          { threadId: newThread.id, trigger: "thread_update" },
+          "Reopened auto-archived open modmail thread"
+        );
+      }
+    } catch (err) {
+      logger.error(
+        { err, threadId: newThread.id, trigger: "thread_update" },
+        "Failed to reopen auto-archived modmail thread"
+      );
+    }
   });
 
   client.on(Events.ShardReconnecting, () => {
