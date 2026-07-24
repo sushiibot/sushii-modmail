@@ -74,7 +74,7 @@ export class SettingsCommandView {
 
     let generalSettingsContent = `## ${emojis.settings} Bot Settings`;
     generalSettingsContent += "\n### General Settings";
-    generalSettingsContent += `\n${emojis.prefix} **Prefix:** \`${config.prefix}\``;
+    generalSettingsContent += `\n${emojis.prefix} **Prefix:** \`${config.prefix}\` (mentioning the bot also works)`;
     generalSettingsContent += `\n${emojis.heart} **Bot Status:** \`${
       config.botStatus || "Not set"
     }\``;

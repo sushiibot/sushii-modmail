@@ -25,6 +25,9 @@ export default class CommandRouter {
   private runtimeConfigRepository: RuntimeConfigRepository;
   private config: BotConfig;
 
+  // Discord sends nickname mentions as <@!id> for older clients, plain <@id> otherwise
+  private readonly mentionPrefixRegex: RegExp;
+
   constructor(
     runtimeConfigRepository: RuntimeConfigRepository,
     config: BotConfig,
@@ -32,6 +35,9 @@ export default class CommandRouter {
   ) {
     this.runtimeConfigRepository = runtimeConfigRepository;
     this.config = config;
+    this.mentionPrefixRegex = new RegExp(
+      `^<@!?${config.discordClientId}>\\s*`
+    );
 
     this.commands = new Map();
     this.logger = parentLogger.child({ module: "CommandRouter" });
@@ -120,9 +126,27 @@ export default class CommandRouter {
     return config.prefix;
   }
 
-  async isCommand(msg: Message<true>): Promise<boolean> {
+  /**
+   * Matches either the configured text prefix or an @mention of the bot,
+   * returning the message content with that prefix stripped off, or null
+   * if the message doesn't start with either.
+   */
+  async stripPrefix(msg: Message<true>): Promise<string | null> {
+    const mentionMatch = msg.content.match(this.mentionPrefixRegex);
+    if (mentionMatch) {
+      return msg.content.slice(mentionMatch[0].length);
+    }
+
     const prefix = await this.getPrefix(msg);
-    return msg.content.startsWith(prefix);
+    if (msg.content.startsWith(prefix)) {
+      return msg.content.slice(prefix.length);
+    }
+
+    return null;
+  }
+
+  async isCommand(msg: Message<true>): Promise<boolean> {
+    return (await this.stripPrefix(msg)) !== null;
   }
 
   async breakDownMessage(
@@ -209,7 +233,8 @@ export default class CommandRouter {
       return;
     }
 
-    if (!(await this.isCommand(msg))) {
+    const contentWithoutPrefix = await this.stripPrefix(msg);
+    if (contentWithoutPrefix === null) {
       return;
     }
 
@@ -218,10 +243,8 @@ export default class CommandRouter {
       return;
     }
 
-    const prefix = await this.getPrefix(msg);
-
     const [commandName, subCommandName, args] = await this.breakDownMessage(
-      msg.content.slice(prefix.length)
+      contentWithoutPrefix
     );
 
     let rootCommand = this.commands.get(commandName);
