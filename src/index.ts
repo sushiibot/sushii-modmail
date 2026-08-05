@@ -36,6 +36,8 @@ import { SettingsCommand } from "commands/SettingsCommand";
 import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { SettingsService } from "services/SettingsService";
 import { HelpCommand } from "commands/HelpCommand";
+import { SayCommand } from "commands/SayCommand";
+import { SayService } from "services/SayService";
 import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
 import { HealthcheckService, type BotInstance } from "services/HealthcheckService";
 import { initMetrics, registerBotGatewayMetrics } from "utils/metrics";
@@ -83,6 +85,7 @@ function buildCommandRouter(
     runtimeConfigRepository,
     botEmojiRepository
   );
+  const sayService = new SayService();
 
   router.addCommands(
     // Reply commands
@@ -121,7 +124,10 @@ function buildCommandRouter(
 
     // Settings
     new SettingsCommand(settingsService),
-    new HelpCommand(config)
+    new HelpCommand(config),
+
+    // Say
+    new SayCommand(sayService)
   );
 
   snippetService.setReservedNames(router.getCommandNames());

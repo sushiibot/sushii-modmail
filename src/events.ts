@@ -21,6 +21,8 @@ import { DiscordBotEmojiService } from "services/BotEmojiService";
 import { BotEmojiController } from "controllers/BotEmojiController";
 import { SettingsModalController } from "controllers/SettingsModalController";
 import { SettingsService } from "services/SettingsService";
+import { SayModalController } from "controllers/SayModalController";
+import { SayService } from "services/SayService";
 import { MemberNotificationController } from "controllers/MemberNotificationController";
 import { MemberNotificationService } from "services/MemberNotificationService";
 import { wrapClientDispatch } from "utils/clientDispatch";
@@ -138,6 +140,8 @@ export function registerEventHandlers(
     botEmojiRepository
   );
   const settingsModalController = new SettingsModalController(settingsService);
+  const sayService = new SayService();
+  const sayModalController = new SayModalController(sayService);
   const notificationController = new MemberNotificationController(
     notificationService
   );
@@ -347,6 +351,7 @@ export function registerEventHandlers(
     try {
       if (interaction.isModalSubmit()) {
         await settingsModalController.handleModal(interaction);
+        await sayModalController.handleModal(interaction);
       }
     } catch (err) {
       logger.error(

@@ -17,6 +17,7 @@ export class HelpCommandView {
       `\n## General Commands`,
       `\n\`help\` - Show this help message`,
       `\n\`settings\` - Show settings menu`,
+      `\n\`say [channel]\` - Compose and send a custom embed to a channel (current channel if omitted)`,
 
       `\n## Thread Commands`,
       `\n\`contact\` - Open a new thread with a user`,
