@@ -1,7 +1,6 @@
 import { EmbedBuilder, type MessageCreateOptions } from "discord.js";
 import { Snippet } from "../models/snippet.model";
 import { Color } from "./Color";
-import { quoteText } from "./util";
 
 export class SnippetCommandView {
   static notInGuild(): MessageCreateOptions {
@@ -218,7 +217,7 @@ export class SnippetCommandView {
   static snippetContent(snippet: Snippet): MessageCreateOptions {
     const embed = new EmbedBuilder()
       .setTitle(`Snippet - \`${snippet.name}\``)
-      .setDescription(quoteText(snippet.content))
+      .setDescription(snippet.content)
       .setColor(Color.Blue);
 
     return { embeds: [embed], allowedMentions: { parse: [] } };
