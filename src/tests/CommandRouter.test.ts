@@ -156,3 +156,80 @@ describe("CommandRouter whitespace handling", () => {
     expect(args).toEqual(["hello", "there"]);
   });
 });
+
+describe("CommandRouter prefix deprecation warning", () => {
+  const helpCommand: TextCommandHandler = {
+    commandName: "help",
+    subCommandName: null,
+    aliases: [],
+    requiresPrimaryServer: false,
+    handler: async () => {},
+  };
+
+  it("warns when a command is triggered via the text prefix", async () => {
+    const sent: string[] = [];
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage("-help", {
+      channel: { send: async (content: string) => sent.push(content) },
+    } as never);
+
+    await router.handleMessage(msg);
+
+    expect(sent.length).toBe(1);
+    expect(sent[0]).toContain(CLIENT_ID);
+  });
+
+  it("does not warn when triggered via @mention", async () => {
+    const sent: string[] = [];
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage(`<@${CLIENT_ID}> help`, {
+      channel: { send: async (content: string) => sent.push(content) },
+    } as never);
+
+    await router.handleMessage(msg);
+
+    expect(sent.length).toBe(0);
+  });
+
+  it("does not warn a second time within the same day", async () => {
+    const sent: string[] = [];
+    const router = makeRouter("-", [helpCommand]);
+    const channel = { send: async (content: string) => sent.push(content) };
+
+    await router.handleMessage(
+      makeGuildMessage("-help", { channel } as never)
+    );
+    await router.handleMessage(
+      makeGuildMessage("-help", { channel } as never)
+    );
+
+    expect(sent.length).toBe(1);
+  });
+
+  it("warns independently per guild", async () => {
+    const sent: string[] = [];
+    const router = makeRouter("-", [helpCommand]);
+    const channel = { send: async (content: string) => sent.push(content) };
+
+    await router.handleMessage(
+      makeGuildMessage("-help", { channel } as never)
+    );
+    await router.handleMessage(
+      makeGuildMessage("-help", { channel, guildId: "guild-2" } as never)
+    );
+
+    expect(sent.length).toBe(2);
+  });
+
+  it("does not warn for an unrecognized prefixed message", async () => {
+    const sent: string[] = [];
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage("-nonexistent", {
+      channel: { send: async (content: string) => sent.push(content) },
+    } as never);
+
+    await router.handleMessage(msg);
+
+    expect(sent.length).toBe(0);
+  });
+});

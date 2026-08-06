@@ -28,6 +28,14 @@ export default class CommandRouter {
   // Discord sends nickname mentions as <@!id> for older clients, plain <@id> otherwise
   private readonly mentionPrefixRegex: RegExp;
 
+  // Text-prefix commands are being deprecated in favor of @mention triggers
+  // (message content isn't reliably available without the privileged intent
+  // unless the message mentions the bot). Warn at most once a day per guild
+  // so the notice doesn't spam a busy thread.
+  private static readonly PREFIX_DEPRECATION_WARNING_INTERVAL_MS =
+    24 * 60 * 60 * 1000;
+  private lastPrefixDeprecationWarningAtByGuild = new Map<string, number>();
+
   constructor(
     runtimeConfigRepository: RuntimeConfigRepository,
     config: BotConfig,
@@ -128,25 +136,66 @@ export default class CommandRouter {
 
   /**
    * Matches either the configured text prefix or an @mention of the bot,
-   * returning the message content with that prefix stripped off, or null
-   * if the message doesn't start with either.
+   * returning the message content with that prefix stripped off, along with
+   * which form matched, or null if the message doesn't start with either.
    */
-  async stripPrefix(msg: Message<true>): Promise<string | null> {
+  async stripPrefixDetailed(
+    msg: Message<true>
+  ): Promise<{ content: string; viaMention: boolean } | null> {
     const mentionMatch = msg.content.match(this.mentionPrefixRegex);
     if (mentionMatch) {
-      return msg.content.slice(mentionMatch[0].length);
+      return {
+        content: msg.content.slice(mentionMatch[0].length),
+        viaMention: true,
+      };
     }
 
     const prefix = await this.getPrefix(msg);
     if (msg.content.startsWith(prefix)) {
-      return msg.content.slice(prefix.length);
+      return {
+        content: msg.content.slice(prefix.length),
+        viaMention: false,
+      };
     }
 
     return null;
   }
 
+  async stripPrefix(msg: Message<true>): Promise<string | null> {
+    const result = await this.stripPrefixDetailed(msg);
+    return result?.content ?? null;
+  }
+
   async isCommand(msg: Message<true>): Promise<boolean> {
     return (await this.stripPrefix(msg)) !== null;
+  }
+
+  /**
+   * Sends a rate-limited (at most once/day per guild, in-memory) reminder
+   * that text-prefix commands are deprecated in favor of @mentioning the
+   * bot. Only fires for messages that resolved to an actual known command,
+   * not every message that happens to start with the prefix character.
+   */
+  private warnAboutPrefixUsage(msg: Message<true>): void {
+    const now = Date.now();
+    const lastWarnedAt =
+      this.lastPrefixDeprecationWarningAtByGuild.get(msg.guildId) ?? 0;
+
+    if (
+      now - lastWarnedAt <
+      CommandRouter.PREFIX_DEPRECATION_WARNING_INTERVAL_MS
+    ) {
+      return;
+    }
+    this.lastPrefixDeprecationWarningAtByGuild.set(msg.guildId, now);
+
+    msg.channel
+      .send(
+        `Text-prefix commands are deprecated since Discord is revoking Message Content access. Mention <@${this.config.discordClientId}> instead, e.g. \`@bot reply ...\`.`
+      )
+      .catch((error) =>
+        this.logger.warn(error, "Failed to send prefix deprecation warning")
+      );
   }
 
   async breakDownMessage(
@@ -236,8 +285,8 @@ export default class CommandRouter {
       return;
     }
 
-    const contentWithoutPrefix = await this.stripPrefix(msg);
-    if (contentWithoutPrefix === null) {
+    const prefixMatch = await this.stripPrefixDetailed(msg);
+    if (prefixMatch === null) {
       return;
     }
 
@@ -247,7 +296,7 @@ export default class CommandRouter {
     }
 
     const [commandName, subCommandName, args] = await this.breakDownMessage(
-      contentWithoutPrefix
+      prefixMatch.content
     );
 
     let rootCommand = this.commands.get(commandName);
@@ -255,6 +304,10 @@ export default class CommandRouter {
     // No matching command
     if (!rootCommand) {
       return;
+    }
+
+    if (!prefixMatch.viaMention) {
+      this.warnAboutPrefixUsage(msg);
     }
 
     let handler: TextCommandHandler | null;
