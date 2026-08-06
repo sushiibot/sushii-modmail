@@ -154,8 +154,11 @@ export default class CommandRouter {
   ): Promise<[string, string | null, string[]]> {
     const content = contentWithoutPrefix.trim();
 
-    const contentArray = content.split(" ");
-    const commandName = contentArray[0].toLowerCase();
+    // Split on any run of whitespace (spaces or tabs) and drop empty tokens,
+    // so repeated/irregular spacing doesn't produce blank args (previously
+    // e.g. "logs  123" resolved args[0] to "" instead of "123").
+    const contentArray = content.split(/\s+/).filter((s) => s.length > 0);
+    const commandName = (contentArray[0] ?? "").toLowerCase();
 
     // Check if there's a potential subcommand
     let subCommandName: string | null = null;

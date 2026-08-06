@@ -134,3 +134,25 @@ describe("CommandRouter handleMessage dispatch via mention", () => {
     expect(called.args).toEqual(["me", "please"]);
   });
 });
+
+describe("CommandRouter whitespace handling", () => {
+  it("does not produce empty-string args from repeated spaces", async () => {
+    const router = makeRouter("-");
+    const [commandName, subCommandName, args] =
+      await router.breakDownMessage("logs   123");
+
+    expect(commandName).toBe("logs");
+    expect(subCommandName).toBeNull();
+    expect(args).toEqual(["123"]);
+  });
+
+  it("splits on tabs as well as spaces", async () => {
+    const router = makeRouter("-");
+    const [commandName, , args] = await router.breakDownMessage(
+      "reply\thello\tthere"
+    );
+
+    expect(commandName).toBe("reply");
+    expect(args).toEqual(["hello", "there"]);
+  });
+});
