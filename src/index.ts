@@ -1,5 +1,5 @@
 import { setupOtel } from "./instrumentation";
-import { Client, GatewayIntentBits, Partials } from "discord.js";
+import { Client, GatewayIntentBits, Options, Partials } from "discord.js";
 import { getConfigFromEnv } from "./config/config";
 import {
   EnvBotRegistry,
@@ -177,6 +177,32 @@ function createBot(
       Partials.Reaction,
       Partials.User,
     ],
+    // Messages/members are always fetched by ID from event handlers rather
+    // than read from cache, and the messages table is the source of truth --
+    // caching is pure memory overhead here. Every channel the bot can see
+    // (not just modmail threads) receives MESSAGE_CREATE, so without a low
+    // cap MessageManager grows unbounded across the whole guild.
+    makeCache: Options.cacheWithLimits({
+      ...Options.DefaultMakeCacheSettings,
+      MessageManager: 25,
+      UserManager: 200,
+      GuildMemberManager: {
+        maxSize: 200,
+        keepOverLimit: (member) => member.id === member.client.user.id,
+      },
+      ReactionManager: 0,
+      ReactionUserManager: 0,
+      PresenceManager: 0,
+      VoiceStateManager: 0,
+      StageInstanceManager: 0,
+      GuildBanManager: 0,
+      GuildInviteManager: 0,
+      GuildEmojiManager: 0,
+      GuildStickerManager: 0,
+      AutoModerationRuleManager: 0,
+      ThreadMemberManager: 0,
+      ApplicationCommandManager: 0,
+    }),
   });
 
   logger.info({ bot: config.name }, "Initializing command router...");
