@@ -332,6 +332,7 @@ export class ThreadService {
     const forumChannelId = runtimeConfig.forumChannelId;
     let reopened = 0;
     let skipped = 0;
+    let closedMissing = 0;
     let failed = 0;
 
     for (let index = 0; index < openThreads.length; index += ThreadService.RECOVERY_CONCURRENCY) {
@@ -341,9 +342,27 @@ export class ThreadService {
       );
       const results = await Promise.allSettled(
         batch.map(async (thread) => {
-          const channel = await this.client.channels.fetch(thread.channelId, {
-            force: true,
-          });
+          let channel;
+          try {
+            channel = await this.client.channels.fetch(thread.channelId, {
+              force: true,
+            });
+          } catch (error) {
+            // Thread's forum channel was manually deleted in Discord. Close
+            // the DB record so it stops being retried on every startup.
+            if (
+              error instanceof DiscordAPIError &&
+              error.code === RESTJSONErrorCodes.UnknownChannel
+            ) {
+              await this.threadRepository.closeThread(thread.channelId, "0");
+              this.logger.info(
+                { threadId: thread.channelId, trigger: "startup_recovery" },
+                "Closed modmail thread whose channel no longer exists in Discord"
+              );
+              return "missing" as const;
+            }
+            throw error;
+          }
 
           if (
             !channel ||
@@ -352,7 +371,7 @@ export class ThreadService {
             !channel.archived ||
             channel.locked
           ) {
-            return false;
+            return "skipped" as const;
           }
 
           await channel.setArchived(
@@ -363,13 +382,14 @@ export class ThreadService {
             { threadId: thread.channelId, trigger: "startup_recovery" },
             "Reopened auto-archived open modmail thread"
           );
-          return true;
+          return "reopened" as const;
         })
       );
 
       for (const result of results) {
         if (result.status === "fulfilled") {
-          if (result.value) reopened += 1;
+          if (result.value === "reopened") reopened += 1;
+          else if (result.value === "missing") closedMissing += 1;
           else skipped += 1;
         } else {
           failed += 1;
@@ -382,7 +402,7 @@ export class ThreadService {
     }
 
     this.logger.info(
-      { openThreads: openThreads.length, reopened, skipped, failed },
+      { openThreads: openThreads.length, reopened, skipped, closedMissing, failed },
       "Completed open modmail thread startup recovery"
     );
   }
