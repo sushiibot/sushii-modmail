@@ -1,223 +1,17 @@
 import { setupOtel } from "./instrumentation";
-import { Client, GatewayIntentBits, Options, Partials } from "discord.js";
 import { getConfigFromEnv } from "./config/config";
-import {
-  EnvBotRegistry,
-  resolveApplicationId,
-  type BotRosterEntry,
-} from "./config/botRegistry";
 import logger, { initLogger } from "./utils/logger";
-import CommandRouter from "./CommandRouter";
 import dotenv from "dotenv";
-import { registerEventHandlers } from "./events";
-import { getDb, type DB } from "database/db";
-import { ReplyCommand } from "commands/reply/ReplyCommand";
-import { MessageRelayService } from "services/MessageRelayService";
-import { ThreadService } from "services/ThreadService";
-import { ThreadRepository } from "repositories/thread.repository";
-import { AnonymousReplyCommand } from "commands/reply/AnonymousReplyCommand";
-import { BotConfig, type GlobalConfig } from "models/botConfig.model";
-import { CloseCommand } from "commands/CloseCommand";
-import { LogsCommand } from "commands/LogsCommand";
-import { PlainReplyCommand } from "commands/reply/PlainReplyCommand";
-import { AddSnippetCommand } from "commands/snippets/AddSnippetCommand";
-import { GetSnippetCommand } from "commands/snippets/GetSnippetCommand";
-import { SnippetService } from "services/SnippetService";
-import { SnippetRepository } from "repositories/snippet.repository";
-import { EditSnippetCommand } from "commands/snippets/EditSnippetCommand";
-import { DeleteSnippetCommand } from "commands/snippets/DeleteSnippetCommand";
-import { ListSnippetsCommand } from "commands/snippets/ListSnippetsCommand";
-import { ContactCommand } from "commands/ContactCommand";
-import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
-import { MessageRepository } from "repositories/message.repository";
-import { EditCommand } from "commands/EditCommand";
-import { DeleteCommand } from "commands/DeleteCommand";
-import { SettingsCommand } from "commands/SettingsCommand";
-import { BotEmojiRepository } from "repositories/botEmoji.repository";
-import { SettingsService } from "services/SettingsService";
-import { HelpCommand } from "commands/HelpCommand";
-import { SayCommand } from "commands/SayCommand";
-import { SayService } from "services/SayService";
-import { AnonymousPlainReplyCommand } from "commands/reply/AnonymousPlainReplyCommand";
-import { HealthcheckService, type BotInstance } from "services/HealthcheckService";
+import { getDb } from "database/db";
+import { BotRepository } from "repositories/bot.repository";
+import { BotManager } from "services/BotManager";
+import { seedIfNeeded } from "services/botSeed";
+import { HealthcheckService } from "services/HealthcheckService";
 import { initMetrics, registerBotGatewayMetrics } from "utils/metrics";
 import * as Sentry from "@sentry/bun";
 
 // Load environment variables from .env file, mostly for development
 dotenv.config();
-
-function buildCommandRouter(
-  config: BotConfig,
-  client: Client,
-  db: DB
-): CommandRouter {
-  const threadRepository = new ThreadRepository(db, config.guildId);
-  const snippetRepository = new SnippetRepository(db);
-  const runtimeConfigRepository = new RuntimeConfigRepository(
-    db,
-    config.discordClientId
-  );
-  const messageRepository = new MessageRepository(db);
-  const botEmojiRepository = new BotEmojiRepository(db, config.discordClientId);
-
-  const threadService = new ThreadService(
-    config,
-    client,
-    runtimeConfigRepository,
-    threadRepository,
-    botEmojiRepository
-  );
-  const messageService = new MessageRelayService(
-    config,
-    client,
-    runtimeConfigRepository,
-    threadRepository,
-    messageRepository,
-    botEmojiRepository
-  );
-  const snippetService = new SnippetService(config, client, snippetRepository);
-
-  // Commands
-  const router = new CommandRouter(runtimeConfigRepository, config);
-
-  // Settings service
-  const settingsService = new SettingsService(
-    runtimeConfigRepository,
-    botEmojiRepository
-  );
-  const sayService = new SayService();
-
-  router.addCommands(
-    // Reply commands
-    new ReplyCommand(threadService, messageService, runtimeConfigRepository),
-    new AnonymousReplyCommand(
-      threadService,
-      messageService,
-      runtimeConfigRepository
-    ),
-    new AnonymousPlainReplyCommand(
-      threadService,
-      messageService,
-      runtimeConfigRepository
-    ),
-    new PlainReplyCommand(
-      threadService,
-      messageService,
-      runtimeConfigRepository
-    ),
-
-    // Thread message commands
-    new EditCommand(threadService, messageService, runtimeConfigRepository),
-    new DeleteCommand(threadService, messageService),
-
-    // Snippets
-    new GetSnippetCommand(snippetService),
-    new AddSnippetCommand(snippetService),
-    new EditSnippetCommand(snippetService),
-    new DeleteSnippetCommand(snippetService),
-    new ListSnippetsCommand(snippetService),
-
-    // Other
-    new CloseCommand(threadService, runtimeConfigRepository),
-    new LogsCommand(threadService, messageService, runtimeConfigRepository),
-    new ContactCommand(threadService, messageService),
-
-    // Settings
-    new SettingsCommand(settingsService),
-    new HelpCommand(config),
-
-    // Say
-    new SayCommand(sayService)
-  );
-
-  snippetService.setReservedNames(router.getCommandNames());
-
-  return router;
-}
-
-interface StartedBot {
-  config: BotConfig;
-  client: Client;
-}
-
-/**
- * Builds the client, command router, and event handlers for one roster
- * entry -- everything up to (but not including) the Discord login. Kept
- * separate from the login step so the healthcheck server can start, and
- * report every bot's status, before any login has settled (see
- * startBot's login step below).
- */
-function createBot(
-  entry: BotRosterEntry,
-  applicationId: string,
-  globals: GlobalConfig,
-  db: DB
-): StartedBot {
-  const config = BotConfig.fromRosterEntry(entry, applicationId, globals);
-
-  const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.GuildMessageReactions,
-      GatewayIntentBits.GuildModeration,
-      GatewayIntentBits.MessageContent,
-      GatewayIntentBits.DirectMessages,
-      GatewayIntentBits.DirectMessageReactions,
-    ],
-    // Partials.Channel: Required to receive DMs with Events.MessageCreate
-    // Partials.Reaction and Partials.Message: Required to receive reactions on uncached messages
-    partials: [
-      Partials.Channel,
-      Partials.Reaction,
-      Partials.Message,
-      Partials.GuildMember,
-      // For reactions on non-cached messages
-      Partials.Reaction,
-      Partials.User,
-    ],
-    // Messages/members are always fetched by ID from event handlers rather
-    // than read from cache, and the messages table is the source of truth --
-    // caching is pure memory overhead here. Every channel the bot can see
-    // (not just modmail threads) receives MESSAGE_CREATE, so without a low
-    // cap MessageManager grows unbounded across the whole guild.
-    makeCache: Options.cacheWithLimits({
-      ...Options.DefaultMakeCacheSettings,
-      MessageManager: 25,
-      UserManager: 200,
-      GuildMemberManager: {
-        maxSize: 200,
-        keepOverLimit: (member) => member.id === member.client.user.id,
-      },
-      ReactionManager: 0,
-      ReactionUserManager: 0,
-      PresenceManager: 0,
-      VoiceStateManager: 0,
-      StageInstanceManager: 0,
-      GuildBanManager: 0,
-      GuildInviteManager: 0,
-      GuildEmojiManager: 0,
-      GuildStickerManager: 0,
-      AutoModerationRuleManager: 0,
-      ThreadMemberManager: 0,
-      ApplicationCommandManager: 0,
-    }),
-  });
-
-  logger.info({ bot: config.name }, "Initializing command router...");
-  const router = buildCommandRouter(config, client, db);
-
-  logger.info({ bot: config.name }, "Registering event handlers...");
-  registerEventHandlers(config, client, db, router);
-
-  return { config, client };
-}
-
-async function loginBot(bot: StartedBot): Promise<void> {
-  logger.info({ bot: bot.config.name }, "Starting Discord client...");
-  await bot.client.login(bot.config.discordToken);
-}
 
 async function main() {
   const otel = setupOtel();
@@ -259,95 +53,49 @@ async function main() {
 
   const globals = getConfigFromEnv();
 
+  if (!globals.OWNER_USER_ID) {
+    logger.warn(
+      "OWNER_USER_ID is not set -- `bot` admin commands are registered but unreachable."
+    );
+  }
+
   // Update log level from config
   logger.info(`Setting log level to ${globals.LOG_LEVEL}`);
   initLogger(globals.LOG_LEVEL);
 
   const db = getDb(globals.DATABASE_URI);
+  const botRepository = new BotRepository(db);
 
-  const registry = new EnvBotRegistry();
-  const roster = await registry.getBotConfigs();
+  await seedIfNeeded(db, botRepository);
 
-  // Resolve each bot's real Discord application id from its token via the
-  // API before constructing anything -- this is the source of truth
-  // rather than a hand-configured id that could drift from the token.
-  // Isolated per bot: a bad/revoked token only takes that bot out, same
-  // as a failed login below, not the whole process.
-  const applicationIdResults = await Promise.allSettled(
-    roster.map((entry) => resolveApplicationId(entry.discordToken))
-  );
+  const botManager = new BotManager(db, globals, botRepository);
 
-  const resolvedEntries: { entry: BotRosterEntry; applicationId: string }[] =
-    [];
-  for (const [i, result] of applicationIdResults.entries()) {
-    if (result.status === "fulfilled") {
-      resolvedEntries.push({ entry: roster[i], applicationId: result.value });
-    } else {
-      logger.error(
-        { err: result.reason, bot: roster[i].name },
-        `Failed to resolve Discord application id for bot "${roster[i].name}"`
-      );
-    }
-  }
-
-  // Construct every bot's client/router/handlers (fast, no network I/O)
-  // before starting the healthcheck server or attempting any login. A bad
-  // roster entry (rare -- this is DI wiring, not I/O) is isolated the
-  // same way a failed login is below, not allowed to take down the batch.
-  const bots: StartedBot[] = [];
-  for (const { entry, applicationId } of resolvedEntries) {
-    try {
-      bots.push(createBot(entry, applicationId, globals, db));
-    } catch (err) {
-      logger.error(
-        { err, bot: entry.name },
-        `Failed to initialize bot "${entry.name}"`
-      );
-    }
-  }
-
-  if (bots.length === 0) {
-    throw new Error("All bots failed to initialize");
-  }
-
-  // Start the healthcheck server before any login attempt completes, with
-  // every constructed client (including ones whose login later fails or
-  // hangs) -- /live must not depend on login completing, and a failed
-  // login must show as unhealthy rather than silently disappearing from
-  // /ready. getSummary() reads client.isReady()/ws.status live, so this
-  // reflects each bot's real-time status regardless of when/whether its
-  // login settles.
-  const healthInstances: BotInstance[] = bots.map((b) => ({
-    name: b.config.name,
-    client: b.client,
-  }));
+  // Healthcheck/metrics start reading BotManager's summaries before any
+  // login is attempted -- /live doesn't depend on login completing, and a
+  // failed login shows up as unhealthy instead of silently disappearing.
   const healthcheckService = new HealthcheckService(
-    healthInstances,
+    botManager,
     globals.HEALTHCHECK_PORT
   );
   healthcheckService.start();
 
-  registerBotGatewayMetrics(
-    bots.map((b) => ({ name: b.config.name, client: b.client }))
-  );
+  registerBotGatewayMetrics(() => botManager.getSummaries());
 
-  const loginResults = await Promise.allSettled(bots.map(loginBot));
+  const roster = await botRepository.list();
+  await botManager.startAllForBoot(roster);
 
-  let loggedInCount = 0;
-  for (const [i, result] of loginResults.entries()) {
-    if (result.status === "fulfilled") {
-      loggedInCount += 1;
-    } else {
-      logger.error(
-        { err: result.reason, bot: bots[i].config.name },
-        `Failed to log in bot "${bots[i].config.name}"`
-      );
-    }
-  }
+  const connectedCount = botManager
+    .getSummaries()
+    .filter((s) => s.status === "connected").length;
 
-  if (loggedInCount === 0) {
+  if (connectedCount === 0) {
     healthcheckService.stop();
-    throw new Error("All bots failed to log in");
+    throw new Error(
+      "All bots failed to log in. If the `bots` table can't produce a " +
+        "single connected bot, restore working env vars and delete the " +
+        "bot_roster_seed_state row to force a re-seed from env on the " +
+        "next start."
+    );
   }
 
   // Graceful shutdown handlers
@@ -355,9 +103,7 @@ async function main() {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     healthcheckService.stop();
     await otel.shutdown();
-    for (const b of bots) {
-      b.client.destroy();
-    }
+    await botManager.destroyAll();
     process.exit(0);
   };
 

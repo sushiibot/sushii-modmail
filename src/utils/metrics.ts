@@ -1,5 +1,9 @@
 import { ValueType, metrics, type ObservableGauge } from "@opentelemetry/api";
-import type { Client } from "discord.js";
+import {
+  BOT_STATUS_CODES,
+  FAILED_GATEWAY_STATUS_SENTINEL,
+  type BotSummary,
+} from "services/BotManager";
 
 // MAIL_GUILD_ID only changes on a redeploy, so once a conflict is
 // observed it stays true for the rest of this process's life -- there's
@@ -12,11 +16,6 @@ const conflictedApplicationIds = new Set<string>();
 let botStatusGauge: ObservableGauge | undefined;
 let botLatencyGauge: ObservableGauge | undefined;
 let guildOwnershipConflictGauge: ObservableGauge | undefined;
-
-export interface BotForMetrics {
-  name: string;
-  client: Client;
-}
 
 /**
  * Creates every metric instrument. Must be called after setupOtel() has
@@ -71,25 +70,40 @@ export function initMetrics(): void {
 
 /**
  * Registers observable-gauge callbacks reporting every started bot's live
- * gateway status/latency. Poll-based (reads client.ws.status/ping on each
- * collection interval), so it reflects real-time state regardless of when
- * a bot's login settles -- same rationale as HealthcheckService's /ready.
- * Must be called after initMetrics().
+ * gateway status/latency, reading `getSummaries()` fresh on each
+ * collection interval rather than closing over a fixed array -- so a bot
+ * added/removed/reloaded after boot is reflected without re-registering
+ * callbacks (registering twice would leak + produce duplicate/
+ * nondeterministic readings over destroyed clients). Called ONCE at boot,
+ * after initMetrics().
  */
-export function registerBotGatewayMetrics(bots: BotForMetrics[]): void {
+export function registerBotGatewayMetrics(
+  getSummaries: () => BotSummary[]
+): void {
   if (!botStatusGauge || !botLatencyGauge) {
     throw new Error("registerBotGatewayMetrics called before initMetrics()");
   }
 
   botStatusGauge.addCallback((result) => {
-    for (const bot of bots) {
-      result.observe(bot.client.ws.status, { bot: bot.name });
+    for (const bot of getSummaries()) {
+      result.observe(BOT_STATUS_CODES[bot.status].gatewayStatus, {
+        bot: bot.name,
+      });
     }
   });
 
   botLatencyGauge.addCallback((result) => {
-    for (const bot of bots) {
-      result.observe(bot.client.ws.ping, { bot: bot.name });
+    for (const bot of getSummaries()) {
+      // A failed bot still emits a row via the sentinel value below
+      // rather than being omitted entirely -- gated on `status`
+      // explicitly rather than `bot.ping ?? sentinel`, so this doesn't
+      // rely on the (currently true, but not enforced by the type)
+      // invariant that ping is only ever null when status is "failed".
+      const ping =
+        bot.status === "failed"
+          ? FAILED_GATEWAY_STATUS_SENTINEL
+          : bot.ping ?? FAILED_GATEWAY_STATUS_SENTINEL;
+      result.observe(ping, { bot: bot.name });
     }
   });
 }

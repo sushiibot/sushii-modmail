@@ -290,11 +290,6 @@ export default class CommandRouter {
       return;
     }
 
-    const hasPermission = await this.hasPermission(msg);
-    if (!hasPermission) {
-      return;
-    }
-
     const [commandName, subCommandName, args] = await this.breakDownMessage(
       prefixMatch.content
     );
@@ -304,10 +299,6 @@ export default class CommandRouter {
     // No matching command
     if (!rootCommand) {
       return;
-    }
-
-    if (!prefixMatch.viaMention) {
-      this.warnAboutPrefixUsage(msg);
     }
 
     let handler: TextCommandHandler | null;
@@ -335,6 +326,31 @@ export default class CommandRouter {
       );
 
       return;
+    }
+
+    if (handler.ownerOnly) {
+      // Owner-only commands respond only to an @mention trigger -- this
+      // both dedupes to exactly one bot in a multi-bot guild (the mention
+      // regex is built from this bot's own discordClientId) and skips
+      // getPrefix()/runtimeConfigRepository.getConfig() entirely, so it
+      // can never throw GuildOwnershipConflictError the way a text-prefix
+      // invocation on a non-owning bot would.
+      if (!prefixMatch.viaMention) {
+        return;
+      }
+
+      if (msg.author.id !== this.config.ownerUserId) {
+        return;
+      }
+    } else {
+      const hasPermission = await this.hasPermission(msg);
+      if (!hasPermission) {
+        return;
+      }
+
+      if (!prefixMatch.viaMention) {
+        this.warnAboutPrefixUsage(msg);
+      }
     }
 
     // Check if command requires primary server validation

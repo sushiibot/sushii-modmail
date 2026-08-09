@@ -17,6 +17,10 @@ const configSchema = z.object({
   // Build information
   GIT_HASH: z.string().optional(),
   BUILD_DATE: z.coerce.date().optional(),
+
+  // Discord user id allowed to use owner-only `bot` commands. Left unset,
+  // those commands are registered but unreachable rather than absent.
+  OWNER_USER_ID: z.string().optional(),
 });
 
 export type ConfigType = z.infer<typeof configSchema>;

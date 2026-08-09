@@ -26,6 +26,8 @@ import { SayService } from "services/SayService";
 import { MemberNotificationController } from "controllers/MemberNotificationController";
 import { MemberNotificationService } from "services/MemberNotificationService";
 import { wrapClientDispatch } from "utils/clientDispatch";
+import { BotAdminModalController } from "controllers/BotAdminModalController";
+import type { BotManager } from "services/BotManager";
 
 /**
  * Updates bot presence based on runtime configuration
@@ -63,7 +65,8 @@ export function registerEventHandlers(
   config: BotConfig,
   client: Client,
   db: DB,
-  commandRouter: CommandRouter
+  commandRouter: CommandRouter,
+  botManager: BotManager
 ) {
   const logger = getLogger("events");
 
@@ -142,6 +145,10 @@ export function registerEventHandlers(
   const settingsModalController = new SettingsModalController(settingsService);
   const sayService = new SayService();
   const sayModalController = new SayModalController(sayService);
+  const botAdminModalController = new BotAdminModalController(
+    botManager,
+    config.ownerUserId
+  );
   const notificationController = new MemberNotificationController(
     notificationService
   );
@@ -352,6 +359,7 @@ export function registerEventHandlers(
       if (interaction.isModalSubmit()) {
         await settingsModalController.handleModal(interaction);
         await sayModalController.handleModal(interaction);
+        await botAdminModalController.handleModal(interaction);
       }
     } catch (err) {
       logger.error(

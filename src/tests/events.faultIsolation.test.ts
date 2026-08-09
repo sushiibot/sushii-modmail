@@ -8,6 +8,7 @@ import { RuntimeConfigRepository } from "../repositories/runtimeConfig.repositor
 import { runtimeConfig } from "../database/schema";
 import { BotConfig, type GlobalConfig } from "../models/botConfig.model";
 import { ThreadRepository } from "../repositories/thread.repository";
+import { BotManager } from "../services/BotManager";
 
 const globals: GlobalConfig = {
   LOG_LEVEL: "info",
@@ -37,8 +38,12 @@ async function wireBot(
 ) {
   const db = getDb(":memory:");
   const config = BotConfig.fromRosterEntry(
-    { name, discordToken: "token", mailGuildId: guildId },
-    discordClientId,
+    {
+      applicationId: discordClientId,
+      name,
+      discordToken: "token",
+      mailGuildId: guildId,
+    },
     globals
   );
   const runtimeConfigRepository = new RuntimeConfigRepository(
@@ -47,8 +52,9 @@ async function wireBot(
   );
   const commandRouter = new CommandRouter(runtimeConfigRepository, config);
   const client = makeFakeClient(guildsFetch);
+  const botManager = new BotManager(db, globals);
 
-  registerEventHandlers(config, client, db, commandRouter);
+  registerEventHandlers(config, client, db, commandRouter, botManager);
 
   return { db, config, client };
 }

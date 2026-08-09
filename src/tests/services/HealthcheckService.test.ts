@@ -1,16 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Status } from "discord.js";
-import {
-  HealthcheckService,
-  type BotInstance,
-} from "../../services/HealthcheckService";
+import { describe, it, expect, afterEach } from "bun:test";
+import { HealthcheckService } from "../../services/HealthcheckService";
+import type { BotSummary } from "../../services/BotManager";
 
-function mockClient(opts: { ready: boolean; wsStatus?: Status }) {
+function makeSummary(overrides: Partial<BotSummary> = {}): BotSummary {
   return {
-    isReady: () => opts.ready,
-    uptime: 1000,
-    ws: { ping: 10, status: opts.wsStatus ?? Status.Ready },
-  } as any;
+    name: "lisa",
+    mailGuildId: "123456789",
+    applicationId: "987654321",
+    status: "connected",
+    ping: 10,
+    ...overrides,
+  };
+}
+
+function provider(summaries: BotSummary[]) {
+  return { getSummaries: () => summaries };
 }
 
 describe("HealthcheckService", () => {
@@ -22,14 +26,11 @@ describe("HealthcheckService", () => {
   });
 
   it("/live returns 200 even when a bot is disconnected", async () => {
-    const bots: BotInstance[] = [
-      { name: "lisa", client: mockClient({ ready: true }) },
-      {
-        name: "bp",
-        client: mockClient({ ready: false, wsStatus: Status.Disconnected }),
-      },
+    const summaries = [
+      makeSummary({ name: "lisa" }),
+      makeSummary({ name: "bp", status: "disconnected", ping: null }),
     ];
-    service = new HealthcheckService(bots, port);
+    service = new HealthcheckService(provider(summaries), port);
     service.start();
 
     const res = await fetch(`http://localhost:${port}/live`);
@@ -37,11 +38,11 @@ describe("HealthcheckService", () => {
   });
 
   it("/ready reports 200 when all bots are ready", async () => {
-    const bots: BotInstance[] = [
-      { name: "lisa", client: mockClient({ ready: true }) },
-      { name: "bp", client: mockClient({ ready: true }) },
+    const summaries = [
+      makeSummary({ name: "lisa" }),
+      makeSummary({ name: "bp" }),
     ];
-    service = new HealthcheckService(bots, port + 1);
+    service = new HealthcheckService(provider(summaries), port + 1);
     service.start();
 
     const res = await fetch(`http://localhost:${port + 1}/ready`);
@@ -54,14 +55,11 @@ describe("HealthcheckService", () => {
   });
 
   it("/ready reports 503 with per-bot status when one bot is disconnected", async () => {
-    const bots: BotInstance[] = [
-      { name: "lisa", client: mockClient({ ready: true }) },
-      {
-        name: "bp",
-        client: mockClient({ ready: false, wsStatus: Status.Disconnected }),
-      },
+    const summaries = [
+      makeSummary({ name: "lisa" }),
+      makeSummary({ name: "bp", status: "disconnected", ping: null }),
     ];
-    service = new HealthcheckService(bots, port + 2);
+    service = new HealthcheckService(provider(summaries), port + 2);
     service.start();
 
     const res = await fetch(`http://localhost:${port + 2}/ready`);
@@ -74,12 +72,12 @@ describe("HealthcheckService", () => {
   });
 
   it("/health aggregates status across all bots", async () => {
-    const bots: BotInstance[] = [
-      { name: "lisa", client: mockClient({ ready: true }) },
-      { name: "bp", client: mockClient({ ready: true }) },
-      { name: "twice", client: mockClient({ ready: true }) },
+    const summaries = [
+      makeSummary({ name: "lisa" }),
+      makeSummary({ name: "bp" }),
+      makeSummary({ name: "twice" }),
     ];
-    service = new HealthcheckService(bots, port + 3);
+    service = new HealthcheckService(provider(summaries), port + 3);
     service.start();
 
     const res = await fetch(`http://localhost:${port + 3}/health`);
@@ -87,5 +85,36 @@ describe("HealthcheckService", () => {
 
     expect(res.status).toBe(200);
     expect(body.bots.length).toBe(3);
+  });
+
+  it("renders a `failed` bot without touching a Client -- summary-only contract", async () => {
+    const summaries = [
+      makeSummary({
+        name: "lisa",
+        status: "failed",
+        ping: null,
+        lastError: "bad token",
+      }),
+    ];
+    service = new HealthcheckService(provider(summaries), port + 4);
+    service.start();
+
+    const res = await fetch(`http://localhost:${port + 4}/health`);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.bots[0].ready).toBe(false);
+    expect(body.bots[0].lastError).toBe("bad token");
+  });
+
+  it("/ready reports 503 (not vacuously ready) when there are zero bots yet, e.g. mid-boot", async () => {
+    service = new HealthcheckService(provider([]), port + 5);
+    service.start();
+
+    const res = await fetch(`http://localhost:${port + 5}/ready`);
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.ready).toBe(false);
   });
 });

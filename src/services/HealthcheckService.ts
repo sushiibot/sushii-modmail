@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { serve } from "bun";
-import { Status, type Client } from "discord.js";
 import logger from "../utils/logger";
+import { BOT_STATUS_CODES, type BotSummary } from "./BotManager";
 
 export enum HealthStatus {
   INITIALIZING = "initializing",
@@ -10,19 +10,18 @@ export enum HealthStatus {
   ERROR = "error",
 }
 
-export interface BotInstance {
-  name: string;
-  client: Client;
+export interface SummaryProvider {
+  getSummaries(): BotSummary[];
 }
 
 export class HealthcheckService {
   private app: Hono;
   private server: any;
-  private bots: BotInstance[];
+  private provider: SummaryProvider;
   private port: number;
 
-  constructor(bots: BotInstance[], port: number = 3000) {
-    this.bots = bots;
+  constructor(provider: SummaryProvider, port: number = 3000) {
+    this.provider = provider;
     this.port = port;
     this.app = new Hono();
     this.setupRoutes();
@@ -72,23 +71,28 @@ export class HealthcheckService {
     });
   }
 
+  // No Client is ever touched here -- BotManager already computed
+  // status/ping into a plain-data BotSummary, so there's nothing to
+  // null-check even for a `failed` (client-less) bot.
   private getSummary() {
-    const bots = this.bots.map((bot) => {
-      const status = this.getDiscordStatus(bot.client);
+    const summaries = this.provider.getSummaries();
 
-      return {
-        name: bot.name,
-        status,
-        ready: status === HealthStatus.READY,
-        discord: {
-          ready: bot.client.isReady(),
-          uptime: bot.client.uptime,
-          ping: bot.client.ws.ping,
-        },
-      };
-    });
+    const bots = summaries.map((bot) => ({
+      name: bot.name,
+      status: this.toHealthStatus(bot.status),
+      ready: bot.status === "connected",
+      discord: {
+        ping: bot.ping,
+      },
+      lastError: bot.lastError,
+    }));
 
-    const allReady = bots.every((b) => b.ready);
+    // A `failed` bot counts against readiness (it's a real problem worth
+    // surfacing), but each bot's status is still reported individually so
+    // it's diagnosable at a glance rather than just a blanket 503. Zero
+    // summaries (e.g. before BotManager has registered anything) must not
+    // read as vacuously ready.
+    const allReady = bots.length > 0 && bots.every((b) => b.ready);
 
     return {
       bots,
@@ -97,26 +101,12 @@ export class HealthcheckService {
     };
   }
 
-  private getDiscordStatus(client: Client): HealthStatus {
-    if (!client.isReady()) {
-      // Check if we're still connecting or have failed
-      switch (client.ws.status) {
-        case Status.Ready: {
-          return HealthStatus.READY;
-        }
-        case Status.Connecting: {
-          return HealthStatus.INITIALIZING;
-        }
-        case Status.Disconnected: {
-          return HealthStatus.DISCONNECTED;
-        }
-        default: {
-          return HealthStatus.ERROR;
-        }
-      }
-    }
-
-    return HealthStatus.READY;
+  // Looks up the single shared BOT_STATUS_CODES table (BotManager.ts)
+  // instead of maintaining a parallel switch here -- HealthStatus's
+  // member values are exactly those health labels, so this is a lookup,
+  // not a re-derivation.
+  private toHealthStatus(status: BotSummary["status"]): HealthStatus {
+    return BOT_STATUS_CODES[status].health as HealthStatus;
   }
 
   public start() {

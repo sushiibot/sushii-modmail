@@ -1,5 +1,5 @@
 import { type ConfigType } from "../config/config";
-import type { BotRosterEntry } from "../config/botRegistry";
+import type { BotRosterEntry } from "../repositories/bot.repository";
 
 /**
  * Process-wide settings shared by every bot instance, independent of any
@@ -7,7 +7,12 @@ import type { BotRosterEntry } from "../config/botRegistry";
  */
 export type GlobalConfig = Pick<
   ConfigType,
-  "LOG_LEVEL" | "DATABASE_URI" | "HEALTHCHECK_PORT" | "GIT_HASH" | "BUILD_DATE"
+  | "LOG_LEVEL"
+  | "DATABASE_URI"
+  | "HEALTHCHECK_PORT"
+  | "GIT_HASH"
+  | "BUILD_DATE"
+  | "OWNER_USER_ID"
 >;
 
 /**
@@ -25,6 +30,7 @@ export class BotConfig {
 
   public readonly gitHash?: string;
   public readonly buildDate?: Date;
+  public readonly ownerUserId?: string;
 
   constructor(
     name: string,
@@ -35,7 +41,8 @@ export class BotConfig {
     mailGuildId: string,
     healthcheckPort: number,
     gitHash?: string,
-    buildDate?: Date
+    buildDate?: Date,
+    ownerUserId?: string
   ) {
     this.name = name;
     this.logLevel = logLevel;
@@ -46,30 +53,26 @@ export class BotConfig {
     this.healthcheckPort = healthcheckPort;
     this.gitHash = gitHash;
     this.buildDate = buildDate;
+    this.ownerUserId = ownerUserId;
   }
 
   /**
-   * Create a BotConfig from one BotRosterEntry plus the process-wide
-   * globals shared by every bot instance. `applicationId` is resolved
-   * from the entry's token via the Discord API (see
-   * config/botRegistry.ts's resolveApplicationId) rather than read off
-   * the roster entry itself.
+   * Create a BotConfig from one persisted bot roster entry (application id
+   * already resolved and stored -- see repositories/bot.repository.ts)
+   * plus the process-wide globals shared by every bot instance.
    */
-  static fromRosterEntry(
-    entry: BotRosterEntry,
-    applicationId: string,
-    globals: GlobalConfig
-  ): BotConfig {
+  static fromRosterEntry(entry: BotRosterEntry, globals: GlobalConfig): BotConfig {
     return new BotConfig(
       entry.name,
       globals.LOG_LEVEL,
       entry.discordToken,
-      applicationId,
+      entry.applicationId,
       globals.DATABASE_URI,
       entry.mailGuildId,
       globals.HEALTHCHECK_PORT,
       globals.GIT_HASH,
-      globals.BUILD_DATE
+      globals.BUILD_DATE,
+      globals.OWNER_USER_ID
     );
   }
 

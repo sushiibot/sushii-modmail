@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { Message, PermissionsBitField } from "discord.js";
 import CommandRouter from "../CommandRouter";
 import { RuntimeConfig } from "../models/runtimeConfig.model";
@@ -14,15 +14,23 @@ const globals: GlobalConfig = {
 
 const CLIENT_ID = "123456789012345678";
 
-function makeConfig(): BotConfig {
+function makeConfig(overrides: Partial<GlobalConfig> = {}): BotConfig {
   return BotConfig.fromRosterEntry(
-    { name: "test", discordToken: "token", mailGuildId: "guild-1" },
-    CLIENT_ID,
-    globals
+    {
+      applicationId: CLIENT_ID,
+      name: "test",
+      discordToken: "token",
+      mailGuildId: "guild-1",
+    },
+    { ...globals, ...overrides }
   );
 }
 
-function makeRouter(prefix = "-", commands?: TextCommandHandler[]) {
+function makeRouter(
+  prefix = "-",
+  commands?: TextCommandHandler[],
+  config: BotConfig = makeConfig()
+) {
   const row: typeof runtimeConfig.$inferSelect = {
     guildId: "guild-1",
     openTagId: null,
@@ -43,7 +51,7 @@ function makeRouter(prefix = "-", commands?: TextCommandHandler[]) {
     getConfig: async () => RuntimeConfig.fromDatabaseRow(row),
   };
 
-  return new CommandRouter(runtimeConfigRepository, makeConfig(), commands);
+  return new CommandRouter(runtimeConfigRepository, config, commands);
 }
 
 function makeMessage(content: string): Message<true> {
@@ -57,7 +65,7 @@ function makeGuildMessage(
   return {
     content,
     guildId: "guild-1",
-    author: { bot: false },
+    author: { bot: false, id: "regular-user-id" },
     member: {
       permissions: new PermissionsBitField(
         PermissionsBitField.Flags.ManageGuild
@@ -231,5 +239,130 @@ describe("CommandRouter prefix deprecation warning", () => {
     await router.handleMessage(msg);
 
     expect(sent.length).toBe(0);
+  });
+});
+
+describe("CommandRouter ownerOnly gating", () => {
+  const OWNER_ID = "owner-user-id";
+
+  const botCommand: TextCommandHandler = {
+    commandName: "bot",
+    subCommandName: null,
+    aliases: [],
+    requiresPrimaryServer: false,
+    ownerOnly: true,
+    handler: async (_msg, args) => {
+      called.push(args);
+    },
+  };
+
+  let called: string[][];
+  let getConfigCalls: number;
+
+  function makeOwnerRouter() {
+    const row: typeof runtimeConfig.$inferSelect = {
+      guildId: "guild-1",
+      openTagId: null,
+      closedTagId: null,
+      prefix: "-",
+      forumChannelId: null,
+      logsChannelId: null,
+      requiredRoleIds: "[]",
+      initialMessage: null,
+      anonymousSnippets: true,
+      notificationRoleId: null,
+      notificationSilent: false,
+      botStatus: null,
+      applicationId: null,
+    };
+
+    const runtimeConfigRepository = {
+      getConfig: async () => {
+        getConfigCalls += 1;
+        return RuntimeConfig.fromDatabaseRow(row);
+      },
+    };
+
+    const config = BotConfig.fromRosterEntry(
+      {
+        applicationId: CLIENT_ID,
+        name: "test",
+        discordToken: "token",
+        mailGuildId: "guild-1",
+      },
+      { ...globals, OWNER_USER_ID: OWNER_ID }
+    );
+
+    return new CommandRouter(runtimeConfigRepository, config, [botCommand]);
+  }
+
+  beforeEach(() => {
+    called = [];
+    getConfigCalls = 0;
+  });
+
+  it("does not respond via text-prefix, even for the owner", async () => {
+    const router = makeOwnerRouter();
+    const msg = makeGuildMessage("-bot list", {
+      author: { bot: false, id: OWNER_ID },
+    } as never);
+
+    await router.handleMessage(msg);
+
+    expect(called.length).toBe(0);
+  });
+
+  it("does not respond to a non-owner via @mention", async () => {
+    const router = makeOwnerRouter();
+    const msg = makeGuildMessage(`<@${CLIENT_ID}> bot list`, {
+      author: { bot: false, id: "not-the-owner" },
+    } as never);
+
+    await router.handleMessage(msg);
+
+    expect(called.length).toBe(0);
+  });
+
+  it("responds to the owner via @mention without calling getConfig", async () => {
+    const router = makeOwnerRouter();
+    const msg = makeGuildMessage(`<@${CLIENT_ID}> bot list`, {
+      author: { bot: false, id: OWNER_ID },
+    } as never);
+
+    await router.handleMessage(msg);
+
+    expect(called.length).toBe(1);
+  });
+});
+
+describe("CommandRouter command-name reservation for a bare-parent-plus-subcommands family", () => {
+  it("only reserves the parent name when a real handler is registered for it", async () => {
+    const subcommandOnly: TextCommandHandler = {
+      commandName: "bot",
+      subCommandName: "list",
+      aliases: [],
+      requiresPrimaryServer: false,
+      ownerOnly: true,
+      handler: async () => {},
+    };
+
+    // Matches production ordering in botFactory.ts: without a bare parent
+    // handler, CommandRouter auto-creates a handler: null entry for "bot"
+    // that getCommandNames() skips -- "bot" would be unreserved and a
+    // snippet named "bot" could shadow the command family.
+    const routerWithoutParent = makeRouter("-", [subcommandOnly]);
+    expect(routerWithoutParent.getCommandNames().has("bot")).toBe(false);
+
+    const parent: TextCommandHandler = {
+      commandName: "bot",
+      subCommandName: null,
+      aliases: [],
+      requiresPrimaryServer: false,
+      ownerOnly: true,
+      handler: async () => {},
+    };
+
+    const routerWithParent = makeRouter("-", [parent, subcommandOnly]);
+    expect(routerWithParent.getCommandNames().has("bot")).toBe(true);
   });
 });
