@@ -21,7 +21,15 @@ export const threads = sqliteTable(
     // User metadata
     title: text(),
 
-    createdAt: integer({ mode: "timestamp" }).notNull().default(new Date()),
+    // Application code always sets this explicitly at insert time
+    // (thread.repository.ts) -- this default only matters for a bare
+    // INSERT that omits the column, and as a real insert-time SQL
+    // expression (not `new Date()`, evaluated once at schema-load time)
+    // it stops every `db:generate` run from seeing a "changed" default
+    // and forcing a full drop-and-recreate of this table.
+    createdAt: integer({ mode: "timestamp" })
+      .notNull()
+      .default(sql`(strftime('%s','now'))`),
     closedAt: integer({ mode: "timestamp" }),
 
     closedBy: text(),
@@ -209,6 +217,52 @@ export const runtimeConfig = sqliteTable(
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
     check("open_tag_id_check", sql`${table.openTagId} NOT GLOB '*[^0-9]*'`),
   ]
+);
+
+export const bots = sqliteTable(
+  "bots",
+  {
+    applicationId: text().notNull().primaryKey(),
+    discordToken: text().notNull(),
+    name: text().notNull(),
+    mailGuildId: text().notNull(),
+    createdAt: integer({ mode: "timestamp" })
+      .notNull()
+      .default(sql`(strftime('%s','now'))`),
+  },
+  (table) => [
+    uniqueIndex("bots_discord_token_idx").on(table.discordToken),
+    uniqueIndex("bots_guild_id_idx").on(table.mailGuildId),
+    uniqueIndex("bots_name_idx").on(sql`lower(${table.name})`),
+    // `NOT GLOB '*[^0-9]*'` alone is satisfied by an empty string (no
+    // character violates the pattern) -- length(...) > 0 closes that gap
+    // so a blank guild/application id can't slip past the check and reach
+    // a Discord API call downstream.
+    check(
+      "mail_guild_id_check",
+      sql`length(${table.mailGuildId}) > 0 AND ${table.mailGuildId} NOT GLOB '*[^0-9]*'`
+    ),
+    check(
+      "application_id_check",
+      sql`length(${table.applicationId}) > 0 AND ${table.applicationId} NOT GLOB '*[^0-9]*'`
+    ),
+  ]
+);
+
+// Separate from `bots` deliberately: removing every bot row must NOT cause
+// the next boot to look "unseeded" and re-import stale env vars.
+export const botRosterSeedState = sqliteTable(
+  "bot_roster_seed_state",
+  {
+    // Always inserted as literal 1 -- DEFAULT is ignored on an INTEGER
+    // PRIMARY KEY rowid alias, so an omitted column gets an auto rowid
+    // instead of the intended default.
+    id: integer().primaryKey(),
+    seededAt: integer({ mode: "timestamp" })
+      .notNull()
+      .default(sql`(strftime('%s','now'))`),
+  },
+  (table) => [check("single_row_check", sql`${table.id} = 1`)]
 );
 
 export const botEmojis = sqliteTable(

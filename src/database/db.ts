@@ -6,6 +6,12 @@ import path from "path";
 
 export type DB = BunSQLiteDatabase;
 
+// Structural type covering both a normal DB handle and the transaction
+// argument a db.transaction(cb) callback receives (a distinct
+// SQLiteBunTransaction type) -- lets repository methods accept either
+// without importing drizzle's transaction type directly.
+export type DBOrTx = Pick<DB, "select" | "insert" | "update" | "delete">;
+
 export function getDb(dbUri: string): BunSQLiteDatabase {
   // Ensure dbUri directory path exists
   const dir = path.dirname(dbUri);
