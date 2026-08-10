@@ -84,11 +84,20 @@ async function main() {
   const roster = await botRepository.list();
   await botManager.startAllForBoot(roster);
 
-  const connectedCount = botManager
+  // A bot counts as logged in once startInternal's client.login() call
+  // resolves without throwing -- that's the same signal the old
+  // Promise.allSettled(bots.map(loginBot)) loop used. It's deliberately
+  // NOT status === "connected": login() resolving only means the token
+  // was accepted and IDENTIFY was sent, not that the READY gateway event
+  // (which flips ws.status to Ready, sometimes tens to hundreds of ms
+  // later) has already arrived by the time this line runs. Gating on
+  // "connected" here made every deploy spuriously read as "zero bots
+  // logged in" and throw before READY had a chance to land.
+  const loggedInCount = botManager
     .getSummaries()
-    .filter((s) => s.status === "connected").length;
+    .filter((s) => s.status !== "failed").length;
 
-  if (connectedCount === 0) {
+  if (loggedInCount === 0) {
     healthcheckService.stop();
     throw new Error(
       "All bots failed to log in. If the `bots` table can't produce a " +
