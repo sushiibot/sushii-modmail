@@ -6,8 +6,12 @@ const OWNER_ID = "owner-user-id";
 
 function fakeBotManager() {
   return {
-    addBot: async () => ({ client: {}, entry: { name: "lisa" } }),
+    addBot: async () => ({
+      client: {},
+      entry: { name: "lisa", applicationId: "100000000000000001" },
+    }),
     rotateToken: async () => ({ client: {}, entry: { name: "lisa" } }),
+    getSummaries: () => [],
   } as any;
 }
 
@@ -22,6 +26,9 @@ function fakeInteraction(customId: string, userId: string) {
       },
       editReply: async () => {
         calls.push("editReply");
+      },
+      followUp: async () => {
+        calls.push("followUp");
       },
       fields: {
         getTextInputValue: () => "value",
@@ -74,7 +81,7 @@ describe("BotAdminModalController -- fall-through contract (customId check befor
 
     await controller.handleModal(interaction);
 
-    expect(calls).toEqual(["deferReply", "editReply"]);
+    expect(calls).toEqual(["deferReply", "editReply", "followUp"]);
   });
 
   it("defers then edits for the owner submitting a rotate modal", async () => {

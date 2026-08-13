@@ -1,7 +1,12 @@
-import { MessageFlags, type ModalSubmitInteraction } from "discord.js";
+import {
+  MessageFlags,
+  type InteractionReplyOptions,
+  type ModalSubmitInteraction,
+} from "discord.js";
 import { getLogger } from "utils/logger";
 import type { BotManager } from "services/BotManager";
-import { botAdminCustomID } from "views/BotAdmin";
+import { botAdminCustomID, BotAdminView } from "views/BotAdmin";
+import { buildInviteLink } from "utils/discordInvite";
 
 export class BotAdminModalController {
   private botManager: BotManager;
@@ -72,19 +77,27 @@ export class BotAdminModalController {
       interaction.user.id
     );
 
-    if (result.client) {
-      await interaction.editReply(`Added and started **${name}**.`).catch((err) => {
-        this.logger.warn(err, "Failed to edit reply after add-bot success");
+    const inviteLink = buildInviteLink(result.entry.applicationId);
+
+    const summaryLine = result.client
+      ? `Added and started **${name}**.`
+      : `Added **${name}**, but it failed to start: ${result.lastError ?? "unknown error"}`;
+
+    await interaction
+      .editReply(`${summaryLine}\nInvite: ${inviteLink}`)
+      .catch((err) => {
+        this.logger.warn(err, "Failed to edit reply after add-bot submission");
       });
-    } else {
-      await interaction
-        .editReply(
-          `Added **${name}**, but it failed to start: ${result.lastError ?? "unknown error"}`
-        )
-        .catch((err) => {
-          this.logger.warn(err, "Failed to edit reply after add-bot partial failure");
-        });
-    }
+
+    // Public follow-up so staff who saw the "Add Bot" prompt also see the
+    // result, unlike the ephemeral reply above which only the invoker sees.
+    await interaction
+      .followUp(
+        BotAdminView.list(this.botManager.getSummaries()) as InteractionReplyOptions
+      )
+      .catch((err) => {
+        this.logger.warn(err, "Failed to post bot list after add-bot submission");
+      });
   }
 
   private async handleRotate(

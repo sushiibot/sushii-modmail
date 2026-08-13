@@ -26,6 +26,7 @@ import { SayService } from "services/SayService";
 import { MemberNotificationController } from "controllers/MemberNotificationController";
 import { MemberNotificationService } from "services/MemberNotificationService";
 import { wrapClientDispatch } from "utils/clientDispatch";
+import { buildInviteLink } from "utils/discordInvite";
 import { BotAdminModalController } from "controllers/BotAdminModalController";
 import type { BotManager } from "services/BotManager";
 
@@ -156,7 +157,7 @@ export function registerEventHandlers(
   client.once(Events.ClientReady, async (client) => {
     logger.info(`Bot is online! ${client.user.tag}`);
 
-    const inviteLink = `https://discord.com/oauth2/authorize?client_id=${client.user?.id}&permissions=515396455488&integration_type=0&scope=applications.commands+bot`;
+    const inviteLink = buildInviteLink(client.user.id);
     logger.info(`Invite link: ${inviteLink}`);
 
     // Confirm the bot is actually a member of its configured mailGuildId --
