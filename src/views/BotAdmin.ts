@@ -57,7 +57,7 @@ export class BotAdminView {
     const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## Add a bot\nClick below to register a new bot instance. The token is entered in a modal, never as a command argument."
+        "## Add a bot\nClick below to register a new bot instance."
       )
     );
     container.addActionRowComponents(row);
