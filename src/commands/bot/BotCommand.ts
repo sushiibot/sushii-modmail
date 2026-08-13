@@ -1,5 +1,6 @@
 import type { Message } from "discord.js";
 import TextCommandHandler from "../CommandHandler";
+import { BotAdminView } from "views/BotAdmin";
 
 /**
  * Parent `bot` handler -- exists so CommandRouter.getCommandNames() sees a
@@ -19,8 +20,6 @@ export class BotCommand extends TextCommandHandler {
       return;
     }
 
-    await msg.channel.send(
-      "Usage: `bot add|list|reload|remove|rotate`"
-    );
+    await msg.channel.send(BotAdminView.help());
   }
 }

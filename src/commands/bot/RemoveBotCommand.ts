@@ -3,6 +3,7 @@ import TextCommandHandler from "../CommandHandler";
 import { getLogger } from "utils/logger";
 import type { BotManager } from "services/BotManager";
 import type { BotRepository } from "repositories/bot.repository";
+import { BotAdminView } from "views/BotAdmin";
 
 export class RemoveBotCommand extends TextCommandHandler {
   commandName = "bot";
@@ -30,13 +31,13 @@ export class RemoveBotCommand extends TextCommandHandler {
 
     const name = args[0];
     if (!name) {
-      await msg.channel.send("Usage: `bot remove <name>`");
+      await msg.channel.send(BotAdminView.usage("remove", "<name>"));
       return;
     }
 
     const entry = await this.botRepository.findByName(name);
     if (!entry) {
-      await msg.channel.send(`No bot named \`${name}\`.`);
+      await msg.channel.send(BotAdminView.notFound(name));
       return;
     }
 
@@ -48,14 +49,21 @@ export class RemoveBotCommand extends TextCommandHandler {
       // removal itself has already succeeded regardless of whether this
       // confirmation lands, so a send failure here is caught and logged,
       // not rethrown.
-      await msg.channel.send(`Removed **${entry.name}**.`).catch((sendErr) => {
-        this.logger.warn(sendErr, "Failed to send remove confirmation");
-      });
+      await msg.channel
+        .send(BotAdminView.result(true, `## Removed **${entry.name}**`))
+        .catch((sendErr) => {
+          this.logger.warn(sendErr, "Failed to send remove confirmation");
+        });
     } catch (err) {
       this.logger.error(err, "Failed to remove bot");
       const message = err instanceof Error ? err.message : String(err);
       await msg.channel
-        .send(`Failed to remove **${entry.name}**: ${message}`)
+        .send(
+          BotAdminView.result(
+            false,
+            `## Failed to remove **${entry.name}**\n${message}`
+          )
+        )
         .catch((sendErr) => {
           this.logger.warn(sendErr, "Failed to send remove error");
         });

@@ -1,4 +1,4 @@
-import { ComponentType, type Message } from "discord.js";
+import { ComponentType, type Message, type MessageEditOptions } from "discord.js";
 import TextCommandHandler from "../CommandHandler";
 import { getLogger } from "utils/logger";
 import type { BotManager } from "services/BotManager";
@@ -29,13 +29,13 @@ export class RotateBotCommand extends TextCommandHandler {
 
     const name = args[0];
     if (!name) {
-      await msg.channel.send("Usage: `bot rotate <name>`");
+      await msg.channel.send(BotAdminView.usage("rotate", "<name>"));
       return;
     }
 
     const entry = await this.botRepository.findByName(name);
     if (!entry) {
-      await msg.channel.send(`No bot named \`${name}\`.`);
+      await msg.channel.send(BotAdminView.notFound(name));
       return;
     }
 
@@ -58,14 +58,17 @@ export class RotateBotCommand extends TextCommandHandler {
     });
 
     collector.on("end", () => {
-      const { content, components } = BotAdminView.rotatePrompt(
-        entry.name,
-        entry.applicationId,
-        true
-      );
-      sentMsg.edit({ content, components }).catch((err: unknown) => {
-        this.logger.warn(err, "Failed to disable expired rotate-bot prompt");
-      });
+      sentMsg
+        .edit(
+          BotAdminView.rotatePrompt(
+            entry.name,
+            entry.applicationId,
+            true
+          ) as MessageEditOptions
+        )
+        .catch((err: unknown) => {
+          this.logger.warn(err, "Failed to disable expired rotate-bot prompt");
+        });
     });
   }
 }

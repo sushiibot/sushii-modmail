@@ -1,4 +1,4 @@
-import { ComponentType, type Message } from "discord.js";
+import { ComponentType, type Message, type MessageEditOptions } from "discord.js";
 import TextCommandHandler from "../CommandHandler";
 import { getLogger } from "utils/logger";
 import type { BotManager } from "services/BotManager";
@@ -39,10 +39,11 @@ export class AddBotCommand extends TextCommandHandler {
     });
 
     collector.on("end", () => {
-      const { content, components } = BotAdminView.addPrompt(true);
-      sentMsg.edit({ content, components }).catch((err: unknown) => {
-        this.logger.warn(err, "Failed to disable expired add-bot prompt");
-      });
+      sentMsg
+        .edit(BotAdminView.addPrompt(true) as MessageEditOptions)
+        .catch((err: unknown) => {
+          this.logger.warn(err, "Failed to disable expired add-bot prompt");
+        });
     });
   }
 }

@@ -3,6 +3,7 @@ import TextCommandHandler from "../CommandHandler";
 import { getLogger } from "utils/logger";
 import type { BotManager } from "services/BotManager";
 import type { BotRepository } from "repositories/bot.repository";
+import { BotAdminView } from "views/BotAdmin";
 
 export class ReloadBotCommand extends TextCommandHandler {
   commandName = "bot";
@@ -28,13 +29,13 @@ export class ReloadBotCommand extends TextCommandHandler {
 
     const name = args[0];
     if (!name) {
-      await msg.channel.send("Usage: `bot reload <name>`");
+      await msg.channel.send(BotAdminView.usage("reload", "<name>"));
       return;
     }
 
     const entry = await this.botRepository.findByName(name);
     if (!entry) {
-      await msg.channel.send(`No bot named \`${name}\`.`);
+      await msg.channel.send(BotAdminView.notFound(name));
       return;
     }
 
@@ -44,9 +45,12 @@ export class ReloadBotCommand extends TextCommandHandler {
         msg.author.id
       );
 
-      const reply = result.client
-        ? `Reloaded **${entry.name}**.`
-        : `Reload of **${entry.name}** failed: ${result.lastError ?? "unknown error"}`;
+      const reply = BotAdminView.result(
+        !!result.client,
+        result.client
+          ? `## Reloaded **${entry.name}**`
+          : `## Reload of **${entry.name}** failed\n${result.lastError ?? "unknown error"}`
+      );
 
       // A self-targeted reload (@thisBot bot reload thisBot) destroys the
       // very client answering this message -- the send below can throw
@@ -60,7 +64,12 @@ export class ReloadBotCommand extends TextCommandHandler {
       this.logger.error(err, "Failed to reload bot");
       const message = err instanceof Error ? err.message : String(err);
       await msg.channel
-        .send(`Failed to reload **${entry.name}**: ${message}`)
+        .send(
+          BotAdminView.result(
+            false,
+            `## Failed to reload **${entry.name}**\n${message}`
+          )
+        )
         .catch((sendErr) => {
           this.logger.warn(sendErr, "Failed to send reload error");
         });

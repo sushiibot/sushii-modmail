@@ -2,12 +2,32 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ContainerBuilder,
+  MessageFlags,
   ModalBuilder,
+  SeparatorBuilder,
+  TextDisplayBuilder,
   TextInputBuilder,
   TextInputStyle,
   type MessageCreateOptions,
 } from "discord.js";
+import { HexColor } from "./Color";
 import type { BotSummary } from "services/BotManager";
+
+const statusEmoji: Record<BotSummary["status"], string> = {
+  connected: "🟢",
+  connecting: "🟡",
+  disconnected: "⚪",
+  failed: "🔴",
+};
+
+function componentsV2(container: ContainerBuilder): MessageCreateOptions {
+  return {
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
+  };
+}
 
 const prefix = "botadmin.";
 const id = (name: string) => `${prefix}${name}`;
@@ -34,11 +54,15 @@ export class BotAdminView {
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
-    return {
-      content:
-        "Click below to add a new bot instance. The token is entered in a modal, never as a command argument.",
-      components: [row],
-    };
+    const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## Add a bot\nClick below to register a new bot instance. The token is entered in a modal, never as a command argument."
+      )
+    );
+    container.addActionRowComponents(row);
+
+    return componentsV2(container);
   }
 
   static addModal(): ModalBuilder {
@@ -86,10 +110,15 @@ export class BotAdminView {
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
-    return {
-      content: `Click below to rotate the token for **${name}**.`,
-      components: [row],
-    };
+    const container = new ContainerBuilder().setAccentColor(HexColor.Purple);
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## Rotate token\nClick below to rotate the token for **${name}**.`
+      )
+    );
+    container.addActionRowComponents(row);
+
+    return componentsV2(container);
   }
 
   static rotateModal(name: string, applicationId: string): ModalBuilder {
@@ -111,19 +140,103 @@ export class BotAdminView {
   }
 
   static list(summaries: BotSummary[]): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
+
     if (summaries.length === 0) {
-      return { content: "No bots configured." };
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "## Bots\nNo bots configured. Use `bot add` to register one."
+        )
+      );
+      return componentsV2(container);
     }
 
-    const lines = summaries.map((s) => {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## Bots (${summaries.length})`
+      )
+    );
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    summaries.forEach((s, i) => {
       const ping = s.ping !== null ? `${s.ping}ms` : "n/a";
-      let line = `**${s.name}** \`${s.applicationId}\` -- guild \`${s.mailGuildId}\` -- ${s.status} (ping: ${ping})`;
+      const lines = [
+        `${statusEmoji[s.status]} **${s.name}** -- \`${s.status}\` (ping: ${ping})`,
+        `Application ID: \`${s.applicationId}\``,
+        `Guild ID: \`${s.mailGuildId}\``,
+      ];
       if (s.lastError) {
-        line += `\n> last error: ${s.lastError}`;
+        lines.push(`> Last error: ${s.lastError}`);
       }
-      return line;
+
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(lines.join("\n"))
+      );
+
+      if (i < summaries.length - 1) {
+        container.addSeparatorComponents(new SeparatorBuilder());
+      }
     });
 
-    return { content: lines.join("\n") };
+    return componentsV2(container);
+  }
+
+  static help(): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
+
+    const content = [
+      "## Bot admin commands",
+      "\n`bot list` -- Show all registered bots and their status",
+      "\n`bot add` -- Register a new bot instance (opens a modal for the token)",
+      "\n`bot reload <name>` -- Reconnect a bot using its stored token",
+      "\n`bot remove <name>` -- Remove a bot instance",
+      "\n`bot rotate <name>` -- Replace a bot's stored token (opens a modal)",
+      "\n\n`<name>` is the bot's registered name shown in **bold** by `bot list`.",
+    ];
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(content.join(""))
+    );
+
+    return componentsV2(container);
+  }
+
+  static usage(subCommand: string, argsHint: string): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Pink);
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## Missing argument\n\`\`\`\nbot ${subCommand} ${argsHint}\n\`\`\`\n\`<name>\` is the bot's registered name, shown in **bold** by \`bot list\`.`
+      )
+    );
+
+    return componentsV2(container);
+  }
+
+  static notFound(name: string): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(HexColor.Pink);
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## No bot named \`${name}\`\nRun \`bot list\` to see registered bot names.`
+      )
+    );
+
+    return componentsV2(container);
+  }
+
+  static result(
+    ok: boolean,
+    message: string
+  ): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(
+      ok ? HexColor.Green : HexColor.Pink
+    );
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(message)
+    );
+
+    return componentsV2(container);
   }
 }
