@@ -41,16 +41,18 @@ export class CommandErrorView {
 
     const content = [
       `## Text-prefix commands are deprecated`,
-      `\nDiscord is revoking **Message Content** access for text-prefix commands. Mention <@${discordClientId}> instead, e.g. \`@bot reply ...\`.`,
-      `\n-# Mentioning the bot is the best trade-off for now over migrating everything to slash commands. That becomes a hard requirement once this bot can see 10,000+ users`,
+      `\nDiscord is revoking **Message Content** access for text-prefix commands. Mention <@${discordClientId}> instead:`,
+      "\nExamples:",
+      '\n- `@bot help`',
+      '\n- `@bot reply ...`',
+      `\n\nMentioning the bot is the best tradeoff instead of using slash commands to reply :(`,
+      `\nThis becomes a requirement from Discord once this bot can see 10,000+ users`,
     ];
 
     if (ownerUserId) {
       content.push(
-        ` — until then, DM <@${ownerUserId}> with any suggestions or feedback.`
+        `\nIf you have any suggestions or feedback, DM <@${ownerUserId}>`
       );
-    } else {
-      content.push(`.`);
     }
 
     const text = new TextDisplayBuilder().setContent(content.join(""));
