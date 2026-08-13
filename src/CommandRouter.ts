@@ -191,7 +191,10 @@ export default class CommandRouter {
 
     msg.channel
       .send(
-        `Text-prefix commands are deprecated since Discord is revoking Message Content access. Mention <@${this.config.discordClientId}> instead, e.g. \`@bot reply ...\`.`
+        CommandErrorView.prefixDeprecationWarning(
+          this.config.discordClientId,
+          this.config.ownerUserId
+        )
       )
       .catch((error) =>
         this.logger.warn(error, "Failed to send prefix deprecation warning")

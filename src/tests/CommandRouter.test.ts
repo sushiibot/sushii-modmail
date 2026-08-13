@@ -175,16 +175,16 @@ describe("CommandRouter prefix deprecation warning", () => {
   };
 
   it("warns when a command is triggered via the text prefix", async () => {
-    const sent: string[] = [];
+    const sent: unknown[] = [];
     const router = makeRouter("-", [helpCommand]);
     const msg = makeGuildMessage("-help", {
-      channel: { send: async (content: string) => sent.push(content) },
+      channel: { send: async (content: unknown) => sent.push(content) },
     } as never);
 
     await router.handleMessage(msg);
 
     expect(sent.length).toBe(1);
-    expect(sent[0]).toContain(CLIENT_ID);
+    expect(JSON.stringify(sent[0])).toContain(CLIENT_ID);
   });
 
   it("does not warn when triggered via @mention", async () => {
