@@ -27,7 +27,7 @@ export class EditSnippetCommand extends TextCommandHandler {
 
     // Need at least 2 arguments: name and content
     if (args.length < 2) {
-      await msg.reply(SnippetCommandView.editUsage());
+      await msg.reply(SnippetCommandView.editUsage(msg.client.user.id));
       return;
     }
 

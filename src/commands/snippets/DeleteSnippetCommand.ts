@@ -27,7 +27,7 @@ export class DeleteSnippetCommand extends TextCommandHandler {
 
     // Need 1 argument: name
     if (args.length < 1) {
-      await msg.reply(SnippetCommandView.deleteUsage());
+      await msg.reply(SnippetCommandView.deleteUsage(msg.client.user.id));
       return;
     }
 

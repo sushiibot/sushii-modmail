@@ -25,7 +25,7 @@ export class GetSnippetCommand extends TextCommandHandler {
     }
 
     if (args.length < 1) {
-      await msg.reply(SnippetCommandView.getUsage());
+      await msg.reply(SnippetCommandView.getUsage(msg.client.user.id));
       return;
     }
 

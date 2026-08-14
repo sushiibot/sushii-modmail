@@ -14,9 +14,11 @@ export class SnippetCommandView {
     };
   }
 
-  static addUsage(): MessageCreateOptions {
+  static addUsage(discordClientId: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
-      .setDescription("Usage: `!snippet add <name> <content>`")
+      .setDescription(
+        `Usage: <@${discordClientId}> snippet add <name> <content>`
+      )
       .setColor(Color.Gray);
 
     return {
@@ -25,9 +27,11 @@ export class SnippetCommandView {
     };
   }
 
-  static editUsage(): MessageCreateOptions {
+  static editUsage(discordClientId: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
-      .setDescription("Usage: `!snippet edit <name> <new content>`")
+      .setDescription(
+        `Usage: <@${discordClientId}> snippet edit <name> <new content>`
+      )
       .setColor(Color.Gray);
 
     return {
@@ -36,9 +40,9 @@ export class SnippetCommandView {
     };
   }
 
-  static deleteUsage(): MessageCreateOptions {
+  static deleteUsage(discordClientId: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
-      .setDescription("Usage: `!snippet delete <name>`")
+      .setDescription(`Usage: <@${discordClientId}> snippet delete <name>`)
       .setColor(Color.Gray);
 
     return {
@@ -200,15 +204,15 @@ export class SnippetCommandView {
       .setColor(Color.Purple)
       .setDescription(snippetStringItems.join("\n\n"))
       .setFooter({
-        text: `${snippets.length} snippet${snippets.length === 1 ? "" : "s"} — use !snippet <name> to view full content`,
+        text: `${snippets.length} snippet${snippets.length === 1 ? "" : "s"} — use "snippet <name>" to view full content`,
       });
 
     return { embeds: [embed], allowedMentions: { parse: [] } };
   }
 
-  static getUsage(): MessageCreateOptions {
+  static getUsage(discordClientId: string): MessageCreateOptions {
     const embed = new EmbedBuilder()
-      .setDescription("Usage: `!snippet <name>`")
+      .setDescription(`Usage: <@${discordClientId}> snippet <name>`)
       .setColor(Color.Gray);
 
     return { embeds: [embed], allowedMentions: { parse: [] } };

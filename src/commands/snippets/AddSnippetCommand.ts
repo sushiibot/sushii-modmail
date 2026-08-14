@@ -27,7 +27,7 @@ export class AddSnippetCommand extends TextCommandHandler {
 
     // Need at least 2 arguments: name and content
     if (args.length < 2) {
-      await msg.reply(SnippetCommandView.addUsage());
+      await msg.reply(SnippetCommandView.addUsage(msg.client.user.id));
       return;
     }
 
