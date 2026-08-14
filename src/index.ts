@@ -7,7 +7,11 @@ import { BotRepository } from "repositories/bot.repository";
 import { BotManager } from "services/BotManager";
 import { seedIfNeeded } from "services/botSeed";
 import { HealthcheckService } from "services/HealthcheckService";
-import { initMetrics, registerBotGatewayMetrics } from "utils/metrics";
+import {
+  initMetrics,
+  registerBotGatewayMetrics,
+  registerOpenThreadsMetrics,
+} from "utils/metrics";
 import * as Sentry from "@sentry/bun";
 
 // Load environment variables from .env file, mostly for development
@@ -80,6 +84,7 @@ async function main() {
   healthcheckService.start();
 
   registerBotGatewayMetrics(() => botManager.getSummaries());
+  registerOpenThreadsMetrics(() => botManager.getSummaries());
 
   const roster = await botRepository.list();
   await botManager.startAllForBoot(roster);

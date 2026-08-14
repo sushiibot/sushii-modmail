@@ -40,6 +40,7 @@ import { RotateBotCommand } from "commands/bot/RotateBotCommand";
 import { BotRepository } from "repositories/bot.repository";
 import logger from "utils/logger";
 import type { BotManager } from "./BotManager";
+import { registerBotThreadRepository } from "utils/threadMetricsRegistry";
 
 function buildCommandRouter(
   config: BotConfig,
@@ -48,6 +49,7 @@ function buildCommandRouter(
   botManager: BotManager
 ): CommandRouter {
   const threadRepository = new ThreadRepository(db, config.guildId);
+  registerBotThreadRepository(config.name, threadRepository);
   const snippetRepository = new SnippetRepository(db);
   const runtimeConfigRepository = new RuntimeConfigRepository(
     db,

@@ -1,9 +1,17 @@
-import { ValueType, metrics, type ObservableGauge } from "@opentelemetry/api";
+import {
+  ValueType,
+  metrics,
+  type Counter,
+  type ObservableGauge,
+} from "@opentelemetry/api";
+import { DiscordAPIError, RESTJSONErrorCodes } from "discord.js";
 import {
   BOT_STATUS_CODES,
   FAILED_GATEWAY_STATUS_SENTINEL,
   type BotSummary,
 } from "services/BotManager";
+import { getCurrentBot } from "./botContext";
+import { getRegisteredThreadRepository } from "./threadMetricsRegistry";
 
 // MAIL_GUILD_ID only changes on a redeploy, so once a conflict is
 // observed it stays true for the rest of this process's life -- there's
@@ -16,6 +24,14 @@ const conflictedApplicationIds = new Set<string>();
 let botStatusGauge: ObservableGauge | undefined;
 let botLatencyGauge: ObservableGauge | undefined;
 let guildOwnershipConflictGauge: ObservableGauge | undefined;
+
+let messageRelayCounter: Counter | undefined;
+let threadOpenedCounter: Counter | undefined;
+let threadClosedCounter: Counter | undefined;
+let commandInvocationCounter: Counter | undefined;
+let snippetUsageCounter: Counter | undefined;
+let messageEditDeleteCounter: Counter | undefined;
+let openThreadsGauge: ObservableGauge | undefined;
 
 /**
  * Creates every metric instrument. Must be called after setupOtel() has
@@ -65,6 +81,144 @@ export function initMetrics(): void {
     for (const applicationId of conflictedApplicationIds) {
       result.observe(1, { applicationId });
     }
+  });
+
+  messageRelayCounter = modmailMeter.createCounter("message_relay_total", {
+    description:
+      "Messages relayed between users and staff, by direction and outcome",
+  });
+
+  threadOpenedCounter = modmailMeter.createCounter("thread_opened_total", {
+    description: "Modmail threads opened, by how they were initiated",
+  });
+
+  threadClosedCounter = modmailMeter.createCounter("thread_closed_total", {
+    description: "Modmail threads closed, by reason",
+  });
+
+  commandInvocationCounter = modmailMeter.createCounter(
+    "command_invocation_total",
+    { description: "Text commands invoked, by command name and outcome" }
+  );
+
+  snippetUsageCounter = modmailMeter.createCounter("snippet_usage_total", {
+    description: "Snippets relayed to users",
+  });
+
+  messageEditDeleteCounter = modmailMeter.createCounter(
+    "message_edit_delete_total",
+    {
+      description:
+        "Message edit/delete relay events, by direction and outcome",
+    }
+  );
+
+  openThreadsGauge = modmailMeter.createObservableGauge("open_threads", {
+    description: "Currently open modmail threads",
+    valueType: ValueType.INT,
+  });
+}
+
+/**
+ * Registers the open-threads gauge callback, reading `getSummaries()` fresh
+ * on each collection interval (same reasoning as registerBotGatewayMetrics
+ * below) so a removed bot drops out of the gauge instead of leaving a stale
+ * row behind forever -- registerBotThreadRepository's registry is
+ * append-only and never unregisters a removed bot on its own. Called ONCE
+ * at boot, after initMetrics().
+ */
+export function registerOpenThreadsMetrics(
+  getSummaries: () => BotSummary[]
+): void {
+  if (!openThreadsGauge) {
+    throw new Error("registerOpenThreadsMetrics called before initMetrics()");
+  }
+
+  openThreadsGauge.addCallback(async (result) => {
+    for (const bot of getSummaries()) {
+      const repo = getRegisteredThreadRepository(bot.name);
+      if (!repo) {
+        continue;
+      }
+
+      const openCount = await repo.countOpenThreads();
+      result.observe(openCount, { bot: bot.name });
+    }
+  });
+}
+
+/**
+ * Maps a caught error onto a small, closed set of label values -- never the
+ * raw error message or any Discord ID, which would blow up label
+ * cardinality in Mimir.
+ */
+export function classifyDiscordError(err: unknown): string {
+  if (err instanceof DiscordAPIError) {
+    switch (err.code) {
+      case RESTJSONErrorCodes.CannotSendMessagesToThisUser:
+        return "dm_blocked";
+      case RESTJSONErrorCodes.UnknownChannel:
+      case RESTJSONErrorCodes.UnknownMessage:
+        return "unknown_channel";
+      case RESTJSONErrorCodes.MissingPermissions:
+      case RESTJSONErrorCodes.MissingAccess:
+        return "missing_permissions";
+      default:
+        return "discord_api_other";
+    }
+  }
+
+  return "other";
+}
+
+export function recordMessageRelay(
+  direction: "user_to_staff" | "staff_to_user",
+  result: "success" | "failure",
+  errorType?: string
+): void {
+  messageRelayCounter?.add(1, {
+    bot: getCurrentBot() ?? "unknown",
+    direction,
+    result,
+    ...(errorType ? { error_type: errorType } : {}),
+  });
+}
+
+export function recordThreadOpened(source: "dm" | "staff_contact"): void {
+  threadOpenedCounter?.add(1, { bot: getCurrentBot() ?? "unknown", source });
+}
+
+export function recordThreadClosed(
+  reason: "staff" | "system_missing_channel"
+): void {
+  threadClosedCounter?.add(1, { bot: getCurrentBot() ?? "unknown", reason });
+}
+
+export function recordCommandInvocation(
+  command: string,
+  subcommand: string | null,
+  result: "success" | "failure"
+): void {
+  commandInvocationCounter?.add(1, {
+    bot: getCurrentBot() ?? "unknown",
+    command,
+    ...(subcommand ? { subcommand } : {}),
+    result,
+  });
+}
+
+export function recordSnippetUsage(): void {
+  snippetUsageCounter?.add(1, { bot: getCurrentBot() ?? "unknown" });
+}
+
+export function recordMessageEditDelete(
+  event: "user_edit" | "user_delete" | "staff_edit" | "staff_delete",
+  result: "success" | "failure"
+): void {
+  messageEditDeleteCounter?.add(1, {
+    bot: getCurrentBot() ?? "unknown",
+    event,
+    result,
   });
 }
 

@@ -6,6 +6,7 @@ import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { BotConfig } from "models/botConfig.model";
 import { CommandErrorView } from "views/CommandErrorView";
 import { withSpan } from "./tracing";
+import { recordCommandInvocation } from "utils/metrics";
 
 interface CommandEntry {
   handler: TextCommandHandler | null;
@@ -379,7 +380,9 @@ export default class CommandRouter {
         },
         () => handler.handler(msg, args)
       );
+      recordCommandInvocation(commandName, subCommandName, "success");
     } catch (error) {
+      recordCommandInvocation(commandName, subCommandName, "failure");
       this.logger.error(
         error,
         `Error handling command: ${commandName} ${subCommandName}`

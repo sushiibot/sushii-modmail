@@ -34,6 +34,13 @@ import type { RuntimeConfig } from "models/runtimeConfig.model";
 import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 import type { MessageVersion } from "models/messageVersion.model";
 import { withSpan } from "../tracing";
+import {
+  classifyDiscordError,
+  recordMessageEditDelete,
+  recordMessageRelay,
+  recordSnippetUsage,
+  recordThreadClosed,
+} from "utils/metrics";
 
 interface Config {
   guildId: string;
@@ -139,16 +146,23 @@ export class MessageRelayService {
     threadId: string,
     message: UserToStaffMessage
   ): Promise<boolean> {
-    return withSpan(
-      "message.relay_to_staff",
-      {
-        "thread.id": threadId,
-        "user.id": message.author.id,
-        "message.forwarded": message.forwarded ?? false,
-        "message.attachment_count": message.attachments.length,
-      },
-      async () => this._relayUserMessageToStaff(threadId, message)
-    );
+    try {
+      const result = await withSpan(
+        "message.relay_to_staff",
+        {
+          "thread.id": threadId,
+          "user.id": message.author.id,
+          "message.forwarded": message.forwarded ?? false,
+          "message.attachment_count": message.attachments.length,
+        },
+        async () => this._relayUserMessageToStaff(threadId, message)
+      );
+      recordMessageRelay("user_to_staff", "success");
+      return result;
+    } catch (err) {
+      recordMessageRelay("user_to_staff", "failure", classifyDiscordError(err));
+      throw err;
+    }
   }
 
   private async _relayUserMessageToStaff(
@@ -168,6 +182,7 @@ export class MessageRelayService {
         // Close channel in DB to prevent re-using this channel
         // Closed by bot user
         await this.threadRepository.closeThread(threadId, this.client.user?.id || "0");
+        recordThreadClosed("system_missing_channel");
 
         // We want the user to receive the error message, so that they know staff
         // did not receive their message, and they may send it again.
@@ -256,15 +271,21 @@ export class MessageRelayService {
     threadId: string,
     message: UserToStaffMessage
   ): Promise<void> {
-    return withSpan(
-      "message.relay_edit_to_staff",
-      {
-        "thread.id": threadId,
-        "user.id": message.author.id,
-        "message.attachment_count": message.attachments.length,
-      },
-      async () => this._relayUserEditedMessageToStaff(threadId, message)
-    );
+    try {
+      await withSpan(
+        "message.relay_edit_to_staff",
+        {
+          "thread.id": threadId,
+          "user.id": message.author.id,
+          "message.attachment_count": message.attachments.length,
+        },
+        async () => this._relayUserEditedMessageToStaff(threadId, message)
+      );
+      recordMessageEditDelete("user_edit", "success");
+    } catch (err) {
+      recordMessageEditDelete("user_edit", "failure");
+      throw err;
+    }
   }
 
   private async _relayUserEditedMessageToStaff(
@@ -430,14 +451,20 @@ export class MessageRelayService {
     threadId: string,
     messageId: string
   ): Promise<void> {
-    return withSpan(
-      "message.relay_delete_to_staff",
-      {
-        "thread.id": threadId,
-        "message.id": messageId,
-      },
-      async () => this._relayUserDeletedMessageToStaff(threadId, messageId)
-    );
+    try {
+      await withSpan(
+        "message.relay_delete_to_staff",
+        {
+          "thread.id": threadId,
+          "message.id": messageId,
+        },
+        async () => this._relayUserDeletedMessageToStaff(threadId, messageId)
+      );
+      recordMessageEditDelete("user_delete", "success");
+    } catch (err) {
+      recordMessageEditDelete("user_delete", "failure");
+      throw err;
+    }
   }
 
   private async _relayUserDeletedMessageToStaff(
@@ -491,17 +518,25 @@ export class MessageRelayService {
     msg: StaffToUserMessage,
     options: StaffMessageOptions = defaultStaffMessageOptions
   ): Promise<void> {
-    return withSpan(
-      "message.relay_to_user",
-      {
-        "thread.id": threadId,
-        "user.id": userId,
-        "message.anonymous": options.anonymous,
-        "message.plain_text": options.plainText,
-        "message.is_snippet": options.snippet,
-      },
-      async () => this._relayStaffMessageToUser(threadId, userId, guild, msg, options)
-    );
+    try {
+      await withSpan(
+        "message.relay_to_user",
+        {
+          "thread.id": threadId,
+          "user.id": userId,
+          "message.anonymous": options.anonymous,
+          "message.plain_text": options.plainText,
+          "message.is_snippet": options.snippet,
+        },
+        async () => this._relayStaffMessageToUser(threadId, userId, guild, msg, options)
+      );
+    } catch (err) {
+      // The dm_blocked case is recorded inside _relayStaffMessageToUser
+      // itself since it returns normally (no throw) after handling the
+      // blocked DM -- this catch only sees genuinely thrown failures.
+      recordMessageRelay("staff_to_user", "failure", classifyDiscordError(err));
+      throw err;
+    }
   }
 
   private async _relayStaffMessageToUser(
@@ -653,6 +688,7 @@ export class MessageRelayService {
         });
 
         // Don't save the message to the database
+        recordMessageRelay("staff_to_user", "failure", "dm_blocked");
         return;
       }
 
@@ -674,6 +710,12 @@ export class MessageRelayService {
       attachmentUrls: attachmentURLs,
       stickers: stickers,
     });
+
+    recordMessageRelay("staff_to_user", "success");
+
+    if (options.snippet) {
+      recordSnippetUsage();
+    }
   }
 
   async saveStaffMessage(options: {
@@ -720,14 +762,21 @@ export class MessageRelayService {
     guild: UserThreadViewGuild,
     msg: StaffToUserMessage
   ): Promise<EditStaffMessageResult> {
-    return withSpan(
-      "message.edit_staff",
-      {
-        "message.id": staffViewMessageId,
-        "user.id": userId,
-      },
-      async () => this._editStaffMessage(staffViewMessageId, userId, guild, msg)
-    );
+    try {
+      const result = await withSpan(
+        "message.edit_staff",
+        {
+          "message.id": staffViewMessageId,
+          "user.id": userId,
+        },
+        async () => this._editStaffMessage(staffViewMessageId, userId, guild, msg)
+      );
+      recordMessageEditDelete("staff_edit", result.ok ? "success" : "failure");
+      return result;
+    } catch (err) {
+      recordMessageEditDelete("staff_edit", "failure");
+      throw err;
+    }
   }
 
   private async _editStaffMessage(
@@ -867,15 +916,22 @@ export class MessageRelayService {
     staffViewMessageId: string,
     deletedById: string
   ): Promise<DeleteStaffMessageResult> {
-    return withSpan(
-      "message.delete_staff",
-      {
-        "message.id": staffViewMessageId,
-        "user.id": recipientUserId,
-        "deleted_by.id": deletedById,
-      },
-      async () => this._deleteStaffMessage(recipientUserId, staffViewMessageId, deletedById)
-    );
+    try {
+      const result = await withSpan(
+        "message.delete_staff",
+        {
+          "message.id": staffViewMessageId,
+          "user.id": recipientUserId,
+          "deleted_by.id": deletedById,
+        },
+        async () => this._deleteStaffMessage(recipientUserId, staffViewMessageId, deletedById)
+      );
+      recordMessageEditDelete("staff_delete", result.ok ? "success" : "failure");
+      return result;
+    } catch (err) {
+      recordMessageEditDelete("staff_delete", "failure");
+      throw err;
+    }
   }
 
   private async _deleteStaffMessage(

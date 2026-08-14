@@ -1,6 +1,6 @@
 import { type DB } from "../database/db";
 import { threads } from "../database/schema";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { Thread } from "../models/thread.model";
 
 // ThreadRepository (data access)
@@ -74,6 +74,16 @@ export class ThreadRepository {
       .execute();
 
     return result.map(Thread.fromDatabaseRow);
+  }
+
+  async countOpenThreads(): Promise<number> {
+    const result = await this.db
+      .select({ value: count() })
+      .from(threads)
+      .where(and(eq(threads.guildId, this.guildId), isNull(threads.closedAt)))
+      .execute();
+
+    return result[0]?.value ?? 0;
   }
 
   async getThreadByChannelId(channelId: string): Promise<Thread | null> {

@@ -19,6 +19,7 @@ import type { UpdateConfig } from "repositories/runtimeConfig.repository";
 import type { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { getMutualServers } from "utils/mutualServers";
 import { withSpan } from "../tracing";
+import { recordThreadClosed, recordThreadOpened } from "utils/metrics";
 
 // Global constant for the open tag name
 const OPEN_TAG_NAME = "Open";
@@ -355,6 +356,7 @@ export class ThreadService {
               error.code === RESTJSONErrorCodes.UnknownChannel
             ) {
               await this.threadRepository.closeThread(thread.channelId, "0");
+              recordThreadClosed("system_missing_channel");
               this.logger.info(
                 { threadId: thread.channelId, trigger: "startup_recovery" },
                 "Closed modmail thread whose channel no longer exists in Discord"
@@ -414,7 +416,8 @@ export class ThreadService {
   async getOrCreateThread(
     userId: string,
     username: string,
-    forceSilent?: boolean
+    forceSilent?: boolean,
+    source: "dm" | "staff_contact" = "dm"
   ): Promise<{ thread: Thread; isNew: boolean }> {
     return withSpan("thread.get_or_create", { "user.id": userId }, async () => {
       // Check if there's already a thread creation in progress for this user
@@ -427,7 +430,7 @@ export class ThreadService {
       }
 
       // Create a new promise for this thread creation
-      const creationPromise = this.doGetOrCreateThreadInternal(userId, username, forceSilent);
+      const creationPromise = this.doGetOrCreateThreadInternal(userId, username, forceSilent, source);
 
       // Store it in the map to block other concurrent requests. Safe to do right
       // after creating the promise since it's non-async
@@ -446,7 +449,8 @@ export class ThreadService {
   private async doGetOrCreateThreadInternal(
     userId: string,
     username: string,
-    forceSilent?: boolean
+    forceSilent: boolean | undefined,
+    source: "dm" | "staff_contact"
   ): Promise<{ thread: Thread; isNew: boolean }> {
     // Double-check if thread exists (in case it was created while waiting for lock)
     let thread = await this.threadRepository.getOpenThreadByUserID(userId);
@@ -469,6 +473,7 @@ export class ThreadService {
         // "0" signals a system/bot close (no specific user), consistent
         // with how MessageRelayService closes orphaned threads.
         await this.threadRepository.closeThread(thread.channelId, "0");
+        recordThreadClosed("system_missing_channel");
         // Reset thread to null so we create a new one
         thread = null;
       } else {
@@ -484,6 +489,7 @@ export class ThreadService {
     if (!thread) {
       this.logger.debug({ userId }, "Creating new thread for user");
       thread = await this.createNewThread(userId, username, forceSilent);
+      recordThreadOpened(source);
       this.logger.info(
         { threadId: thread.channelId, userId },
         "New thread created"
@@ -655,6 +661,7 @@ export class ThreadService {
 
       // Mark as closed in db
       await this.threadRepository.closeThread(thread.channelId, userId);
+      recordThreadClosed("staff");
     });
   }
 
