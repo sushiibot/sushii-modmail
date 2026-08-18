@@ -1,0 +1,16 @@
+name: Zizmor
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  zizmor:
+    uses: sushiibot/sushii-workflows/.github/workflows/zizmor.yml@main # zizmor: ignore[unpinned-uses] first-party, tracked at @main by design
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
