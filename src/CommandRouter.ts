@@ -202,20 +202,35 @@ export default class CommandRouter {
       );
   }
 
+  // Strips `tokenCount` leading whitespace-separated tokens from `content`
+  // while leaving the rest of the string byte-for-byte intact, so callers
+  // that need the original free-text (newlines, repeated spaces, tabs)
+  // don't have to rebuild it from the tokenized args array.
+  private stripLeadingTokens(content: string, tokenCount: number): string {
+    let remaining = content;
+
+    for (let i = 0; i < tokenCount; i++) {
+      remaining = remaining.replace(/^\s*\S+/, "");
+    }
+
+    return remaining.replace(/^\s+/, "");
+  }
+
   async breakDownMessage(
     contentWithoutPrefix: string
-  ): Promise<[string, string | null, string[]]> {
+  ): Promise<[string, string | null, string[], string]> {
     const content = contentWithoutPrefix.trim();
 
-    // Split on any run of whitespace (spaces or tabs) and drop empty tokens,
-    // so repeated/irregular spacing doesn't produce blank args (previously
-    // e.g. "logs  123" resolved args[0] to "" instead of "123").
+    // Split on any run of whitespace (spaces, tabs, or newlines) and drop
+    // empty tokens, so repeated/irregular spacing doesn't produce blank args
+    // (previously e.g. "logs  123" resolved args[0] to "" instead of "123").
     const contentArray = content.split(/\s+/).filter((s) => s.length > 0);
     const commandName = (contentArray[0] ?? "").toLowerCase();
 
     // Check if there's a potential subcommand
     let subCommandName: string | null = null;
     let args: string[] = [];
+    let rawArgs = "";
 
     if (contentArray.length > 1) {
       // Check if we have a valid subcommand
@@ -228,15 +243,17 @@ export default class CommandRouter {
         // This is a main command that can have subcommands
         subCommandName = contentArray[1].toLowerCase();
         args = contentArray.slice(2);
+        rawArgs = this.stripLeadingTokens(content, 2);
       } else {
         // No subcommand
         args = contentArray.slice(1);
+        rawArgs = this.stripLeadingTokens(content, 1);
       }
     } else {
       args = [];
     }
 
-    return [commandName, subCommandName, args];
+    return [commandName, subCommandName, args, rawArgs];
   }
 
   async hasPermission(msg: Message): Promise<boolean> {
@@ -294,9 +311,8 @@ export default class CommandRouter {
       return;
     }
 
-    const [commandName, subCommandName, args] = await this.breakDownMessage(
-      prefixMatch.content
-    );
+    const [commandName, subCommandName, args, rawArgs] =
+      await this.breakDownMessage(prefixMatch.content);
 
     let rootCommand = this.commands.get(commandName);
 
@@ -378,7 +394,7 @@ export default class CommandRouter {
           "command.name": commandName,
           ...(subCommandName ? { "command.subcommand": subCommandName } : {}),
         },
-        () => handler.handler(msg, args)
+        () => handler.handler(msg, args, rawArgs)
       );
       recordCommandInvocation(commandName, subCommandName, "success");
     } catch (error) {

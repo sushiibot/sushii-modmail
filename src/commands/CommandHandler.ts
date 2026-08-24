@@ -18,5 +18,13 @@ export default abstract class TextCommandHandler {
   // command classes and test mocks don't need updating.
   readonly ownerOnly?: boolean;
 
-  abstract handler(msg: Message, args: string[]): Promise<void>;
+  // rawArgs is the free-text portion of the message after the command (and
+  // subcommand, if any) name, with original whitespace/newlines intact --
+  // use this instead of args.join(" ") when a command needs to preserve
+  // line breaks (e.g. reply/edit/close reason text).
+  abstract handler(
+    msg: Message,
+    args: string[],
+    rawArgs: string
+  ): Promise<void>;
 }

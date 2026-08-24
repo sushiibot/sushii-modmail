@@ -34,7 +34,11 @@ export class EditCommand extends TextCommandHandler {
     this.configRepository = configRepository;
   }
 
-  async handler(msg: Message, args: string[]): Promise<void> {
+  async handler(
+    msg: Message,
+    _args: string[],
+    rawArgs: string
+  ): Promise<void> {
     if (!msg.inGuild()) {
       return;
     }
@@ -63,7 +67,7 @@ export class EditCommand extends TextCommandHandler {
       return;
     }
 
-    const editContent = args.join(" ");
+    const editContent = rawArgs;
     if (!editContent) {
       await msg.channel.send("Please provide a new message content.");
       return;

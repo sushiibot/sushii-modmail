@@ -29,7 +29,11 @@ export class CloseCommand extends TextCommandHandler {
     this.configRepository = configRepository;
   }
 
-  async handler(msg: Message, args: string[]): Promise<void> {
+  async handler(
+    msg: Message,
+    _args: string[],
+    rawArgs: string
+  ): Promise<void> {
     if (!msg.inGuild()) {
       return;
     }
@@ -82,7 +86,7 @@ export class CloseCommand extends TextCommandHandler {
 
     try {
       // Parse optional close reason from remaining arguments
-      const closeReason = args.length > 0 ? args.join(" ") : undefined;
+      const closeReason = rawArgs.length > 0 ? rawArgs : undefined;
 
       // Close the thread
       await this.threadService.closeThread(thread, msg.author.id, closeReason);

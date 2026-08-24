@@ -41,7 +41,11 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
     this.configRepository = configRepository;
   }
 
-  async handler(msg: Message, args: string[]): Promise<void> {
+  async handler(
+    msg: Message,
+    _args: string[],
+    rawArgs: string
+  ): Promise<void> {
     if (!msg.inGuild()) {
       return;
     }
@@ -61,7 +65,7 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
       return;
     }
 
-    const replyContent = args.join(" ");
+    const replyContent = rawArgs;
     // If ALL are empty, return
     if (
       !replyContent &&

@@ -163,6 +163,42 @@ describe("CommandRouter whitespace handling", () => {
     expect(commandName).toBe("reply");
     expect(args).toEqual(["hello", "there"]);
   });
+
+  it("preserves newlines in rawArgs even though args are tokenized", async () => {
+    const router = makeRouter("-");
+    const [commandName, , args, rawArgs] = await router.breakDownMessage(
+      "reply line one\nline two"
+    );
+
+    expect(commandName).toBe("reply");
+    expect(args).toEqual(["line", "one", "line", "two"]);
+    expect(rawArgs).toBe("line one\nline two");
+  });
+
+  it("preserves newlines in rawArgs after a subcommand name", async () => {
+    const parent: TextCommandHandler = {
+      commandName: "bot",
+      subCommandName: null,
+      aliases: [],
+      requiresPrimaryServer: false,
+      handler: async () => {},
+    };
+    const addSubcommand: TextCommandHandler = {
+      commandName: "bot",
+      subCommandName: "add",
+      aliases: [],
+      requiresPrimaryServer: false,
+      handler: async () => {},
+    };
+
+    const router = makeRouter("-", [parent, addSubcommand]);
+    const [commandName, subCommandName, , rawArgs] =
+      await router.breakDownMessage("bot add foo\nbar");
+
+    expect(commandName).toBe("bot");
+    expect(subCommandName).toBe("add");
+    expect(rawArgs).toBe("foo\nbar");
+  });
 });
 
 describe("CommandRouter prefix deprecation warning", () => {
