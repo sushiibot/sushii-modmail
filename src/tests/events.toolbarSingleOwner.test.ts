@@ -9,6 +9,9 @@ import { ThreadRepository } from "../repositories/thread.repository";
 import { BotConfig, type GlobalConfig } from "../models/botConfig.model";
 import { BotManager } from "../services/BotManager";
 import { buildSharedServices } from "../services/botFactory";
+import { SnippetRepository } from "../repositories/snippet.repository";
+import { CloseCommand } from "../commands/CloseCommand";
+import { AddSnippetCommand } from "../commands/snippets/AddSnippetCommand";
 
 const globals: GlobalConfig = {
   LOG_LEVEL: "info",
@@ -65,14 +68,14 @@ function makeFakeClient(threadChannelId: string, forumChannelId: string): Client
 
 // This drives the real MessageCreate wiring in events.ts -- specifically
 // the early-return that hands a reply-to-toolbar message exclusively to
-// ToolbarController before commandRouter.handleMessage or
-// snippetController.handleThreadMessage ever see it. Testing
-// ToolbarController.isReplyToToolbar/handleReplyToToolbar in isolation (see
-// ToolbarController.test.ts) proves the parsing logic is correct, but not
-// that the real event handler actually calls it instead of the other two
-// paths -- that's what this test exercises.
+// CommandRouter.handleUnprefixedMessage before the normal (prefixed)
+// command path or the snippet trigger ever see it. Testing
+// ToolbarController.isReplyToToolbar in isolation (see
+// ToolbarController.test.ts) proves the routing decision is correct, but
+// not that the real event handler actually dispatches through the command
+// router instead of the other two paths -- that's what this test exercises.
 describe("reply-to-toolbar single-owner wiring (via registerEventHandlers)", () => {
-  it("closes the thread via the real MessageCreate wiring when replying 'close' to the toolbar", async () => {
+  async function setup() {
     const guildId = "100000000000000001";
     const forumChannelId = "100000000000000002";
     const threadChannelId = "100000000000000003";
@@ -106,37 +109,80 @@ describe("reply-to-toolbar single-owner wiring (via registerEventHandlers)", () 
     const botManager = new BotManager(db, globals);
     const shared = buildSharedServices(config, client, db);
 
+    // Registering only the two commands this test's scenarios need --
+    // proves generic dispatch works for a real, arbitrary command, not
+    // just that the wiring happens to route somewhere.
+    commandRouter.addCommands(
+      new CloseCommand(shared.threadService, runtimeConfigRepository),
+      new AddSnippetCommand(shared.snippetService)
+    );
+
     registerEventHandlers(config, client, db, commandRouter, botManager, shared);
 
-    const message = {
-      author: { id: staffId, bot: false, username: "staffer" },
-      member: {
-        permissions: {
-          has: (flag: bigint) => flag === PermissionsBitField.Flags.ManageGuild,
+    function mockMessage(content: string) {
+      return {
+        author: { id: staffId, bot: false, username: "staffer" },
+        member: {
+          permissions: {
+            has: (flag: bigint) =>
+              flag === PermissionsBitField.Flags.ManageGuild,
+          },
+          roles: { cache: new Map() },
         },
-        roles: { cache: new Map() },
-      },
-      content: "close",
-      reference: { messageId: toolbarMessageId },
-      attachments: new Map(),
-      stickers: new Map(),
-      createdTimestamp: Date.now(),
-      id: "incoming-msg-id",
-      guildId,
-      channel: {
-        id: threadChannelId,
-        isThread: () => true,
-      },
-      inGuild: () => true,
-      client,
-    } as any;
+        content,
+        reference: { messageId: toolbarMessageId },
+        attachments: new Map(),
+        stickers: new Map(),
+        createdTimestamp: Date.now(),
+        id: "incoming-msg-id",
+        guildId,
+        channel: {
+          id: threadChannelId,
+          parentId: forumChannelId,
+          isThread: () => true,
+          send: async () => ({ id: "sent-msg-id" }),
+        },
+        reply: async () => ({ id: "reply-msg-id" }),
+        inGuild: () => true,
+        client,
+      } as any;
+    }
 
-    (client as unknown as EventEmitter).emit(Events.MessageCreate, message);
+    return { client, db, guildId, threadRepository, mockMessage };
+  }
+
+  it("closes the thread via the real MessageCreate wiring when replying 'close' to the toolbar", async () => {
+    const { client, threadRepository, mockMessage } = await setup();
+
+    (client as unknown as EventEmitter).emit(
+      Events.MessageCreate,
+      mockMessage("close")
+    );
 
     // Let the async MessageCreate handler run to completion.
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const thread = await threadRepository.getThreadByChannelId(threadChannelId);
+    const thread = await threadRepository.getThreadByChannelId(
+      "100000000000000003"
+    );
     expect(thread?.isClosed).toBe(true);
+  });
+
+  it("dispatches any registered command generically, not just ar/reply/close", async () => {
+    // Regression test: reply-to-toolbar previously hardcoded a 3-word
+    // allowlist, so "snippet add <name> <content>" was rejected with
+    // "Unknown action" even though it's a real registered command.
+    const { client, db, guildId, mockMessage } = await setup();
+
+    (client as unknown as EventEmitter).emit(
+      Events.MessageCreate,
+      mockMessage("snippet add helpme Hi, what can we help with?")
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const snippetRepository = new SnippetRepository(db);
+    const snippet = await snippetRepository.getSnippet(guildId, "helpme");
+    expect(snippet?.content).toBe("Hi, what can we help with?");
   });
 });

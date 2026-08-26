@@ -9,6 +9,12 @@ export const HexColor = {
   Green: 0xa6e3a1,
   Purple: 0xb4befe, // Lavender
   Gray: 0x585b70,
+  // Reserved for control-panel/utility messages (the staff toolbar) --
+  // every other color already means something about message content
+  // (staff reply, user message, edited, error), so reusing one here would
+  // make the toolbar look like it belongs to that category instead of
+  // standing out as a persistent fixture.
+  Yellow: 0xf9e2af,
 } as const;
 
 export type ColorKey = keyof typeof HexColor;

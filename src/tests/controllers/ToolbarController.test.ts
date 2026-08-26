@@ -98,149 +98,6 @@ describe("ToolbarController", () => {
     });
   });
 
-  describe("handleReplyToToolbar", () => {
-    function mockMessage(content: string, permitted = true) {
-      return {
-        content,
-        author: { id: "staff-1", username: "staffer" },
-        member: mockMember(permitted),
-        guild: { id: "guild-1", name: "Guild", iconURL: () => null },
-        attachments: new Map(),
-        stickers: new Map(),
-        createdTimestamp: 123,
-        id: "msg-1",
-        reply: mock().mockResolvedValue({ delete: mock().mockResolvedValue(undefined) }),
-        delete: mock().mockResolvedValue(undefined),
-      } as any;
-    }
-
-    it("relays an anonymous reply for 'ar'", async () => {
-      const message = mockMessage("ar this is my reply");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
-        thread.channelId,
-        thread.userId,
-        message.guild,
-        expect.objectContaining({ content: "this is my reply" }),
-        expect.objectContaining({ anonymous: true, snippet: false })
-      );
-      expect(message.delete).toHaveBeenCalled();
-    });
-
-    it("relays a non-anonymous reply for 'reply'", async () => {
-      const message = mockMessage("reply hey there");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
-        thread.channelId,
-        thread.userId,
-        message.guild,
-        expect.objectContaining({ content: "hey there" }),
-        expect.objectContaining({ anonymous: false })
-      );
-    });
-
-    it("preserves internal newlines in the reply content", async () => {
-      const message = mockMessage("reply line one\nline two");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
-        thread.channelId,
-        thread.userId,
-        message.guild,
-        expect.objectContaining({ content: "line one\nline two" }),
-        expect.anything()
-      );
-    });
-
-    it("closes the thread for 'close'", async () => {
-      const message = mockMessage("close");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(threadService.closeThread).toHaveBeenCalledWith(thread, "staff-1");
-      expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
-    });
-
-    it("does not close an already-closed thread again", async () => {
-      const message = mockMessage("close");
-      const thread = mockThread({ isClosed: true });
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(threadService.closeThread).not.toHaveBeenCalled();
-    });
-
-    it("warns and does not relay for an unrecognized word", async () => {
-      const message = mockMessage("banana something");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(message.reply).toHaveBeenCalledWith(
-        expect.stringContaining("Unknown action")
-      );
-      expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
-      expect(threadService.closeThread).not.toHaveBeenCalled();
-    });
-
-    it("warns instead of relaying an empty reply", async () => {
-      const message = mockMessage("reply");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(message.reply).toHaveBeenCalledWith(
-        expect.stringContaining("include a message")
-      );
-      expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
-    });
-
-    it("is case-insensitive on the command word", async () => {
-      const message = mockMessage("AR shout reply");
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
-        thread.channelId,
-        thread.userId,
-        message.guild,
-        expect.objectContaining({ content: "shout reply" }),
-        expect.objectContaining({ anonymous: true })
-      );
-    });
-
-    it("denies a staff member without permission, even for 'close'", async () => {
-      const message = mockMessage("close", false);
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(message.reply).toHaveBeenCalledWith(
-        expect.stringContaining("don't have permission")
-      );
-      expect(threadService.closeThread).not.toHaveBeenCalled();
-    });
-
-    it("denies a staff member without permission for 'ar'", async () => {
-      const message = mockMessage("ar sneaky reply", false);
-      const thread = mockThread();
-
-      await controller.handleReplyToToolbar(message, thread);
-
-      expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
-    });
-  });
-
   describe("handleButton", () => {
     function mockButtonInteraction(customId: string, permitted = true) {
       return {
@@ -255,6 +112,8 @@ describe("ToolbarController", () => {
         showModal: mock().mockResolvedValue(undefined),
         deferUpdate: mock().mockResolvedValue(undefined),
         reply: mock().mockResolvedValue(undefined),
+        update: mock().mockResolvedValue(undefined),
+        editReply: mock().mockResolvedValue(undefined),
       } as any;
     }
 
@@ -270,8 +129,22 @@ describe("ToolbarController", () => {
       expect(interaction.showModal).toHaveBeenCalledTimes(1);
     });
 
-    it("closes an open thread", async () => {
+    it("asks for confirmation instead of closing immediately", async () => {
       const interaction = mockButtonInteraction(toolbarCustomID.close);
+
+      await controller.handleButton(interaction);
+
+      expect(threadService.closeThread).not.toHaveBeenCalled();
+      expect(interaction.reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining("sure"),
+          flags: expect.anything(),
+        })
+      );
+    });
+
+    it("closes the thread once confirmed", async () => {
+      const interaction = mockButtonInteraction(toolbarCustomID.confirmClose);
       threadService.getThreadByChannelId.mockResolvedValue(mockThread());
 
       await controller.handleButton(interaction);
@@ -281,10 +154,13 @@ describe("ToolbarController", () => {
         expect.objectContaining({ channelId: "channel-1" }),
         "staff-1"
       );
+      expect(interaction.editReply).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "Thread closed." })
+      );
     });
 
-    it("does not close an already-closed thread", async () => {
-      const interaction = mockButtonInteraction(toolbarCustomID.close);
+    it("does not close an already-closed thread even if confirmed", async () => {
+      const interaction = mockButtonInteraction(toolbarCustomID.confirmClose);
       threadService.getThreadByChannelId.mockResolvedValue(
         mockThread({ isClosed: true })
       );
@@ -292,6 +168,17 @@ describe("ToolbarController", () => {
       await controller.handleButton(interaction);
 
       expect(threadService.closeThread).not.toHaveBeenCalled();
+    });
+
+    it("does nothing but dismiss the prompt when cancelled", async () => {
+      const interaction = mockButtonInteraction(toolbarCustomID.cancelClose);
+
+      await controller.handleButton(interaction);
+
+      expect(threadService.closeThread).not.toHaveBeenCalled();
+      expect(interaction.update).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "Cancelled." })
+      );
     });
 
     it("replies with the pins editor for editPins", async () => {

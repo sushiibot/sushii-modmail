@@ -63,10 +63,6 @@ interface ConfigRepository {
   getConfig(guildId: string): Promise<RuntimeConfig>;
 }
 
-// Available reply-to-toolbar command words, matching the toolbar's own
-// buttons -- these are the 3 commands staff actually use per usage metrics.
-const TOOLBAR_REPLY_WORDS = new Set(["ar", "reply", "close"]);
-
 export class ToolbarController {
   private threadService: ThreadService;
   private messageService: MessageRelayService;
@@ -117,75 +113,6 @@ export class ToolbarController {
     return !!referencedId && referencedId === thread.toolbarMessageId;
   }
 
-  /**
-   * Single owner of a reply-to-toolbar message -- callers must skip the
-   * normal command router / snippet trigger path entirely for messages this
-   * handles, since a bare word like "ar" or a snippet name is otherwise
-   * ambiguous between the two systems.
-   */
-  async handleReplyToToolbar(message: Message, thread: Thread): Promise<void> {
-    if (!(await this.hasPermission(thread.guildId, message.member))) {
-      const warning = await message.reply(NO_PERMISSION_MESSAGE);
-      setTimeout(() => warning.delete().catch(() => {}), 5000);
-      return;
-    }
-
-    const trimmed = message.content.trim();
-    const word = trimmed.split(/\s+/)[0] ?? "";
-    const content = trimmed.slice(word.length).trim();
-    const lowerWord = word.toLowerCase();
-
-    if (!lowerWord || !TOOLBAR_REPLY_WORDS.has(lowerWord)) {
-      const warning = await message.reply(
-        "Unknown action — try `ar`, `reply`, or `close`."
-      );
-      setTimeout(() => warning.delete().catch(() => {}), 5000);
-      return;
-    }
-
-    if (lowerWord === "close") {
-      if (thread.isClosed) {
-        return;
-      }
-      await this.threadService.closeThread(thread, message.author.id);
-      return;
-    }
-
-    if (!content && message.attachments.size === 0 && message.stickers.size === 0) {
-      const warning = await message.reply(
-        "Please include a message to reply with."
-      );
-      setTimeout(() => warning.delete().catch(() => {}), 5000);
-      return;
-    }
-
-    await this.messageService.relayStaffMessageToUser(
-      thread.channelId,
-      thread.userId,
-      message.guild!,
-      {
-        id: message.id,
-        author: message.author,
-        content,
-        attachments: Array.from(message.attachments.values()),
-        stickers: Array.from(message.stickers.values()),
-        forwarded: false,
-        createdTimestamp: message.createdTimestamp,
-      },
-      {
-        anonymous: lowerWord === "ar",
-        plainText: false,
-        snippet: false,
-      }
-    );
-
-    try {
-      await message.delete();
-    } catch (err) {
-      this.logger.debug({ err }, "Could not delete reply-to-toolbar message");
-    }
-  }
-
   async handleButton(interaction: ButtonInteraction<"cached">): Promise<void> {
     const { customId } = interaction;
 
@@ -205,14 +132,35 @@ export class ToolbarController {
     }
 
     if (customId === toolbarCustomID.close) {
+      // A misclick among a row of buttons is the real accident risk here
+      // (unlike typing "close" as a reply or text command, which already
+      // requires deliberate action) -- and there's no reopen, so this is
+      // the one toolbar action worth an extra step. The confirm/cancel
+      // buttons live on this ephemeral reply, not the toolbar itself, so
+      // confirming/cancelling never touches the shared message.
+      await interaction.reply(ToolbarView.closeConfirmMessage());
+      return;
+    }
+
+    if (customId === toolbarCustomID.confirmClose) {
       await interaction.deferUpdate();
       const thread = await this.threadService.getThreadByChannelId(
         interaction.channelId
       );
       if (!thread || thread.isClosed) {
+        await interaction.editReply({
+          content: "This thread is already closed.",
+          components: [],
+        });
         return;
       }
       await this.threadService.closeThread(thread, interaction.user.id);
+      await interaction.editReply({ content: "Thread closed.", components: [] });
+      return;
+    }
+
+    if (customId === toolbarCustomID.cancelClose) {
+      await interaction.update({ content: "Cancelled.", components: [] });
       return;
     }
 

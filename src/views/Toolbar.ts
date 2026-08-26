@@ -29,6 +29,8 @@ export const toolbarCustomID = {
   reply: id("reply"),
   anonReply: id("anonReply"),
   close: id("close"),
+  confirmClose: id("confirmClose"),
+  cancelClose: id("cancelClose"),
   editPins: id("editPins"),
   snippetSelect: id("snippetSelect"),
   pinnedSnippet: (name: string) => id(`pin.${name}`),
@@ -69,7 +71,10 @@ export class ToolbarView {
     pinnedSnippets: Snippet[],
     unpinnedSnippets: Snippet[]
   ): MessageCreateOptions {
-    const container = new ContainerBuilder();
+    // Distinct from every other message color in the thread (staff reply,
+    // user message, edited, error) so the toolbar reads as a persistent
+    // fixture at a glance, not another piece of conversation content.
+    const container = new ContainerBuilder().setAccentColor(HexColor.Yellow);
 
     // Row 1: pinned snippet buttons + Edit Pins, filling Discord's 5-button
     // row cap exactly (4 pins + 1 management button). With zero pins, this
@@ -158,6 +163,35 @@ export class ToolbarView {
     };
   }
 
+  /**
+   * Ephemeral confirm/cancel prompt for Close -- a misclick among a row of
+   * buttons is the real accident risk, unlike typing "close" as a reply or
+   * text command, which already requires deliberate action. There's no
+   * reopen, so this is the one toolbar action worth a confirm step.
+   */
+  static closeConfirmMessage(): {
+    content: string;
+    components: [ActionRowBuilder<ButtonBuilder>];
+    flags: MessageFlags.Ephemeral;
+  } {
+    const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(toolbarCustomID.confirmClose)
+        .setLabel("Confirm Close")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(toolbarCustomID.cancelClose)
+        .setLabel("Cancel")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    return {
+      content: "Are you sure you want to close this thread? This can't be undone.",
+      components: [confirmRow],
+      flags: MessageFlags.Ephemeral,
+    };
+  }
+
   static replyModal(anonymous: boolean): ModalBuilder {
     const modal = new ModalBuilder()
       .setCustomId(anonymous ? toolbarCustomID.modalAnonReply : toolbarCustomID.modalReply)
@@ -217,7 +251,7 @@ export class ToolbarView {
     flags: MessageFlags.IsComponentsV2;
     allowedMentions: { parse: [] };
   } {
-    const container = new ContainerBuilder().setAccentColor(HexColor.Blue);
+    const container = new ContainerBuilder().setAccentColor(HexColor.Yellow);
 
     let content = "## Pinned Snippets";
     content += `\nPick up to ${PIN_SLOT_COUNT} snippets to show as quick-access buttons on the toolbar.`;

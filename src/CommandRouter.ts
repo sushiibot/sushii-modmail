@@ -283,8 +283,46 @@ export default class CommandRouter {
       return;
     }
 
+    await this.dispatchCommand(msg, prefixMatch.content, {
+      viaMention: prefixMatch.viaMention,
+      warnOnPrefix: !prefixMatch.viaMention,
+    });
+  }
+
+  /**
+   * Runs `content` through the exact same command dispatch as a normal
+   * prefixed/mentioned message -- same permission check, subcommand
+   * resolution, primary-server gating, and metrics -- but treats it as
+   * already unprefixed. Used by the staff toolbar's reply-to-toolbar
+   * shortcut so any registered command works there without a prefix,
+   * without duplicating this dispatch logic a second time.
+   *
+   * viaMention is deliberately false: an owner-only command (bot roster
+   * admin) still requires an actual @mention, and this path never shows
+   * the prefix-deprecation nudge since it isn't the deprecated path.
+   */
+  async handleUnprefixedMessage(msg: Message): Promise<void> {
+    if (msg.author.bot) {
+      return;
+    }
+
+    if (!msg.inGuild() || !msg.member) {
+      return;
+    }
+
+    await this.dispatchCommand(msg, msg.content, {
+      viaMention: false,
+      warnOnPrefix: false,
+    });
+  }
+
+  private async dispatchCommand(
+    msg: Message<true>,
+    content: string,
+    options: { viaMention: boolean; warnOnPrefix: boolean }
+  ): Promise<void> {
     const [commandName, subCommandName, args, rawArgs] =
-      await this.breakDownMessage(prefixMatch.content);
+      await this.breakDownMessage(content);
 
     let rootCommand = this.commands.get(commandName);
 
@@ -327,7 +365,7 @@ export default class CommandRouter {
       // getPrefix()/runtimeConfigRepository.getConfig() entirely, so it
       // can never throw GuildOwnershipConflictError the way a text-prefix
       // invocation on a non-owning bot would.
-      if (!prefixMatch.viaMention) {
+      if (!options.viaMention) {
         return;
       }
 
@@ -340,7 +378,7 @@ export default class CommandRouter {
         return;
       }
 
-      if (!prefixMatch.viaMention) {
+      if (options.warnOnPrefix) {
         this.warnAboutPrefixUsage(msg);
       }
     }

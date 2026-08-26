@@ -278,6 +278,92 @@ describe("CommandRouter prefix deprecation warning", () => {
   });
 });
 
+describe("CommandRouter.handleUnprefixedMessage (staff toolbar reply-to-toolbar shortcut)", () => {
+  const helpCommand: TextCommandHandler = {
+    commandName: "help",
+    subCommandName: null,
+    aliases: [],
+    requiresPrimaryServer: false,
+    handler: async (_msg, args) => {
+      called.args = args;
+    },
+  };
+
+  let called: { args: string[] | null };
+
+  beforeEach(() => {
+    called = { args: null };
+  });
+
+  it("dispatches a registered command without any prefix or mention", async () => {
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage("help me please");
+
+    await router.handleUnprefixedMessage(msg);
+
+    expect(called.args).toEqual(["me", "please"]);
+  });
+
+  it("still enforces the normal staff permission check", async () => {
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage("help", {
+      member: {
+        permissions: new PermissionsBitField(),
+        roles: { cache: new Map() },
+      },
+    } as never);
+
+    await router.handleUnprefixedMessage(msg);
+
+    expect(called.args).toBeNull();
+  });
+
+  it("does not grant owner-only commands access (viaMention is always false)", async () => {
+    const OWNER_ID = "owner-user-id";
+    const ownerCalled: string[][] = [];
+    const botCommand: TextCommandHandler = {
+      commandName: "bot",
+      subCommandName: null,
+      aliases: [],
+      requiresPrimaryServer: false,
+      ownerOnly: true,
+      handler: async (_msg, args) => {
+        ownerCalled.push(args);
+      },
+    };
+    const config = makeConfig();
+    const router = makeRouter("-", [botCommand], config);
+    const msg = makeGuildMessage("bot list", {
+      author: { bot: false, id: config.ownerUserId },
+    } as never);
+
+    await router.handleUnprefixedMessage(msg);
+
+    expect(ownerCalled.length).toBe(0);
+  });
+
+  it("does not fire the prefix-deprecation warning", async () => {
+    const sent: unknown[] = [];
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage("help", {
+      channel: { send: async (content: unknown) => sent.push(content) },
+    } as never);
+
+    await router.handleUnprefixedMessage(msg);
+
+    expect(sent.length).toBe(0);
+  });
+
+  it("does nothing for content that doesn't match any registered command", async () => {
+    const router = makeRouter("-", [helpCommand]);
+    const msg = makeGuildMessage("this is not a command");
+
+    await router.handleUnprefixedMessage(msg);
+
+    expect(called.args).toBeNull();
+  });
+});
+
 describe("CommandRouter ownerOnly gating", () => {
   const OWNER_ID = "owner-user-id";
 
