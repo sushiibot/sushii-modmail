@@ -13,6 +13,7 @@ export function mockThread(options?: {
     createdAt: new Date(),
     closedAt: null,
     closedBy: null,
+    toolbarMessageId: null,
   });
 
   if (options?.userId) {

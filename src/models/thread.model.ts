@@ -9,6 +9,7 @@ export class Thread {
   public createdAt: Date;
   public closedAt: Date | null;
   public closedBy: string | null;
+  public toolbarMessageId: string | null;
 
   constructor(
     guildId: string,
@@ -17,7 +18,8 @@ export class Thread {
     title: string | null = null,
     createdAt: Date,
     closedAt: Date | null = null,
-    closedBy: string | null = null
+    closedBy: string | null = null,
+    toolbarMessageId: string | null = null
   ) {
     this.guildId = guildId;
     this.channelId = channelId;
@@ -26,6 +28,7 @@ export class Thread {
     this.createdAt = createdAt;
     this.closedAt = closedAt;
     this.closedBy = closedBy;
+    this.toolbarMessageId = toolbarMessageId;
   }
 
   static fromDatabaseRow(row: typeof threads.$inferSelect): Thread {
@@ -36,7 +39,8 @@ export class Thread {
       row.title,
       row.createdAt,
       row.closedAt,
-      row.closedBy
+      row.closedBy,
+      row.toolbarMessageId
     );
   }
 

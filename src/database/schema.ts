@@ -33,6 +33,11 @@ export const threads = sqliteTable(
     closedAt: integer({ mode: "timestamp" }),
 
     closedBy: text(),
+
+    // The currently-live toolbar message in this thread, if any. Deleted and
+    // re-created (not edited) on new activity so it always sits at the
+    // bottom of the thread -- see ToolbarService.
+    toolbarMessageId: text(),
   },
   (table) => [
     // Ensure IDs are numeric
@@ -42,6 +47,10 @@ export const threads = sqliteTable(
     check(
       "closedby_id_check",
       sql`${table.closedBy} IS NULL OR ${table.closedBy} NOT GLOB '*[^0-9]*'`
+    ),
+    check(
+      "toolbar_message_id_check",
+      sql`${table.toolbarMessageId} IS NULL OR ${table.toolbarMessageId} NOT GLOB '*[^0-9]*'`
     ),
   ]
 );
@@ -171,9 +180,22 @@ export const snippets = sqliteTable(
     guildId: text().notNull(),
     name: text().notNull(),
     content: text().notNull(),
+
+    // Manually assigned slot (1-4) for the toolbar's quick-access snippet
+    // buttons. NULL means not pinned. Not frequency-based on purpose --
+    // button positions should stay stable for staff muscle memory.
+    pinnedPosition: integer(),
   },
   (table) => [
     check("guild_id_check", sql`${table.guildId} NOT GLOB '*[^0-9]*'`),
+    check(
+      "pinned_position_check",
+      sql`${table.pinnedPosition} IS NULL OR ${table.pinnedPosition} BETWEEN 1 AND 4`
+    ),
+    uniqueIndex("snippets_pinned_position_idx").on(
+      table.guildId,
+      table.pinnedPosition
+    ),
   ]
 );
 

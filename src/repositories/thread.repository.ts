@@ -109,6 +109,16 @@ export class ThreadRepository {
       .where(eq(threads.threadId, channelId));
   }
 
+  async setToolbarMessageId(
+    channelId: string,
+    messageId: string | null
+  ): Promise<void> {
+    await this.db
+      .update(threads)
+      .set({ toolbarMessageId: messageId })
+      .where(eq(threads.threadId, channelId));
+  }
+
   /**
    * Get latest threads created by a specific user
    * @param userId The Discord user ID
