@@ -59,6 +59,11 @@ interface RuntimeConfigRepository {
   setConfig(guildId: string, changes: UpdateConfig): Promise<RuntimeConfig>;
 }
 
+interface ToolbarService {
+  send(threadChannelId: string): Promise<void>;
+  delete(threadChannelId: string): Promise<void>;
+}
+
 export class ThreadService {
   private static readonly RECOVERY_CONCURRENCY = 3;
 
@@ -69,6 +74,7 @@ export class ThreadService {
   private runtimeConfigRepository: RuntimeConfigRepository;
   private threadRepository: ThreadRepository;
   private emojiRepository: BotEmojiRepository;
+  private toolbarService: ToolbarService;
 
   private logger = getLogger("ThreadService");
 
@@ -80,7 +86,8 @@ export class ThreadService {
     client: Client,
     runtimeConfigRepository: RuntimeConfigRepository,
     threadRepository: ThreadRepository,
-    emojiRepository: BotEmojiRepository
+    emojiRepository: BotEmojiRepository,
+    toolbarService: ToolbarService
   ) {
     this.config = config;
     this.client = client;
@@ -88,6 +95,7 @@ export class ThreadService {
     this.runtimeConfigRepository = runtimeConfigRepository;
     this.threadRepository = threadRepository;
     this.emojiRepository = emojiRepository;
+    this.toolbarService = toolbarService;
   }
 
   private async validateThreadExists(threadId: string): Promise<boolean> {
@@ -599,6 +607,15 @@ export class ThreadService {
 
     this.logger.debug(thread, `Created new thread`);
 
+    try {
+      await this.toolbarService.send(discordThread.id);
+    } catch (err) {
+      this.logger.error(
+        { err, threadId: discordThread.id },
+        "Failed to send initial toolbar for new thread"
+      );
+    }
+
     return thread;
   }
 
@@ -618,6 +635,10 @@ export class ThreadService {
       }
 
       this.logger.debug(`Locking and closing thread: ${thread.channelId}`);
+
+      // Delete the toolbar -- there's no reopen, so nothing should be
+      // resent to this thread afterwards.
+      await this.toolbarService.delete(thread.channelId);
 
       // Send closed message with embed and jump link
       const closedMessage = StaffThreadView.threadClosedMessage(

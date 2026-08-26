@@ -12,6 +12,7 @@ import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { ThreadService } from "./ThreadService";
 import { MessageRelayService } from "./MessageRelayService";
 import { SnippetService } from "./SnippetService";
+import { ToolbarService } from "./ToolbarService";
 import { SettingsService } from "./SettingsService";
 import { SayService } from "./SayService";
 import { ReplyCommand } from "commands/reply/ReplyCommand";
@@ -42,12 +43,36 @@ import logger from "utils/logger";
 import type { BotManager } from "./BotManager";
 import { registerBotThreadRepository } from "utils/threadMetricsRegistry";
 
-function buildCommandRouter(
+/**
+ * Every service/repository that must have exactly ONE live instance per bot
+ * process -- not because they're expensive to construct, but because some
+ * of them hold in-process state (ToolbarService's per-thread debounce
+ * timers, ThreadService's per-user thread-creation locks) that a second
+ * independent instance can't see or coordinate with. Building this once in
+ * buildClient and threading it into both buildCommandRouter (text commands)
+ * and registerEventHandlers (DM/reaction/interaction handling) is what
+ * guarantees a single owner for that state -- two instances previously
+ * existed per bot and could race each other (e.g. a text-command close and
+ * a toolbar-button reply resolving through separate debounce timers that
+ * never cancelled one another).
+ */
+export interface SharedBotServices {
+  threadRepository: ThreadRepository;
+  snippetRepository: SnippetRepository;
+  runtimeConfigRepository: RuntimeConfigRepository;
+  messageRepository: MessageRepository;
+  botEmojiRepository: BotEmojiRepository;
+  snippetService: SnippetService;
+  toolbarService: ToolbarService;
+  threadService: ThreadService;
+  messageService: MessageRelayService;
+}
+
+export function buildSharedServices(
   config: BotConfig,
   client: Client,
-  db: DB,
-  botManager: BotManager
-): CommandRouter {
+  db: DB
+): SharedBotServices {
   const threadRepository = new ThreadRepository(db, config.guildId);
   registerBotThreadRepository(config.name, threadRepository);
   const snippetRepository = new SnippetRepository(db);
@@ -57,14 +82,20 @@ function buildCommandRouter(
   );
   const messageRepository = new MessageRepository(db);
   const botEmojiRepository = new BotEmojiRepository(db, config.discordClientId);
-  const botRepository = new BotRepository(db);
 
+  const snippetService = new SnippetService(config, client, snippetRepository);
+  const toolbarService = new ToolbarService(
+    client,
+    snippetService,
+    threadRepository
+  );
   const threadService = new ThreadService(
     config,
     client,
     runtimeConfigRepository,
     threadRepository,
-    botEmojiRepository
+    botEmojiRepository,
+    toolbarService
   );
   const messageService = new MessageRelayService(
     config,
@@ -72,9 +103,38 @@ function buildCommandRouter(
     runtimeConfigRepository,
     threadRepository,
     messageRepository,
-    botEmojiRepository
+    botEmojiRepository,
+    toolbarService
   );
-  const snippetService = new SnippetService(config, client, snippetRepository);
+
+  return {
+    threadRepository,
+    snippetRepository,
+    runtimeConfigRepository,
+    messageRepository,
+    botEmojiRepository,
+    snippetService,
+    toolbarService,
+    threadService,
+    messageService,
+  };
+}
+
+function buildCommandRouter(
+  config: BotConfig,
+  client: Client,
+  db: DB,
+  botManager: BotManager,
+  shared: SharedBotServices
+): CommandRouter {
+  const {
+    runtimeConfigRepository,
+    botEmojiRepository,
+    snippetService,
+    threadService,
+    messageService,
+  } = shared;
+  const botRepository = new BotRepository(db);
 
   // Commands
   const router = new CommandRouter(runtimeConfigRepository, config);
@@ -218,11 +278,13 @@ export function buildClient(
     }),
   });
 
+  const shared = buildSharedServices(config, client, db);
+
   logger.info({ bot: config.name }, "Initializing command router...");
-  const router = buildCommandRouter(config, client, db, botManager);
+  const router = buildCommandRouter(config, client, db, botManager, shared);
 
   logger.info({ bot: config.name }, "Registering event handlers...");
-  registerEventHandlers(config, client, db, router, botManager);
+  registerEventHandlers(config, client, db, router, botManager, shared);
 
   return client;
 }

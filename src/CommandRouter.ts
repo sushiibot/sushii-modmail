@@ -1,4 +1,4 @@
-import { Message, PermissionsBitField } from "discord.js";
+import { Message } from "discord.js";
 import type TextCommandHandler from "./commands/CommandHandler";
 import parentLogger from "./utils/logger";
 import type { Logger } from "pino";
@@ -7,6 +7,7 @@ import type { BotConfig } from "models/botConfig.model";
 import { CommandErrorView } from "views/CommandErrorView";
 import { withSpan } from "./tracing";
 import { recordCommandInvocation } from "utils/metrics";
+import { hasStaffPermission } from "utils/permissions";
 
 interface CommandEntry {
   handler: TextCommandHandler | null;
@@ -261,40 +262,11 @@ export default class CommandRouter {
       return false;
     }
 
-    const runtimeConfig = await this.runtimeConfigRepository.getConfig(
-      msg.guildId
+    return hasStaffPermission(
+      this.runtimeConfigRepository,
+      msg.guildId,
+      msg.member
     );
-
-    // Server managers always have permission
-    if (msg.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
-      return true;
-    }
-
-    // If no roles set, default requirement is Moderate Members permission
-    if (runtimeConfig.requiredRoleIds.length === 0) {
-      return msg.member.permissions.has(
-        PermissionsBitField.Flags.ModerateMembers
-      );
-    }
-
-    // Check if user has ANY of the required roles
-    for (const roleId of runtimeConfig.requiredRoleIds) {
-      if (msg.member.roles.cache.has(roleId)) {
-        return true;
-      }
-    }
-
-    this.logger.debug(
-      {
-        userId: msg.author.id,
-        guildId: msg.guildId,
-        requiredRoleIds: runtimeConfig.requiredRoleIds,
-        userRoles: msg.member.roles.cache.map((r) => r.id),
-      },
-      `User does not have required role to use commands`
-    );
-
-    return false;
   }
 
   async handleMessage(msg: Message) {

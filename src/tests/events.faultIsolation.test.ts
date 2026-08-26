@@ -9,6 +9,7 @@ import { runtimeConfig } from "../database/schema";
 import { BotConfig, type GlobalConfig } from "../models/botConfig.model";
 import { ThreadRepository } from "../repositories/thread.repository";
 import { BotManager } from "../services/BotManager";
+import { buildSharedServices } from "../services/botFactory";
 
 const globals: GlobalConfig = {
   LOG_LEVEL: "info",
@@ -53,8 +54,9 @@ async function wireBot(
   const commandRouter = new CommandRouter(runtimeConfigRepository, config);
   const client = makeFakeClient(guildsFetch);
   const botManager = new BotManager(db, globals);
+  const shared = buildSharedServices(config, client, db);
 
-  registerEventHandlers(config, client, db, commandRouter, botManager);
+  registerEventHandlers(config, client, db, commandRouter, botManager, shared);
 
   return { db, config, client };
 }

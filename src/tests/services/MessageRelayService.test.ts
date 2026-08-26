@@ -36,6 +36,7 @@ describe("MessageRelayService", () => {
   let threadRepository: any;
   let messageRepository: any;
   let emojiRepository: any;
+  let toolbarService: any;
   let emojiMap: Map<any, any>;
   const guildId = "123456789";
 
@@ -55,6 +56,10 @@ describe("MessageRelayService", () => {
 
     threadRepository = {
       // Add any thread repository methods that might be needed
+    };
+
+    toolbarService = {
+      scheduleResend: mock(),
     };
 
     messageRepository = {
@@ -77,7 +82,8 @@ describe("MessageRelayService", () => {
       configRepository,
       threadRepository,
       messageRepository,
-      emojiRepository
+      emojiRepository,
+      toolbarService
     );
   });
 

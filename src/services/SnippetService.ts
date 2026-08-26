@@ -20,6 +20,13 @@ interface SnippetRepository {
     content: string
   ): Promise<Snippet>;
   deleteSnippet(guildId: string, name: string): Promise<boolean>;
+  getPinnedSnippets(guildId: string): Promise<Snippet[]>;
+  setPinnedPosition(
+    guildId: string,
+    name: string,
+    position: number
+  ): Promise<void>;
+  clearPinnedPosition(guildId: string, name: string): Promise<void>;
 }
 
 export class SnippetService {
@@ -148,5 +155,31 @@ export class SnippetService {
   async deleteSnippet(guildId: string, name: string): Promise<boolean> {
     this.logger.debug(`Deleting snippet ${name} for guild ${guildId}`);
     return this.snippetRepository.deleteSnippet(guildId, name);
+  }
+
+  /**
+   * Get the up-to-4 snippets pinned as quick-access toolbar buttons, ordered
+   * by their slot position.
+   */
+  async getPinnedSnippets(guildId: string): Promise<Snippet[]> {
+    return this.snippetRepository.getPinnedSnippets(guildId);
+  }
+
+  async setPinnedPosition(
+    guildId: string,
+    name: string,
+    position: number
+  ): Promise<void> {
+    this.logger.debug(
+      `Pinning snippet ${name} to slot ${position} for guild ${guildId}`
+    );
+    return this.snippetRepository.setPinnedPosition(guildId, name, position);
+  }
+
+  async clearPinnedPosition(guildId: string, name: string): Promise<void> {
+    this.logger.debug(
+      `Unpinning snippet ${name} for guild ${guildId}`
+    );
+    return this.snippetRepository.clearPinnedPosition(guildId, name);
   }
 }

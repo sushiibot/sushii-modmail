@@ -2,21 +2,14 @@ import { Events, type Client } from "discord.js";
 import type CommandRouter from "./CommandRouter";
 import parentLogger, { getLogger } from "./utils/logger";
 import type { DB } from "./database/db";
-import { ThreadRepository } from "repositories/thread.repository";
-import { ThreadService } from "services/ThreadService";
-import { MessageRelayService } from "services/MessageRelayService";
 import { DMController } from "controllers/DMController";
 import type { BotConfig } from "models/botConfig.model";
 import { SnippetController } from "controllers/SnippetController";
-import { SnippetService } from "services/SnippetService";
-import { SnippetRepository } from "repositories/snippet.repository";
 import { RuntimeConfigRepository } from "repositories/runtimeConfig.repository";
-import { MessageRepository } from "repositories/message.repository";
 import { ReactionRelayService } from "services/ReactionRelayService";
 import { UserReactionController } from "controllers/UserReactionController";
 import { StaffReactionController } from "controllers/StaffReactionController";
 import { DiscordLogService } from "services/LogService";
-import { BotEmojiRepository } from "repositories/botEmoji.repository";
 import { DiscordBotEmojiService } from "services/BotEmojiService";
 import { BotEmojiController } from "controllers/BotEmojiController";
 import { SettingsModalController } from "controllers/SettingsModalController";
@@ -29,6 +22,10 @@ import { wrapClientDispatch } from "utils/clientDispatch";
 import { buildInviteLink } from "utils/discordInvite";
 import { BotAdminModalController } from "controllers/BotAdminModalController";
 import type { BotManager } from "services/BotManager";
+import { ToolbarController } from "controllers/ToolbarController";
+import { ToolbarModalController } from "controllers/ToolbarModalController";
+import { isToolbarCustomId } from "views/Toolbar";
+import type { SharedBotServices } from "services/botFactory";
 
 /**
  * Updates bot presence based on runtime configuration
@@ -67,37 +64,24 @@ export function registerEventHandlers(
   client: Client,
   db: DB,
   commandRouter: CommandRouter,
-  botManager: BotManager
+  botManager: BotManager,
+  shared: SharedBotServices
 ) {
   const logger = getLogger("events");
 
   wrapClientDispatch(client, config.name);
 
-  const threadRepository = new ThreadRepository(db, config.guildId);
-  const snippetRepository = new SnippetRepository(db);
-  const runtimeConfigRepository = new RuntimeConfigRepository(
-    db,
-    config.discordClientId
-  );
-  const messageRepository = new MessageRepository(db);
-  const botEmojiRepository = new BotEmojiRepository(db, config.discordClientId);
-
-  const threadService = new ThreadService(
-    config,
-    client,
-    runtimeConfigRepository,
+  const {
     threadRepository,
-    botEmojiRepository
-  );
-  const snippetService = new SnippetService(config, client, snippetRepository);
-  const messageService = new MessageRelayService(
-    config,
-    client,
     runtimeConfigRepository,
-    threadRepository,
     messageRepository,
-    botEmojiRepository
-  );
+    botEmojiRepository,
+    toolbarService,
+    threadService,
+    messageService,
+    snippetService,
+  } = shared;
+
   const reactionService = new ReactionRelayService(
     config,
     client,
@@ -153,6 +137,14 @@ export function registerEventHandlers(
   const notificationController = new MemberNotificationController(
     notificationService
   );
+  const toolbarController = new ToolbarController(
+    threadService,
+    messageService,
+    snippetService,
+    toolbarService,
+    runtimeConfigRepository
+  );
+  const toolbarModalController = new ToolbarModalController(toolbarController);
 
   client.once(Events.ClientReady, async (client) => {
     logger.info(`Bot is online! ${client.user.tag}`);
@@ -246,6 +238,21 @@ export function registerEventHandlers(
     try {
       if (message.author.bot) {
         return;
+      }
+
+      // Single owner: a reply to the toolbar itself is consumed exclusively
+      // here, before the command router or snippet trigger ever see it --
+      // otherwise a bare word like "ar" or a snippet name is ambiguous
+      // between this and the normal command/snippet paths.
+      if (message.inGuild() && message.channel.isThread()) {
+        const thread = await threadService.getThreadByChannelId(
+          message.channel.id
+        );
+
+        if (thread && toolbarController.isReplyToToolbar(message, thread)) {
+          await toolbarController.handleReplyToToolbar(message, thread);
+          return;
+        }
       }
 
       await Promise.allSettled([
@@ -361,6 +368,25 @@ export function registerEventHandlers(
         await settingsModalController.handleModal(interaction);
         await sayModalController.handleModal(interaction);
         await botAdminModalController.handleModal(interaction);
+        await toolbarModalController.handleModal(interaction);
+        return;
+      }
+
+      // The toolbar is a persistent message re-sent on new thread activity,
+      // so a per-message collector (the pattern every other panel uses)
+      // can never work here -- this always-on handler is the interaction
+      // router the toolbar needs instead.
+      if (
+        (interaction.isButton() || interaction.isAnySelectMenu()) &&
+        isToolbarCustomId(interaction.customId) &&
+        interaction.inCachedGuild()
+      ) {
+        if (interaction.isButton()) {
+          await toolbarController.handleButton(interaction);
+        } else {
+          await toolbarController.handleSelectMenu(interaction);
+        }
+        return;
       }
     } catch (err) {
       logger.error(

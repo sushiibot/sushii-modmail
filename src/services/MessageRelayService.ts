@@ -111,6 +111,10 @@ interface ThreadRepository {
   closeThread(threadId: string, closedById: string): Promise<void>;
 }
 
+interface ToolbarService {
+  scheduleResend(threadChannelId: string): void;
+}
+
 export class MessageRelayService {
   private config: Config;
   private client: Client;
@@ -119,6 +123,7 @@ export class MessageRelayService {
   private threadRepository: ThreadRepository
   private messageRepository: MessageRepository;
   private emojiRepository: BotEmojiRepository;
+  private toolbarService: ToolbarService;
 
   private logger = getLogger("MessageRelayService");
 
@@ -128,7 +133,8 @@ export class MessageRelayService {
     configRepository: ConfigRepository,
     threadRepository: ThreadRepository,
     messageRepository: MessageRepository,
-    emojiRepository: BotEmojiRepository
+    emojiRepository: BotEmojiRepository,
+    toolbarService: ToolbarService
   ) {
     this.config = config;
     this.client = client;
@@ -137,6 +143,7 @@ export class MessageRelayService {
     this.threadRepository = threadRepository;
     this.messageRepository = messageRepository;
     this.emojiRepository = emojiRepository;
+    this.toolbarService = toolbarService;
   }
 
   // ---------------------------------------------------------------------------
@@ -262,6 +269,8 @@ export class MessageRelayService {
         }))
       ),
     });
+
+    this.toolbarService.scheduleResend(threadId);
 
     // TODO: Blocked return false OR if more than 2 options, return an emoji
     return true;
@@ -689,6 +698,7 @@ export class MessageRelayService {
 
         // Don't save the message to the database
         recordMessageRelay("staff_to_user", "failure", "dm_blocked");
+        this.toolbarService.scheduleResend(threadId);
         return;
       }
 
@@ -716,6 +726,8 @@ export class MessageRelayService {
     if (options.snippet) {
       recordSnippetUsage();
     }
+
+    this.toolbarService.scheduleResend(threadId);
   }
 
   async saveStaffMessage(options: {

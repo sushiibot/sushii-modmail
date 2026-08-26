@@ -15,6 +15,9 @@ const mockSnippetRepository = {
   updateSnippet: mock(),
   deleteSnippet: mock(),
   snippetExists: mock(),
+  getPinnedSnippets: mock(),
+  setPinnedPosition: mock(),
+  clearPinnedPosition: mock(),
 };
 
 // Mock snippet factory
@@ -26,8 +29,9 @@ const mockSnippet = (overrides = {}): Snippet => {
     content: "This is a test snippet content",
     createdAt: new Date(),
     updatedAt: new Date(),
+    pinnedPosition: null,
     ...overrides,
-  } as Snippet;
+  } as unknown as Snippet;
 };
 
 describe("SnippetService", () => {
@@ -51,6 +55,9 @@ describe("SnippetService", () => {
     mockSnippetRepository.updateSnippet.mockReset();
     mockSnippetRepository.deleteSnippet.mockReset();
     mockSnippetRepository.snippetExists.mockReset();
+    mockSnippetRepository.getPinnedSnippets.mockReset();
+    mockSnippetRepository.setPinnedPosition.mockReset();
+    mockSnippetRepository.clearPinnedPosition.mockReset();
   });
 
   describe("getSnippet", () => {
@@ -208,6 +215,48 @@ describe("SnippetService", () => {
       expect(mockSnippetRepository.deleteSnippet).toHaveBeenCalledWith(
         guildId,
         name
+      );
+    });
+  });
+
+  describe("getPinnedSnippets", () => {
+    it("delegates to the repository", async () => {
+      const guildId = randomSnowflakeID();
+      const pinned = [mockSnippet({ guildId, name: "faq", pinnedPosition: 1 })];
+      mockSnippetRepository.getPinnedSnippets.mockResolvedValue(pinned);
+
+      const result = await snippetService.getPinnedSnippets(guildId);
+
+      expect(result).toBe(pinned);
+      expect(mockSnippetRepository.getPinnedSnippets).toHaveBeenCalledWith(
+        guildId
+      );
+    });
+  });
+
+  describe("setPinnedPosition", () => {
+    it("delegates to the repository with the guild, name, and slot", async () => {
+      const guildId = randomSnowflakeID();
+
+      await snippetService.setPinnedPosition(guildId, "faq", 2);
+
+      expect(mockSnippetRepository.setPinnedPosition).toHaveBeenCalledWith(
+        guildId,
+        "faq",
+        2
+      );
+    });
+  });
+
+  describe("clearPinnedPosition", () => {
+    it("delegates to the repository", async () => {
+      const guildId = randomSnowflakeID();
+
+      await snippetService.clearPinnedPosition(guildId, "faq");
+
+      expect(mockSnippetRepository.clearPinnedPosition).toHaveBeenCalledWith(
+        guildId,
+        "faq"
       );
     });
   });

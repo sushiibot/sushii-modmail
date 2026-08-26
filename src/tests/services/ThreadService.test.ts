@@ -53,6 +53,11 @@ const mockEmojiRepository = {
   getEmojiMap: mock(),
 };
 
+const mockToolbarService = {
+  send: mock(),
+  delete: mock(),
+};
+
 describe("ThreadService", () => {
   let client: Client;
   let threadService: ThreadService;
@@ -70,6 +75,8 @@ describe("ThreadService", () => {
     mockThreadRepository.getOpenThreads.mockReset();
     mockRuntimeConfigRepository.getConfig.mockReset();
     mockRuntimeConfigRepository.setConfig.mockReset();
+    mockToolbarService.send.mockReset();
+    mockToolbarService.delete.mockReset();
 
     config = {
       guildId: randomSnowflakeID(),
@@ -101,7 +108,8 @@ describe("ThreadService", () => {
       client,
       mockRuntimeConfigRepository,
       mockThreadRepository,
-      mockEmojiRepository as unknown as BotEmojiRepository
+      mockEmojiRepository as unknown as BotEmojiRepository,
+      mockToolbarService
     );
   });
 
