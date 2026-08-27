@@ -71,6 +71,13 @@ describe("ToolbarView.buildMessage", () => {
 
     expect(json).toContain("no prefix needed");
   });
+
+  it("labels the pinned-buttons row so plain snippet names aren't unexplained", () => {
+    const message = ToolbarView.buildMessage([mockSnippet("faq", 1)], []);
+    const json = flatten(message);
+
+    expect(json).toContain("Snippet shortcuts");
+  });
 });
 
 describe("ToolbarView.pinsEditorMessage", () => {

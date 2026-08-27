@@ -79,6 +79,12 @@ export class ToolbarView {
     // Row 1: pinned snippet buttons + Edit Pins, filling Discord's 5-button
     // row cap exactly (4 pins + 1 management button). With zero pins, this
     // row is just the Edit Pins button, which doubles as the empty-state CTA.
+    // Labeled -- unlike the reply/close rows, plain snippet-name buttons
+    // aren't self-explanatory without it.
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent("-# Snippet shortcuts")
+    );
+
     const pinRow = new ActionRowBuilder<ButtonBuilder>();
     for (const snippet of pinnedSnippets) {
       pinRow.addComponents(
