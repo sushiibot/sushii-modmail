@@ -63,9 +63,11 @@ export function isToolbarCustomId(customId: string): boolean {
 
 export class ToolbarView {
   /**
-   * Builds the persistent staff toolbar. Deleted and re-sent (never edited)
-   * on new thread activity so it always sits at the bottom -- see
-   * ToolbarService.
+   * Builds the persistent staff toolbar. On new thread activity the current
+   * toolbar message is folded into the relayed reply (edited in place) and
+   * a fresh one of these is posted below it -- see ToolbarService.foldReply.
+   * Never deleted, so a reply referencing it never turns into a "message
+   * was deleted" ghost.
    */
   static buildMessage(
     pinnedSnippets: Snippet[],

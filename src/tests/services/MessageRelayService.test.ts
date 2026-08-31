@@ -59,7 +59,7 @@ describe("MessageRelayService", () => {
     };
 
     toolbarService = {
-      scheduleResend: mock(),
+      foldReply: mock().mockResolvedValue({ id: "folded-message-id" }),
     };
 
     messageRepository = {
@@ -105,7 +105,6 @@ describe("MessageRelayService", () => {
       };
 
       const threadChannel = {
-        send: mock().mockResolvedValue({ id: "relayed-message-id" }),
         isSendable: mock().mockReturnValue(true),
         isThread: mock().mockReturnValue(true),
       } as unknown as TextChannel;
@@ -114,6 +113,7 @@ describe("MessageRelayService", () => {
       spyOn(StaffThreadView, "userInitialReplyMessage").mockResolvedValue({
         components: [],
       });
+      toolbarService.foldReply.mockResolvedValue({ id: "relayed-message-id" });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
@@ -122,7 +122,7 @@ describe("MessageRelayService", () => {
         message,
         emojiMap
       );
-      expect(threadChannel.send).lastCalledWith({
+      expect(toolbarService.foldReply).lastCalledWith(channelId, {
         components: [],
       });
       expect(messageRepository.saveMessage).toHaveBeenCalledWith({
@@ -165,7 +165,6 @@ describe("MessageRelayService", () => {
       };
 
       const threadChannel = {
-        send: mock().mockResolvedValue({ id: "relayed-message-id" }),
         isSendable: mock().mockReturnValue(true),
         isThread: mock().mockReturnValue(true),
       } as unknown as TextChannel;
@@ -175,6 +174,7 @@ describe("MessageRelayService", () => {
         embeds: [],
         files: ["https://example.com/file1.txt"],
       });
+      toolbarService.foldReply.mockResolvedValue({ id: "relayed-message-id" });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
@@ -183,7 +183,7 @@ describe("MessageRelayService", () => {
         message,
         emojiMap
       );
-      expect(threadChannel.send).lastCalledWith({
+      expect(toolbarService.foldReply).lastCalledWith(channelId, {
         embeds: [],
         files: ["https://example.com/file1.txt"],
       });
@@ -295,14 +295,16 @@ describe("MessageRelayService", () => {
 
       // --- Additional mocks for staff thread ---
       const staffThreadChannel = {
-        send: mock().mockResolvedValue({
-          id: "staff-thread-message-id",
-          // Simulate Discord.js message object for extractComponentImages
-          attachments: { values: () => [] },
-          stickers: [],
-        }),
+        send: mock(),
         isSendable: mock().mockReturnValue(true),
       } as unknown as TextChannel;
+
+      toolbarService.foldReply.mockResolvedValue({
+        id: "staff-thread-message-id",
+        // Simulate Discord.js message object for extractComponentImages
+        attachments: { values: () => [] },
+        stickers: [],
+      });
 
       spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
       spyOn(client.users, "fetch").mockResolvedValue(user);
@@ -340,7 +342,7 @@ describe("MessageRelayService", () => {
         content: "Formatted message",
       });
       expect(client.channels.fetch).toHaveBeenCalledWith(threadId);
-      expect(staffThreadChannel.send).toHaveBeenCalled();
+      expect(toolbarService.foldReply).toHaveBeenCalled();
     });
 
     it("should relay staff message with attachments using proper attachment names", async () => {
@@ -408,9 +410,11 @@ describe("MessageRelayService", () => {
       };
 
       const staffThreadChannel = {
-        send: mock().mockResolvedValue(staffThreadMessage),
+        send: mock(),
         isSendable: mock().mockReturnValue(true),
       } as unknown as TextChannel;
+
+      toolbarService.foldReply.mockResolvedValue(staffThreadMessage);
 
       spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
       spyOn(client.users, "fetch").mockResolvedValue(user);
@@ -467,8 +471,9 @@ describe("MessageRelayService", () => {
         options
       );
 
-      // Verify staff thread message was sent with downloaded files
-      expect(staffThreadChannel.send).toHaveBeenCalledWith(
+      // Verify staff thread message was folded with downloaded files
+      expect(toolbarService.foldReply).toHaveBeenCalledWith(
+        threadId,
         expect.objectContaining({
           files: mockDownloadedAttachments,
         })

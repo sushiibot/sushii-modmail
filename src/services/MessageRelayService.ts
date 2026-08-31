@@ -8,6 +8,8 @@ import {
   DiscordAPIError,
   MessageFlags,
   RESTJSONErrorCodes,
+  type Message as DiscordMessage,
+  type MessageCreateOptions,
   type Snowflake,
 } from "discord.js";
 import type { Message, MessageSticker } from "models/message.model";
@@ -112,7 +114,10 @@ interface ThreadRepository {
 }
 
 interface ToolbarService {
-  scheduleResend(threadChannelId: string): void;
+  foldReply(
+    threadChannelId: string,
+    content: MessageCreateOptions
+  ): Promise<DiscordMessage>;
 }
 
 export class MessageRelayService {
@@ -241,7 +246,7 @@ export class MessageRelayService {
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
 
     const msg = await StaffThreadView.userInitialReplyMessage(message, emojis);
-    const relayedMsg = await threadChannel.send(msg);
+    const relayedMsg = await this.toolbarService.foldReply(threadId, msg);
 
     // Save message to database
     await this.messageRepository.saveMessage({
@@ -269,8 +274,6 @@ export class MessageRelayService {
         }))
       ),
     });
-
-    this.toolbarService.scheduleResend(threadId);
 
     // TODO: Blocked return false OR if more than 2 options, return an emoji
     return true;
@@ -602,8 +605,9 @@ export class MessageRelayService {
     }
 
     // Need to send the message with attachments first to the staff thread.
-    // We use the attachments in this message to send to the user.
-    const threadStaffMsg = await staffThread.send({
+    // We use the attachments in this message to send to the user. Folded
+    // into the toolbar message rather than sent fresh -- see ToolbarService.
+    const threadStaffMsg = await this.toolbarService.foldReply(threadId, {
       components,
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] },
@@ -698,7 +702,6 @@ export class MessageRelayService {
 
         // Don't save the message to the database
         recordMessageRelay("staff_to_user", "failure", "dm_blocked");
-        this.toolbarService.scheduleResend(threadId);
         return;
       }
 
@@ -726,8 +729,6 @@ export class MessageRelayService {
     if (options.snippet) {
       recordSnippetUsage();
     }
-
-    this.toolbarService.scheduleResend(threadId);
   }
 
   async saveStaffMessage(options: {
