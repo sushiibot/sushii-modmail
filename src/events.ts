@@ -121,7 +121,8 @@ export function registerEventHandlers(
     snippetService,
     threadService,
     messageService,
-    runtimeConfigRepository
+    runtimeConfigRepository,
+    config.discordClientId
   );
   const botEmojiController = new BotEmojiController(
     botEmojiService,

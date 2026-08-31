@@ -51,18 +51,23 @@ export class SnippetController {
 
   private configRepository: ConfigRepository;
 
+  // Discord sends nickname mentions as <@!id> for older clients, plain <@id> otherwise
+  private readonly mentionPrefixRegex: RegExp;
+
   private logger: Logger = getLogger(this.constructor.name);
 
   constructor(
     snippetService: SnippetService,
     threadService: ThreadService,
     messageService: MessageRelayService,
-    configRepository: ConfigRepository
+    configRepository: ConfigRepository,
+    discordClientId: string
   ) {
     this.snippetService = snippetService;
     this.threadService = threadService;
     this.messageService = messageService;
     this.configRepository = configRepository;
+    this.mentionPrefixRegex = new RegExp(`^<@!?${discordClientId}>\\s*`);
   }
 
   async handleThreadMessage(client: Client, message: Message): Promise<void> {
@@ -86,8 +91,19 @@ export class SnippetController {
         return;
       }
 
-      // Skip if not starting with the snippet prefix '-'
-      if (!message.content.startsWith(config.prefix) || message.author.bot) {
+      if (message.author.bot) {
+        return;
+      }
+
+      // Snippets can be triggered by the configured text prefix or by
+      // @mentioning the bot, matching the CommandRouter's trigger rules.
+      const mentionMatch = message.content.match(this.mentionPrefixRegex);
+      let rest: string;
+      if (mentionMatch) {
+        rest = message.content.slice(mentionMatch[0].length);
+      } else if (message.content.startsWith(config.prefix)) {
+        rest = message.content.slice(config.prefix.length);
+      } else {
         return;
       }
 
@@ -100,11 +116,8 @@ export class SnippetController {
         return;
       }
 
-      // Extract snippet name (removing the configured prefix)
-      const snippetName = message.content
-        .slice(config.prefix.length)
-        .trim()
-        .split(/\s+/)[0];
+      // Extract snippet name
+      const snippetName = rest.trim().split(/\s+/)[0];
 
       if (!snippetName) {
         return;
