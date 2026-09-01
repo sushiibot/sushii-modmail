@@ -149,14 +149,13 @@ export class ToolbarController {
         interaction.channelId
       );
       if (!thread || thread.isClosed) {
-        await interaction.editReply({
-          content: "This thread is already closed.",
-          components: [],
-        });
+        await interaction.editReply(
+          ToolbarView.closeResultMessage("This thread is already closed.")
+        );
         return;
       }
       await this.threadService.closeThread(thread, interaction.user.id);
-      await interaction.editReply({ content: "Thread closed.", components: [] });
+      await interaction.editReply(ToolbarView.closeResultMessage("Thread closed."));
       return;
     }
 
@@ -379,8 +378,10 @@ export class ToolbarController {
       // origin toolbar message -- staff can spend a while composing in the
       // modal, and the debounced resend may have deleted that message by
       // the time they submit. deferUpdate() against a deleted message would
-      // silently drop the reply with no feedback; this always gets an
-      // ephemeral confirmation regardless of the toolbar's state.
+      // silently drop the reply with no feedback. On success this deferred
+      // reply is just deleted (the folded message already shows the reply
+      // went out); on failure it's edited to explain why, since that's the
+      // only place staff would see it.
       await interaction.deferReply({ ephemeral: true });
 
       const thread = await this.threadService.getThreadByChannelId(
@@ -416,7 +417,9 @@ export class ToolbarController {
           snippet: false,
         }
       );
-      await interaction.editReply("Reply sent.");
+      // No visible confirmation needed -- the fold above already shows the
+      // reply in the channel, so this deferred ack just gets discarded.
+      await interaction.deleteReply();
       return;
     }
 
@@ -469,6 +472,8 @@ export class ToolbarController {
         snippetName,
       }
     );
-    await interaction.editReply("Reply sent.");
+    // No visible confirmation needed -- the fold above already shows the
+    // reply in the channel, so this deferred ack just gets discarded.
+    await interaction.deleteReply();
   }
 }

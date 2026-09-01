@@ -178,10 +178,20 @@ export class ToolbarView {
    * reopen, so this is the one toolbar action worth a confirm step.
    */
   static closeConfirmMessage(): {
-    content: string;
-    components: [ActionRowBuilder<ButtonBuilder>];
-    flags: MessageFlags.Ephemeral;
+    components: [ContainerBuilder];
+    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral;
+    allowedMentions: { parse: [] };
   } {
+    // No accent color -- unlike the toolbar/pins editor, this isn't a
+    // persistent fixture, just a one-off confirmation prompt.
+    const container = new ContainerBuilder();
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "Are you sure you want to close this thread? This can't be undone."
+      )
+    );
+
     const confirmRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(toolbarCustomID.confirmClose)
@@ -192,11 +202,30 @@ export class ToolbarView {
         .setLabel("Cancel")
         .setStyle(ButtonStyle.Secondary)
     );
+    container.addActionRowComponents(confirmRow);
 
     return {
-      content: "Are you sure you want to close this thread? This can't be undone.",
-      components: [confirmRow],
-      flags: MessageFlags.Ephemeral,
+      components: [container],
+      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] },
+    };
+  }
+
+  /**
+   * Replaces the close-confirmation prompt with a plain result line. The
+   * original message is IsComponentsV2 (set once, can't be unset on edit),
+   * so this must stay a container/text-display, not a bare `content` edit.
+   */
+  static closeResultMessage(text: string): {
+    components: [ContainerBuilder];
+    flags: MessageFlags.IsComponentsV2;
+  } {
+    const container = new ContainerBuilder();
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+
+    return {
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
     };
   }
 
