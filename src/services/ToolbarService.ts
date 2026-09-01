@@ -170,6 +170,59 @@ export class ToolbarService {
     await this.postFreshToolbar(channel, threadChannelId, thread.guildId);
   }
 
+  /**
+   * Re-renders the toolbar in place after something changes its content
+   * (e.g. a pin edit) without a relay happening. Edits the existing toolbar
+   * message rather than sending a new one -- unlike foldReply, nothing here
+   * needs to move the toolbar back to the bottom of the channel, so posting
+   * a fresh message would just leave the old one behind as a duplicate.
+   */
+  async refresh(threadChannelId: string): Promise<void> {
+    return this.withThreadLock(threadChannelId, async () => {
+      const thread = await this.threadRepository.getThreadByChannelId(
+        threadChannelId
+      );
+      if (!thread || thread.isClosed) {
+        return;
+      }
+
+      const fetched = await this.client.channels.fetch(threadChannelId);
+      if (!fetched || !fetched.isTextBased()) {
+        return;
+      }
+      const channel = fetched as Exclude<typeof fetched, PartialGroupDMChannel>;
+
+      const all = await this.snippetService.getAllSnippets(thread.guildId);
+      const pinned = all
+        .filter((s) => s.pinnedPosition !== null)
+        .sort((a, b) => a.pinnedPosition! - b.pinnedPosition!);
+      const unpinned = all.filter((s) => s.pinnedPosition === null);
+      const content = ToolbarView.buildMessage(pinned, unpinned);
+
+      if (thread.toolbarMessageId) {
+        try {
+          await channel.messages.edit(
+            thread.toolbarMessageId,
+            content as MessageEditOptions
+          );
+          return;
+        } catch (err) {
+          if (
+            !(
+              err instanceof DiscordAPIError &&
+              err.code === RESTJSONErrorCodes.UnknownMessage
+            )
+          ) {
+            throw err;
+          }
+          // Toolbar message gone -- fall through and post a fresh one.
+        }
+      }
+
+      await this.postFreshToolbar(channel, threadChannelId, thread.guildId);
+    });
+  }
+
   private async postFreshToolbar(
     channel: { send(options: ReturnType<typeof ToolbarView.buildMessage>): Promise<Message> },
     threadChannelId: string,

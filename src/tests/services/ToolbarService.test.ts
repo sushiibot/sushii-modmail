@@ -114,6 +114,78 @@ describe("ToolbarService", () => {
     });
   });
 
+  describe("refresh", () => {
+    it("edits the existing toolbar message in place instead of sending a new one", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "toolbar-msg-id",
+        isClosed: false,
+      });
+
+      await service.refresh(threadChannelId);
+
+      expect(channel.messages.edit).toHaveBeenCalledWith(
+        "toolbar-msg-id",
+        expect.anything()
+      );
+      expect(channel.send).not.toHaveBeenCalled();
+    });
+
+    it("posts a fresh toolbar if there's no existing message to edit", async () => {
+      await service.refresh(threadChannelId);
+
+      expect(channel.send).toHaveBeenCalledTimes(1);
+      expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
+        threadChannelId,
+        "sent-msg-1"
+      );
+    });
+
+    it("falls back to posting fresh if the existing toolbar message is already gone", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "already-gone",
+        isClosed: false,
+      });
+      channel.messages.edit.mockRejectedValue(
+        new DiscordAPIError(
+          { code: RESTJSONErrorCodes.UnknownMessage, message: "Unknown Message" },
+          RESTJSONErrorCodes.UnknownMessage,
+          404,
+          "PATCH",
+          "/channels/x/messages/y",
+          {}
+        )
+      );
+
+      await service.refresh(threadChannelId);
+
+      expect(channel.send).toHaveBeenCalledTimes(1);
+    });
+
+    it("does nothing if the thread is closed", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "toolbar-msg-id",
+        isClosed: true,
+      });
+
+      await service.refresh(threadChannelId);
+
+      expect(channel.messages.edit).not.toHaveBeenCalled();
+      expect(channel.send).not.toHaveBeenCalled();
+    });
+
+    it("does nothing if the thread doesn't exist", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue(null);
+
+      await service.refresh(threadChannelId);
+
+      expect(channel.messages.edit).not.toHaveBeenCalled();
+      expect(channel.send).not.toHaveBeenCalled();
+    });
+  });
+
   describe("foldReply", () => {
     it("sends fresh when there's no toolbar message to fold into", async () => {
       const content = { content: "hello" } as any;

@@ -51,6 +51,7 @@ describe("ToolbarController", () => {
     };
     toolbarService = {
       send: mock().mockResolvedValue(undefined),
+      refresh: mock().mockResolvedValue(undefined),
     };
     configRepository = {
       getConfig: mock().mockResolvedValue({
@@ -114,6 +115,7 @@ describe("ToolbarController", () => {
         reply: mock().mockResolvedValue(undefined),
         update: mock().mockResolvedValue(undefined),
         editReply: mock().mockResolvedValue(undefined),
+        deleteReply: mock().mockResolvedValue(undefined),
       } as any;
     }
 
@@ -176,9 +178,8 @@ describe("ToolbarController", () => {
       await controller.handleButton(interaction);
 
       expect(threadService.closeThread).not.toHaveBeenCalled();
-      expect(interaction.update).toHaveBeenCalledWith(
-        expect.objectContaining({ content: "Cancelled." })
-      );
+      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.deleteReply).toHaveBeenCalled();
     });
 
     it("replies with the pins editor for editPins", async () => {
@@ -362,7 +363,7 @@ describe("ToolbarController", () => {
         2
       );
       expect(interaction.update).toHaveBeenCalledTimes(1);
-      expect(toolbarService.send).toHaveBeenCalledWith("channel-1");
+      expect(toolbarService.refresh).toHaveBeenCalledWith("channel-1");
     });
 
     it("clears the slot's current pin when deselected", async () => {

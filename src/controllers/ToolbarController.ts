@@ -57,6 +57,7 @@ interface SnippetService {
 
 interface ToolbarService {
   send(threadChannelId: string): Promise<void>;
+  refresh(threadChannelId: string): Promise<void>;
 }
 
 interface ConfigRepository {
@@ -160,7 +161,8 @@ export class ToolbarController {
     }
 
     if (customId === toolbarCustomID.cancelClose) {
-      await interaction.update({ content: "Cancelled.", components: [] });
+      await interaction.deferUpdate();
+      await interaction.deleteReply();
       return;
     }
 
@@ -346,7 +348,7 @@ export class ToolbarController {
 
       // Refresh the live toolbar immediately -- pin edits are deliberate and
       // infrequent, so immediate feedback beats waiting for the next message.
-      await this.toolbarService.send(interaction.channelId);
+      await this.toolbarService.refresh(interaction.channelId);
       return;
     }
 
