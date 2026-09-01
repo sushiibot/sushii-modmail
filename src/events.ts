@@ -217,6 +217,31 @@ export function registerEventHandlers(
     logger.info("Bot is reconnecting...");
   });
 
+  client.on(Events.ShardError, (error, shardId) => {
+    logger.error({ err: error, shardId }, "Shard websocket error");
+  });
+
+  client.on(Events.ShardDisconnect, (event, shardId) => {
+    logger.warn(
+      { code: event.code, reason: event.reason, shardId },
+      "Shard disconnected"
+    );
+  });
+
+  client.on(Events.Invalidated, () => {
+    logger.error(
+      "Session invalidated -- gateway forced a full re-identify, all shards affected"
+    );
+  });
+
+  client.on(Events.Error, (error) => {
+    logger.error({ err: error }, "Client error");
+  });
+
+  client.on(Events.Warn, (message) => {
+    logger.warn({ message }, "Client warning");
+  });
+
   client.on(Events.ShardResume, async (replayedEvents) => {
     logger.info(
       {
