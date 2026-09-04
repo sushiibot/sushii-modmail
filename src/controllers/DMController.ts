@@ -151,7 +151,7 @@ export class DMController {
             // so staff knows what the user received, otherwise sometimes forget
             // people get an initial message and less likely to adjust it if needed
 
-            this.messageService.sendInitialMessageToStaff(
+            await this.messageService.sendInitialMessageToStaff(
               thread.channelId,
               content
             );

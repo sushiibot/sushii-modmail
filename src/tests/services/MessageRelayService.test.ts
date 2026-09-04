@@ -576,4 +576,19 @@ describe("MessageRelayService", () => {
       );
     });
   });
+
+  describe("sendInitialMessageToStaff", () => {
+    it("folds into the toolbar instead of sending a plain message", async () => {
+      const channelId = randomSnowflakeID();
+
+      await service.sendInitialMessageToStaff(channelId, "Welcome to modmail!");
+
+      expect(toolbarService.foldReply).toHaveBeenCalledWith(
+        channelId,
+        expect.objectContaining({
+          flags: MessageFlags.IsComponentsV2,
+        })
+      );
+    });
+  });
 });

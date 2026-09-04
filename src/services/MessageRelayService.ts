@@ -1093,17 +1093,12 @@ export class MessageRelayService {
     channelId: string,
     content: string
   ): Promise<void> {
-    const threadChannel = await this.client.channels.fetch(channelId);
-    if (!threadChannel) {
-      throw new Error(`Channel not found: ${channelId}`);
-    }
-
-    if (!threadChannel.isSendable()) {
-      throw new Error(`Cannot send to channel: ${channelId}`);
-    }
-
     const msg = StaffThreadView.systemMessage(content);
 
-    await threadChannel.send(msg);
+    // Fold into the toolbar like every other relay -- a plain send() here
+    // would land below the fresh toolbar that the user's DM relay just
+    // posted, leaving the toolbar stranded mid-thread instead of at the
+    // bottom.
+    await this.toolbarService.foldReply(channelId, msg);
   }
 }
