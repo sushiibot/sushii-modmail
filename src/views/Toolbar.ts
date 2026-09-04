@@ -39,7 +39,12 @@ export const toolbarCustomID = {
   modalReply: modalId("reply"),
   modalAnonReply: modalId("anonReply"),
   modalReplyInput: modalId("reply.input"),
-  modalSnippet: (name: string) => modalId(`snippet.${name}`),
+  // `nonce` is the triggering interaction's own ID -- makes every modal open
+  // a distinct custom_id even for the same snippet. Discord's client caches
+  // modal field state by custom_id, so reusing a static one would let a
+  // closed-without-sending modal's stale draft resurface as the prefill the
+  // next time that snippet's modal is opened.
+  modalSnippet: (nonce: string, name: string) => modalId(`snippet.${nonce}.${name}`),
   modalSnippetInput: modalId("snippet.input"),
 };
 
@@ -49,9 +54,17 @@ export function parsePinnedSnippetCustomId(customId: string): string | null {
   return customId.startsWith(prefix) ? customId.slice(prefix.length) : null;
 }
 
+// `modal.toolbar.snippet.<nonce>.<name>` -- the nonce is always a plain
+// snowflake (no dots), so splitting on the first dot safely recovers the
+// name even if the snippet name itself contains dots.
 export function parseSnippetModalCustomId(customId: string): string | null {
   const prefix = modalId("snippet.");
-  return customId.startsWith(prefix) ? customId.slice(prefix.length) : null;
+  if (!customId.startsWith(prefix)) {
+    return null;
+  }
+  const rest = customId.slice(prefix.length);
+  const dotIndex = rest.indexOf(".");
+  return dotIndex === -1 ? null : rest.slice(dotIndex + 1);
 }
 
 export function isToolbarCustomId(customId: string): boolean {
@@ -245,9 +258,9 @@ export class ToolbarView {
    * Modal pre-filled with a snippet's content -- doubles as the preview
    * (staff sees the exact wording) and the edit surface, in one step.
    */
-  static snippetModal(snippet: Snippet): ModalBuilder {
+  static snippetModal(snippet: Snippet, nonce: string): ModalBuilder {
     const modal = new ModalBuilder()
-      .setCustomId(toolbarCustomID.modalSnippet(snippet.name))
+      .setCustomId(toolbarCustomID.modalSnippet(nonce, snippet.name))
       .setTitle(`Send Snippet: ${snippet.name}`.slice(0, 45));
 
     const input = new TextInputBuilder()

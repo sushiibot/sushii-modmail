@@ -112,6 +112,7 @@ describe("ToolbarController", () => {
         id: "interaction-1",
         showModal: mock().mockResolvedValue(undefined),
         deferUpdate: mock().mockResolvedValue(undefined),
+        deferReply: mock().mockResolvedValue(undefined),
         reply: mock().mockResolvedValue(undefined),
         update: mock().mockResolvedValue(undefined),
         editReply: mock().mockResolvedValue(undefined),
@@ -190,8 +191,29 @@ describe("ToolbarController", () => {
       expect(replyArg.flags).toBeDefined();
     });
 
-    it("sends a pinned snippet instantly using the guild's anonymous setting", async () => {
+    it("shows a preview/edit modal for a pinned snippet", async () => {
       const snippet = mockSnippet("faq", "Frequently asked question answer");
+      const interaction = mockButtonInteraction(
+        toolbarCustomID.pinnedSnippet("faq")
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+      snippetService.getSnippet.mockResolvedValue(snippet);
+
+      await controller.handleButton(interaction);
+
+      expect(interaction.deferUpdate).not.toHaveBeenCalled();
+      expect(interaction.showModal).toHaveBeenCalledTimes(1);
+      const modal = interaction.showModal.mock.calls[0][0];
+      expect(modal.data.custom_id).toContain("faq");
+      // Nonce is the triggering interaction's own ID, so reopening never
+      // reuses a custom_id Discord's client may still have cached content
+      // for from a closed-without-sending modal.
+      expect(modal.data.custom_id).toContain(interaction.id);
+      expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
+    });
+
+    it("sends an oversized pinned snippet unmodified instead of previewing it", async () => {
+      const snippet = mockSnippet("faq", "x".repeat(4001));
       const interaction = mockButtonInteraction(
         toolbarCustomID.pinnedSnippet("faq")
       );
@@ -204,12 +226,13 @@ describe("ToolbarController", () => {
 
       await controller.handleButton(interaction);
 
-      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.showModal).not.toHaveBeenCalled();
+      expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
       expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
         "channel-1",
         "user-1",
         interaction.guild,
-        expect.objectContaining({ content: "Frequently asked question answer" }),
+        expect.objectContaining({ content: "x".repeat(4001) }),
         expect.objectContaining({
           anonymous: false,
           snippet: true,
@@ -218,7 +241,7 @@ describe("ToolbarController", () => {
       );
     });
 
-    it("does nothing for a pinned snippet that no longer exists", async () => {
+    it("acknowledges but does nothing for a pinned snippet that no longer exists", async () => {
       const interaction = mockButtonInteraction(
         toolbarCustomID.pinnedSnippet("gone")
       );
@@ -227,10 +250,12 @@ describe("ToolbarController", () => {
 
       await controller.handleButton(interaction);
 
+      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.showModal).not.toHaveBeenCalled();
       expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
     });
 
-    it("does not send a pinned snippet in a closed thread", async () => {
+    it("acknowledges but does not preview a pinned snippet in a closed thread", async () => {
       const interaction = mockButtonInteraction(
         toolbarCustomID.pinnedSnippet("faq")
       );
@@ -240,6 +265,8 @@ describe("ToolbarController", () => {
 
       await controller.handleButton(interaction);
 
+      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.showModal).not.toHaveBeenCalled();
       expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
     });
 
@@ -481,7 +508,7 @@ describe("ToolbarController", () => {
 
     it("relays a snippet modal submission using the guild's anonymous setting", async () => {
       const interaction = mockModalInteraction(
-        toolbarCustomID.modalSnippet("faq"),
+        toolbarCustomID.modalSnippet("nonce-1", "faq"),
         "edited snippet content"
       );
       threadService.getThreadByChannelId.mockResolvedValue(mockThread());

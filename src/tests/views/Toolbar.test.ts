@@ -137,8 +137,21 @@ describe("customId helpers", () => {
   });
 
   it("round-trips a snippet name through its modal custom ID", () => {
-    const customId = toolbarCustomID.modalSnippet("my-snippet");
+    const customId = toolbarCustomID.modalSnippet("nonce-1", "my-snippet");
     expect(parseSnippetModalCustomId(customId)).toBe("my-snippet");
+  });
+
+  it("round-trips a snippet name containing dots through its modal custom ID", () => {
+    const customId = toolbarCustomID.modalSnippet("nonce-1", "my.snippet.name");
+    expect(parseSnippetModalCustomId(customId)).toBe("my.snippet.name");
+  });
+
+  it("produces distinct custom IDs for the same snippet across different opens", () => {
+    const first = toolbarCustomID.modalSnippet("nonce-1", "my-snippet");
+    const second = toolbarCustomID.modalSnippet("nonce-2", "my-snippet");
+    expect(first).not.toBe(second);
+    expect(parseSnippetModalCustomId(first)).toBe("my-snippet");
+    expect(parseSnippetModalCustomId(second)).toBe("my-snippet");
   });
 
   it("identifies toolbar button/select customIds", () => {
@@ -148,7 +161,7 @@ describe("customId helpers", () => {
 
   it("identifies toolbar modal customIds", () => {
     expect(isToolbarCustomId(toolbarCustomID.modalReply)).toBe(true);
-    expect(isToolbarCustomId(toolbarCustomID.modalSnippet("x"))).toBe(true);
+    expect(isToolbarCustomId(toolbarCustomID.modalSnippet("nonce", "x"))).toBe(true);
   });
 
   it("rejects unrelated customIds", () => {

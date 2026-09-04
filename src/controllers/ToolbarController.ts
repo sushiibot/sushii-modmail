@@ -187,8 +187,27 @@ export class ToolbarController {
 
     const pinnedSnippetName = parsePinnedSnippetCustomId(customId);
     if (pinnedSnippetName !== null) {
-      await interaction.deferUpdate();
-      await this.sendPinnedSnippet(interaction, pinnedSnippetName);
+      // Precondition checks happen before any response so the happy path is
+      // still free to answer with showModal() -- once an interaction has
+      // been deferred/replied to, showModal() is no longer a valid response.
+      const thread = await this.threadService.getThreadByChannelId(
+        interaction.channelId
+      );
+      if (!thread || thread.isClosed) {
+        await interaction.deferUpdate();
+        return;
+      }
+
+      const snippet = await this.snippetService.getSnippet(
+        thread.guildId,
+        pinnedSnippetName
+      );
+      if (!snippet) {
+        await interaction.deferUpdate();
+        return;
+      }
+
+      await this.presentSnippet(interaction, thread, snippet);
       return;
     }
 
@@ -196,36 +215,35 @@ export class ToolbarController {
   }
 
   /**
-   * Pinned buttons send instantly, no preview -- frequency = familiarity,
-   * so the confirmation step that the snippet dropdown gets (a pre-filled
-   * modal) would just be friction for a snippet staff already know by heart.
+   * Shared by the pinned-button and dropdown-select paths -- both preview a
+   * snippet in a pre-filled, editable modal before it goes out, except when
+   * the content is too long to fit the modal's 4000-char field, where it's
+   * sent unmodified instead (see the length check below).
    */
-  private async sendPinnedSnippet(
-    interaction: ButtonInteraction<"cached">,
-    snippetName: string
+  private async presentSnippet(
+    interaction: ButtonInteraction<"cached"> | AnySelectMenuInteraction<"cached">,
+    thread: Thread,
+    snippet: Snippet
   ): Promise<void> {
-    const thread = await this.threadService.getThreadByChannelId(
-      interaction.channelId
-    );
-    if (!thread || thread.isClosed) {
+    // The modal's text input hard-caps at 4000 chars, silently truncating
+    // anything longer on prefill. Rather than let staff unknowingly send a
+    // clipped version, skip the modal for an oversized snippet and send it
+    // unmodified.
+    if (snippet.content.length > 4000) {
+      await interaction.deferReply({ ephemeral: true });
+      await this.sendSnippet(interaction, thread, snippet);
+      await interaction.editReply(
+        "Snippet is too long to preview/edit -- sent as-is."
+      );
       return;
     }
 
-    const snippet = await this.snippetService.getSnippet(
-      thread.guildId,
-      snippetName
-    );
-    if (!snippet) {
-      return;
-    }
-
-    await this.sendSnippet(interaction, thread, snippet);
+    await interaction.showModal(ToolbarView.snippetModal(snippet, interaction.id));
   }
 
   /**
-   * Shared by the pinned-button path and the oversized-snippet direct-send
-   * path (dropdown selections that are too long to preview/edit in a
-   * modal) -- both relay a snippet's content unmodified using the guild's
+   * Shared by the oversized-snippet direct-send path and the snippet modal
+   * submission -- both relay a snippet's content using the guild's
    * anonymousSnippets setting.
    */
   private async sendSnippet(
@@ -293,20 +311,7 @@ export class ToolbarController {
         return;
       }
 
-      // The modal's text input hard-caps at 4000 chars, silently truncating
-      // anything longer on prefill. Rather than let staff unknowingly send
-      // a clipped version, skip the modal for an oversized snippet and send
-      // it unmodified -- same as a pinned button, just without the preview.
-      if (snippet.content.length > 4000) {
-        await interaction.deferReply({ ephemeral: true });
-        await this.sendSnippet(interaction, thread, snippet);
-        await interaction.editReply(
-          "Snippet is too long to preview/edit -- sent as-is."
-        );
-        return;
-      }
-
-      await interaction.showModal(ToolbarView.snippetModal(snippet));
+      await this.presentSnippet(interaction, thread, snippet);
       return;
     }
 
