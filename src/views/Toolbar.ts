@@ -153,7 +153,7 @@ export class ToolbarView {
     container.addActionRowComponents(replyRow);
 
     const tipText = new TextDisplayBuilder().setContent(
-      "-# Reply to this toolbar with `ar`/`reply`/`close` to skip the button — no prefix needed."
+      "-# You can also reply to this toolbar to run any command, e.g. `ar`/`reply`/`close` — no prefix needed."
     );
     container.addTextDisplayComponents(tipText);
 
