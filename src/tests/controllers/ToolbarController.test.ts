@@ -154,10 +154,7 @@ describe("ToolbarController", () => {
         expect.objectContaining({ channelId: "channel-1" }),
         "staff-1"
       );
-      const editArg = interaction.editReply.mock.calls[0][0];
-      expect(JSON.stringify(editArg.components[0].toJSON())).toContain(
-        "Thread closed."
-      );
+      expect(interaction.deleteReply).toHaveBeenCalled();
     });
 
     it("does not close an already-closed thread even if confirmed", async () => {

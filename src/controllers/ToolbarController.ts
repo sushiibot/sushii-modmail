@@ -155,7 +155,10 @@ export class ToolbarController {
         return;
       }
       await this.threadService.closeThread(thread, interaction.user.id);
-      await interaction.editReply(ToolbarView.closeResultMessage("Thread closed."));
+      // No visible confirmation needed -- closeThread() already posts a
+      // permanent "closed" message to the channel, so this ephemeral
+      // confirm prompt just gets discarded.
+      await interaction.deleteReply();
       return;
     }
 
