@@ -131,7 +131,10 @@ export class ToolbarView {
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
     );
 
-    // Row 3: Anon Reply (primary, used ~2.4x more per usage data) + Reply.
+    // Row 3: Anon Reply (primary, used ~2.4x more per usage data) + Reply +
+    // Close. Close used to sit isolated in its own row to cut misclick risk,
+    // but the confirm step now absorbs that risk, so it folds in here to
+    // stay compact -- the Danger style keeps it visually distinct.
     const replyRow = new ActionRowBuilder<ButtonBuilder>();
     replyRow.addComponents(
       new ButtonBuilder()
@@ -141,23 +144,13 @@ export class ToolbarView {
       new ButtonBuilder()
         .setCustomId(toolbarCustomID.reply)
         .setLabel("Reply")
-        .setStyle(ButtonStyle.Secondary)
-    );
-    container.addActionRowComponents(replyRow);
-
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
-    );
-
-    // Row 4: Close, isolated -- no reopen exists, so this is final.
-    const closeRow = new ActionRowBuilder<ButtonBuilder>();
-    closeRow.addComponents(
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(toolbarCustomID.close)
         .setLabel("Close Thread")
         .setStyle(ButtonStyle.Danger)
     );
-    container.addActionRowComponents(closeRow);
+    container.addActionRowComponents(replyRow);
 
     const tipText = new TextDisplayBuilder().setContent(
       "-# Reply to this toolbar with `ar`/`reply`/`close` to skip the button — no prefix needed."
