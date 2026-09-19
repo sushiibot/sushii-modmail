@@ -55,7 +55,7 @@ const mockEmojiRepository = {
 
 const mockToolbarService = {
   send: mock(),
-  delete: mock(),
+  close: mock(),
 };
 
 describe("ThreadService", () => {
@@ -76,7 +76,7 @@ describe("ThreadService", () => {
     mockRuntimeConfigRepository.getConfig.mockReset();
     mockRuntimeConfigRepository.setConfig.mockReset();
     mockToolbarService.send.mockReset();
-    mockToolbarService.delete.mockReset();
+    mockToolbarService.close.mockReset();
 
     config = {
       guildId: randomSnowflakeID(),

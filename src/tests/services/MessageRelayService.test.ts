@@ -7,6 +7,8 @@ import {
   Guild,
   MessageFlags,
   AttachmentBuilder,
+  DiscordAPIError,
+  RESTJSONErrorCodes,
 } from "discord.js";
 import {
   MessageRelayService,
@@ -59,13 +61,18 @@ describe("MessageRelayService", () => {
     };
 
     toolbarService = {
-      foldReply: mock().mockResolvedValue({ id: "folded-message-id" }),
+      relay: mock().mockResolvedValue({ id: "folded-message-id" }),
+      reapplyIfBearer: mock().mockImplementation(
+        async (_threadChannelId: string, _messageId: string, base: unknown) => base
+      ),
     };
 
     messageRepository = {
       saveMessage: mock().mockResolvedValue({}),
       getByThreadMessageId: mock().mockResolvedValue(null),
       getByUserDMMessageId: mock().mockResolvedValue(null),
+      setDmFailed: mock().mockResolvedValue(undefined),
+      updateStaffMessageContent: mock().mockResolvedValue(undefined),
     };
 
     emojiMap = new Map();
@@ -113,7 +120,7 @@ describe("MessageRelayService", () => {
       spyOn(StaffThreadView, "userInitialReplyMessage").mockResolvedValue({
         components: [],
       });
-      toolbarService.foldReply.mockResolvedValue({ id: "relayed-message-id" });
+      toolbarService.relay.mockResolvedValue({ id: "relayed-message-id" });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
@@ -122,7 +129,7 @@ describe("MessageRelayService", () => {
         message,
         emojiMap
       );
-      expect(toolbarService.foldReply).lastCalledWith(channelId, {
+      expect(toolbarService.relay).lastCalledWith(channelId, {
         components: [],
       });
       expect(messageRepository.saveMessage).toHaveBeenCalledWith({
@@ -174,7 +181,7 @@ describe("MessageRelayService", () => {
         embeds: [],
         files: ["https://example.com/file1.txt"],
       });
-      toolbarService.foldReply.mockResolvedValue({ id: "relayed-message-id" });
+      toolbarService.relay.mockResolvedValue({ id: "relayed-message-id" });
 
       const result = await service.relayUserMessageToStaff(channelId, message);
 
@@ -183,7 +190,7 @@ describe("MessageRelayService", () => {
         message,
         emojiMap
       );
-      expect(toolbarService.foldReply).lastCalledWith(channelId, {
+      expect(toolbarService.relay).lastCalledWith(channelId, {
         embeds: [],
         files: ["https://example.com/file1.txt"],
       });
@@ -299,7 +306,7 @@ describe("MessageRelayService", () => {
         isSendable: mock().mockReturnValue(true),
       } as unknown as TextChannel;
 
-      toolbarService.foldReply.mockResolvedValue({
+      toolbarService.relay.mockResolvedValue({
         id: "staff-thread-message-id",
         // Simulate Discord.js message object for extractComponentImages
         attachments: { values: () => [] },
@@ -342,7 +349,7 @@ describe("MessageRelayService", () => {
         content: "Formatted message",
       });
       expect(client.channels.fetch).toHaveBeenCalledWith(threadId);
-      expect(toolbarService.foldReply).toHaveBeenCalled();
+      expect(toolbarService.relay).toHaveBeenCalled();
     });
 
     it("should relay staff message with attachments using proper attachment names", async () => {
@@ -414,7 +421,7 @@ describe("MessageRelayService", () => {
         isSendable: mock().mockReturnValue(true),
       } as unknown as TextChannel;
 
-      toolbarService.foldReply.mockResolvedValue(staffThreadMessage);
+      toolbarService.relay.mockResolvedValue(staffThreadMessage);
 
       spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
       spyOn(client.users, "fetch").mockResolvedValue(user);
@@ -472,7 +479,7 @@ describe("MessageRelayService", () => {
       );
 
       // Verify staff thread message was folded with downloaded files
-      expect(toolbarService.foldReply).toHaveBeenCalledWith(
+      expect(toolbarService.relay).toHaveBeenCalledWith(
         threadId,
         expect.objectContaining({
           files: mockDownloadedAttachments,
@@ -512,6 +519,201 @@ describe("MessageRelayService", () => {
           "https://cdn.discord.com/attachments/thread/1-image.png",
         ],
       });
+    });
+
+    it("persists the staff message with dmFailed when the user has DMs blocked, so a later toolbar strip stays faithful", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const options = { anonymous: false, plainText: false, snippet: false };
+
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content: "Hello, user!",
+        attachments: [],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+
+      const user = {
+        id: userId,
+        send: mock().mockRejectedValue(
+          new DiscordAPIError(
+            {
+              code: RESTJSONErrorCodes.CannotSendMessagesToThisUser,
+              message: "Cannot send messages to this user",
+            },
+            RESTJSONErrorCodes.CannotSendMessagesToThisUser,
+            403,
+            "POST",
+            "url",
+            {}
+          )
+        ),
+      } as unknown as User;
+
+      const threadStaffMessage = {
+        id: "staff-thread-message-id",
+        edit: mock().mockResolvedValue(undefined),
+        attachments: { values: () => [] },
+        stickers: [],
+      };
+      toolbarService.relay.mockResolvedValue(threadStaffMessage);
+
+      const staffThreadChannel = {
+        send: mock().mockResolvedValue({ id: "error-message-id" }),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(util, "downloadAttachments").mockResolvedValue([]);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [],
+        stickers: [],
+      });
+      spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
+
+      await service.relayStaffMessageToUser(threadId, userId, guild, msg, options);
+
+      expect(messageRepository.saveMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId,
+          messageId: "staff-thread-message-id",
+          isStaff: true,
+          staffRelayedMessageId: null,
+          content: msg.content,
+        })
+      );
+      expect(messageRepository.setDmFailed).toHaveBeenCalledWith(
+        "staff-thread-message-id",
+        true
+      );
+      expect(toolbarService.reapplyIfBearer).toHaveBeenCalledWith(
+        threadId,
+        "staff-thread-message-id",
+        expect.objectContaining({ components: [] })
+      );
+      expect(threadStaffMessage.edit).toHaveBeenCalled();
+    });
+  });
+
+  describe("editStaffMessage", () => {
+    it("persists the new content and editor, and routes the thread edit through reapplyIfBearer", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const staffViewMessageId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content: "Updated content",
+        attachments: [],
+        stickers: [],
+        forwarded: false,
+        createdTimestamp: Date.now(),
+      };
+
+      const messageData = {
+        isUser: () => false,
+        isStaff: () => true,
+        threadId,
+        messageId: staffViewMessageId,
+        authorId: msg.author.id,
+        staffRelayedMessageId: "user-dm-message-id",
+        isAnonymous: false,
+        isPlainText: false,
+        isSnippet: false,
+      };
+      messageRepository.getByThreadMessageId.mockResolvedValue(messageData);
+
+      const originalMessage = {
+        attachments: { values: () => [] },
+        stickers: [],
+      };
+      const dmMessagesEdit = mock().mockResolvedValue(undefined);
+      const threadChannel = {
+        isThread: mock().mockReturnValue(true),
+        messages: {
+          fetch: mock().mockResolvedValue(originalMessage),
+          edit: mock().mockResolvedValue(undefined),
+        },
+      } as unknown as TextChannel;
+
+      const dmUser = {
+        createDM: mock().mockResolvedValue({
+          messages: { edit: dmMessagesEdit },
+        }),
+      } as unknown as User;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(threadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(dmUser);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [],
+        stickers: [],
+      });
+      spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
+      spyOn(UserThreadView, "staffMessage").mockResolvedValue({
+        content: "Updated content",
+      });
+
+      const result = await service.editStaffMessage(
+        staffViewMessageId,
+        userId,
+        guild,
+        msg
+      );
+
+      expect(result.ok).toBe(true);
+      expect(messageRepository.updateStaffMessageContent).toHaveBeenCalledWith(
+        staffViewMessageId,
+        "Updated content",
+        msg.author.id
+      );
+      expect(toolbarService.reapplyIfBearer).toHaveBeenCalledWith(
+        threadId,
+        staffViewMessageId,
+        expect.objectContaining({ components: [] })
+      );
+      expect(threadChannel.messages.edit).toHaveBeenCalledWith(
+        staffViewMessageId,
+        expect.objectContaining({ components: [] })
+      );
+    });
+
+    it("refuses to edit a user message", async () => {
+      const userId = randomSnowflakeID();
+      const staffViewMessageId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const msg = { author: { id: "x" }, content: "y" } as StaffToUserMessage;
+
+      messageRepository.getByThreadMessageId.mockResolvedValue({
+        isUser: () => true,
+        messageId: staffViewMessageId,
+      });
+      spyOn(client.users, "fetch").mockResolvedValue({} as User);
+
+      const result = await service.editStaffMessage(
+        staffViewMessageId,
+        userId,
+        guild,
+        msg
+      );
+
+      expect(result.ok).toBe(false);
+      expect(messageRepository.updateStaffMessageContent).not.toHaveBeenCalled();
     });
   });
 
@@ -578,17 +780,23 @@ describe("MessageRelayService", () => {
   });
 
   describe("sendInitialMessageToStaff", () => {
-    it("folds into the toolbar instead of sending a plain message", async () => {
+    it("sends a plain message, not a relay -- this system message has no DB row to strip from", async () => {
       const channelId = randomSnowflakeID();
+      const channel = {
+        send: mock().mockResolvedValue({ id: "system-message-id" }),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+      spyOn(client.channels, "fetch").mockResolvedValue(channel);
 
       await service.sendInitialMessageToStaff(channelId, "Welcome to modmail!");
 
-      expect(toolbarService.foldReply).toHaveBeenCalledWith(
-        channelId,
+      expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
+      expect(channel.send).toHaveBeenCalledWith(
         expect.objectContaining({
           flags: MessageFlags.IsComponentsV2,
         })
       );
+      expect(toolbarService.relay).not.toHaveBeenCalled();
     });
   });
 });
