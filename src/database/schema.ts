@@ -91,6 +91,13 @@ export const messages = sqliteTable(
 
     // State
     isDeleted: integer({ mode: "boolean" }).notNull().default(false),
+
+    // Staff-only render flags, persisted so a toolbar-overlay strip (see
+    // ToolbarService.renderMessageBase) can re-render this message from its
+    // stored model without misrepresenting a failed DM or a since-edited
+    // message as if neither had happened.
+    dmFailed: integer({ mode: "boolean" }),
+    editedById: text(),
   },
   (table) => [
     // IDs
@@ -108,11 +115,14 @@ export const messages = sqliteTable(
 
     // If staff message: Must have relayed message && No user message
     // If user message: Must have no relayed message && Must have user message
+    // Staff exception: a DM delivery failure (dmFailed) never produces a
+    // relayed message, but the staff-thread message itself still needs a
+    // row so a toolbar-overlay strip can re-render it faithfully.
     check(
       "message_type_check",
       sql`(
             ${table.isStaff} = 1
-            AND ${table.staffRelayedMessageId} IS NOT NULL
+            AND (${table.staffRelayedMessageId} IS NOT NULL OR ${table.dmFailed} = 1)
             AND ${table.userDmMessageId} IS NULL)
           OR
           (

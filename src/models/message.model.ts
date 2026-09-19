@@ -65,12 +65,16 @@ export class StaffMessage extends BaseMessage {
   // Override the content type to be non-null
   public readonly content: string;
   public readonly isDeleted: boolean;
+  // Persisted render flags -- needed to re-render this message faithfully
+  // when a toolbar-overlay strip rebuilds it from this model alone.
+  public readonly dmFailed: boolean | null;
+  public readonly editedById: string | null;
 
   constructor(
     threadId: string,
     messageId: string,
     authorId: string,
-    staffRelayedMessageId: string,
+    staffRelayedMessageId: string | null,
     content: string,
     forwarded: boolean = false,
     attachmentUrls: string[],
@@ -78,7 +82,9 @@ export class StaffMessage extends BaseMessage {
     // Options
     options: StaffMessageOptions,
     // State
-    isDeleted: boolean
+    isDeleted: boolean,
+    dmFailed: boolean | null = null,
+    editedById: string | null = null
   ) {
     super(
       threadId,
@@ -100,6 +106,8 @@ export class StaffMessage extends BaseMessage {
     this.isSnippet = options.isSnippet;
 
     this.isDeleted = isDeleted;
+    this.dmFailed = dmFailed;
+    this.editedById = editedById;
   }
 
   get staffRelayedMessageId(): string {
@@ -154,7 +162,9 @@ export type Message = StaffMessage | UserMessage;
 export const Message = {
   fromDatabaseRow(row: typeof messages.$inferSelect): Message {
     if (row.isStaff) {
-      if (row.staffRelayedMessageId === null) {
+      // A DM-delivery failure never produces a relayed message ID -- the
+      // dmFailed row is the exception to "staff message must have one".
+      if (row.staffRelayedMessageId === null && !row.dmFailed) {
         throw new Error(
           `Invalid staff message ${row.messageId}: missing staffRelayedMessageId`
         );
@@ -199,7 +209,9 @@ export const Message = {
           isPlainText: row.isPlainText,
           isSnippet: row.isSnippet,
         },
-        row.isDeleted
+        row.isDeleted,
+        row.dmFailed,
+        row.editedById
       );
     } else {
       if (row.userDmMessageId === null) {

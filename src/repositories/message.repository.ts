@@ -20,6 +20,7 @@ export type NewMessage = {
   isSnippet?: boolean | null;
   attachmentUrls: string[];
   stickers: MessageSticker[];
+  dmFailed?: boolean | null;
 };
 
 export class MessageRepository {
@@ -50,10 +51,42 @@ export class MessageRepository {
         isSnippet: msg.isSnippet,
         attachmentUrls: JSON.stringify(msg.attachmentUrls),
         stickers: JSON.stringify(msg.stickers),
+        dmFailed: msg.dmFailed ?? null,
       })
       .returning();
 
     return Message.fromDatabaseRow(inserted[0]);
+  }
+
+  /**
+   * Marks whether the DM relay for a staff message failed. Persisted (not
+   * just rendered in the moment) so a toolbar-overlay strip re-render never
+   * shows a failed delivery as if it had succeeded.
+   */
+  async setDmFailed(messageId: string, dmFailed: boolean): Promise<void> {
+    await this.db
+      .update(messages)
+      .set({ dmFailed })
+      .where(eq(messages.messageId, messageId))
+      .execute();
+  }
+
+  /**
+   * Updates a staff message's content and who last edited it. Unlike
+   * saveNewMessageVersion (user edits), staff messages don't keep edit
+   * history -- only the current content and the last editor are persisted,
+   * since that's all StaffThreadView.staffReplyComponents renders.
+   */
+  async updateStaffMessageContent(
+    messageId: string,
+    content: string,
+    editedById: string
+  ): Promise<void> {
+    await this.db
+      .update(messages)
+      .set({ content, editedById })
+      .where(eq(messages.messageId, messageId))
+      .execute();
   }
 
   async deleteMessage(messageId: string): Promise<void> {
