@@ -10,6 +10,7 @@ import {
   RESTJSONErrorCodes,
   type Message as DiscordMessage,
   type MessageCreateOptions,
+  type MessageEditOptions,
   type Snowflake,
 } from "discord.js";
 import type { Message, MessageSticker } from "models/message.model";
@@ -107,6 +108,12 @@ interface MessageRepository {
     mainMessageId: string,
     additionalMessageId: string
   ): Promise<void>;
+  setDmFailed(messageId: string, dmFailed: boolean): Promise<void>;
+  updateStaffMessageContent(
+    messageId: string,
+    content: string,
+    editedById: string
+  ): Promise<void>;
 }
 
 interface ThreadRepository {
@@ -114,10 +121,15 @@ interface ThreadRepository {
 }
 
 interface ToolbarService {
-  foldReply(
+  relay(
     threadChannelId: string,
     content: MessageCreateOptions
   ): Promise<DiscordMessage>;
+  reapplyIfBearer(
+    threadChannelId: string,
+    messageId: string,
+    baseEditOptions: MessageEditOptions
+  ): Promise<MessageEditOptions>;
 }
 
 export class MessageRelayService {
@@ -246,7 +258,7 @@ export class MessageRelayService {
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
 
     const msg = await StaffThreadView.userInitialReplyMessage(message, emojis);
-    const relayedMsg = await this.toolbarService.foldReply(threadId, msg);
+    const relayedMsg = await this.toolbarService.relay(threadId, msg);
 
     // Save message to database
     await this.messageRepository.saveMessage({
@@ -368,12 +380,18 @@ export class MessageRelayService {
       emojis
     );
 
-    await threadChannel.messages.edit(threadMessage.messageId, {
-      components: updatedComponents[0],
-      // Preserve allowed mentions to none
-      allowedMentions: { parse: [] },
-      flags: MessageFlags.IsComponentsV2,
-    });
+    const editOptions = await this.toolbarService.reapplyIfBearer(
+      threadId,
+      threadMessage.messageId,
+      {
+        components: updatedComponents[0],
+        // Preserve allowed mentions to none
+        allowedMentions: { parse: [] },
+        flags: MessageFlags.IsComponentsV2,
+      }
+    );
+
+    await threadChannel.messages.edit(threadMessage.messageId, editOptions);
 
     if (updatedComponents.length === 1) {
       // Nothing more to do, no edit history components.
@@ -605,9 +623,9 @@ export class MessageRelayService {
     }
 
     // Need to send the message with attachments first to the staff thread.
-    // We use the attachments in this message to send to the user. Folded
-    // into the toolbar message rather than sent fresh -- see ToolbarService.
-    const threadStaffMsg = await this.toolbarService.foldReply(threadId, {
+    // We use the attachments in this message to send to the user. Relayed
+    // with the toolbar composed on top -- see ToolbarService.relay.
+    const threadStaffMsg = await this.toolbarService.relay(threadId, {
       components,
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] },
@@ -673,11 +691,33 @@ export class MessageRelayService {
         );
 
         try {
-          await threadStaffMsg.edit({
-            components: failedComponents,
-            flags: MessageFlags.IsComponentsV2,
-            allowedMentions: { parse: [] },
+          // Persisted (not saved earlier, since a DM-blocked send never
+          // produces a relayed message) so a later toolbar-overlay strip
+          // re-render never shows this as a successful delivery.
+          await this.saveStaffMessage({
+            threadId,
+            threadMessageId: threadStaffMsg.id,
+            relayedMessageId: null,
+            authorId: msg.author.id,
+            content: msg.content,
+            isAnonymous: options.anonymous,
+            isPlainText: options.plainText,
+            isSnippet: options.snippet,
+            attachmentUrls: attachmentURLs,
+            stickers,
           });
+          await this.messageRepository.setDmFailed(threadStaffMsg.id, true);
+
+          const editOptions = await this.toolbarService.reapplyIfBearer(
+            threadId,
+            threadStaffMsg.id,
+            {
+              components: failedComponents,
+              flags: MessageFlags.IsComponentsV2,
+              allowedMentions: { parse: [] },
+            }
+          );
+          await threadStaffMsg.edit(editOptions);
         } catch (err) {
           this.logger.error(
             {
@@ -700,7 +740,6 @@ export class MessageRelayService {
           },
         });
 
-        // Don't save the message to the database
         recordMessageRelay("staff_to_user", "failure", "dm_blocked");
         return;
       }
@@ -881,12 +920,25 @@ export class MessageRelayService {
       }
     );
 
+    // Persist the new content and editor so a later toolbar-overlay strip
+    // re-render shows current text and keeps the "Edited by" badge.
+    await this.messageRepository.updateStaffMessageContent(
+      messageData.messageId,
+      msg.content,
+      msg.author.id
+    );
+
     // Edit the staff message
-    await threadChannel.messages.edit(messageData.messageId, {
-      components,
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { parse: [] },
-    });
+    const editOptions = await this.toolbarService.reapplyIfBearer(
+      messageData.threadId,
+      messageData.messageId,
+      {
+        components,
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] },
+      }
+    );
+    await threadChannel.messages.edit(messageData.messageId, editOptions);
 
     // -------------------------------------------------------------------------
     // USER DM
@@ -1046,11 +1098,16 @@ export class MessageRelayService {
     );
 
     // Edit the message
-    await threadChannel.messages.edit(messageData.messageId, {
-      components,
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { parse: [] },
-    });
+    const editOptions = await this.toolbarService.reapplyIfBearer(
+      messageData.threadId,
+      messageData.messageId,
+      {
+        components,
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] },
+      }
+    );
+    await threadChannel.messages.edit(messageData.messageId, editOptions);
 
     await this.messageRepository.deleteMessage(messageData.messageId);
 
@@ -1095,10 +1152,16 @@ export class MessageRelayService {
   ): Promise<void> {
     const msg = StaffThreadView.systemMessage(content);
 
-    // Fold into the toolbar like every other relay -- a plain send() here
-    // would land below the fresh toolbar that the user's DM relay just
-    // posted, leaving the toolbar stranded mid-thread instead of at the
-    // bottom.
-    await this.toolbarService.foldReply(channelId, msg);
+    // Plain send, not a relay -- this system message has no DB row (it's
+    // never edited/deleted like a real relayed message), so it can't be
+    // faithfully re-rendered by a toolbar-overlay strip. Under the old
+    // fold design this had to carry the toolbar to avoid stranding it
+    // mid-thread; that's no longer true since the toolbar always rides on
+    // the latest real relay instead of a standalone message.
+    const channel = await this.client.channels.fetch(channelId);
+    if (!channel || !channel.isSendable()) {
+      throw new Error(`Cannot send to channel: ${channelId}`);
+    }
+    await channel.send(msg);
   }
 }

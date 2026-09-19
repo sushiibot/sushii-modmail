@@ -76,11 +76,10 @@ export function isToolbarCustomId(customId: string): boolean {
 
 export class ToolbarView {
   /**
-   * Builds the persistent staff toolbar. On new thread activity the current
-   * toolbar message is folded into the relayed reply (edited in place) and
-   * a fresh one of these is posted below it -- see ToolbarService.foldReply.
-   * Never deleted, so a reply referencing it never turns into a "message
-   * was deleted" ghost.
+   * Builds the toolbar container. It's never sent on its own -- it's
+   * appended as an overlay to whatever message is relayed next (the
+   * "bearer"), so the toolbar always rides along with the latest activity
+   * at the bottom of the thread. See ToolbarService.withToolbar/relay.
    */
   static buildMessage(
     pinnedSnippets: Snippet[],
@@ -166,7 +165,7 @@ export class ToolbarView {
     container.addActionRowComponents(replyRow);
 
     const tipText = new TextDisplayBuilder().setContent(
-      "-# You can also reply to this toolbar to run any command, e.g. `ar`/`reply`/`close` — no prefix needed."
+      "-# You can also reply to this message to run any command, e.g. `ar`/`reply`/`close` — no prefix needed."
     );
     container.addTextDisplayComponents(tipText);
 

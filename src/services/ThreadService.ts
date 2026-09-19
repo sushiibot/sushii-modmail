@@ -61,7 +61,7 @@ interface RuntimeConfigRepository {
 
 interface ToolbarService {
   send(threadChannelId: string): Promise<void>;
-  delete(threadChannelId: string): Promise<void>;
+  close(threadChannelId: string): Promise<void>;
 }
 
 export class ThreadService {
@@ -636,9 +636,9 @@ export class ThreadService {
 
       this.logger.debug(`Locking and closing thread: ${thread.channelId}`);
 
-      // Delete the toolbar -- there's no reopen, so nothing should be
-      // resent to this thread afterwards.
-      await this.toolbarService.delete(thread.channelId);
+      // Strip the toolbar overlay off the bearer -- there's no reopen, so
+      // nothing should be resent to this thread afterwards.
+      await this.toolbarService.close(thread.channelId);
 
       // Send closed message with embed and jump link
       const closedMessage = StaffThreadView.threadClosedMessage(

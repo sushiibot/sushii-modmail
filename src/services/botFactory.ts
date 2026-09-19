@@ -87,7 +87,9 @@ export function buildSharedServices(
   const toolbarService = new ToolbarService(
     client,
     snippetService,
-    threadRepository
+    threadRepository,
+    messageRepository,
+    botEmojiRepository
   );
   const threadService = new ThreadService(
     config,
