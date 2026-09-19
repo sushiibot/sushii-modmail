@@ -102,7 +102,7 @@ describe("reply-to-toolbar single-owner wiring (via registerEventHandlers)", () 
 
     const threadRepository = new ThreadRepository(db, guildId);
     await threadRepository.createThread(guildId, userId, threadChannelId);
-    await threadRepository.setToolbarMessageId(threadChannelId, toolbarMessageId);
+    await threadRepository.setToolbarMessageId(threadChannelId, toolbarMessageId, false);
 
     const client = makeFakeClient(threadChannelId, forumChannelId);
     const commandRouter = new CommandRouter(runtimeConfigRepository, config);

@@ -65,6 +65,7 @@ describe("MessageRelayService", () => {
       reapplyIfBearer: mock().mockImplementation(
         async (_threadChannelId: string, _messageId: string, base: unknown) => base
       ),
+      bumpToBottom: mock().mockResolvedValue(undefined),
     };
 
     messageRepository = {

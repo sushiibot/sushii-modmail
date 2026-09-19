@@ -14,6 +14,7 @@ export function mockThread(options?: {
     closedAt: null,
     closedBy: null,
     toolbarMessageId: null,
+    toolbarIsStandalone: true,
   });
 
   if (options?.userId) {

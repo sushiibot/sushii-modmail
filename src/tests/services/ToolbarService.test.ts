@@ -121,6 +121,7 @@ describe("ToolbarService", () => {
       getThreadByChannelId: mock().mockResolvedValue({
         guildId,
         toolbarMessageId: null,
+        toolbarIsStandalone: true,
         isClosed: false,
       }),
       setToolbarMessageId: mock().mockResolvedValue(undefined),
@@ -159,7 +160,8 @@ describe("ToolbarService", () => {
       expect(channel.send).toHaveBeenCalledTimes(1);
       expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
         threadChannelId,
-        "sent-msg-1"
+        "sent-msg-1",
+        true
       );
     });
 
@@ -167,6 +169,7 @@ describe("ToolbarService", () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: null,
+        toolbarIsStandalone: true,
         isClosed: true,
       });
 
@@ -204,6 +207,7 @@ describe("ToolbarService", () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "old-bearer",
+        toolbarIsStandalone: true,
         isClosed: true,
       });
       const content = { content: "hello" } as any;
@@ -215,7 +219,7 @@ describe("ToolbarService", () => {
       expect(channel.messages.edit).not.toHaveBeenCalled();
     });
 
-    it("sends a real new message with the toolbar composed on top, and stores it as the bearer", async () => {
+    it("sends a real new message with the toolbar composed on top, and stores it as a non-standalone bearer", async () => {
       const content = { content: "hello", components: [{ id: "base" }] } as any;
 
       const sent = await service.relay(threadChannelId, content);
@@ -225,28 +229,33 @@ describe("ToolbarService", () => {
       expect(sentPayload.components[0]).toEqual({ id: "base" });
       expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
         threadChannelId,
-        sent.id
+        sent.id,
+        false
       );
     });
 
-    it("strips the previous bearer instead of deleting it, when it has no DB row (toolbar-only)", async () => {
+    it("deletes the previous bearer when it was standalone (toolbar-only)", async () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "old-bearer",
+        toolbarIsStandalone: true,
         isClosed: false,
       });
-      messageRepository.getByThreadMessageId.mockResolvedValue(null);
 
       await service.relay(threadChannelId, { content: "hello" } as any);
 
       expect(channel.messages.delete).toHaveBeenCalledWith("old-bearer");
       expect(channel.messages.edit).not.toHaveBeenCalled();
+      // isStandalone alone decides this -- the row lookup is never even
+      // consulted for a standalone bearer.
+      expect(messageRepository.getByThreadMessageId).not.toHaveBeenCalled();
     });
 
-    it("re-renders and edits the previous bearer in place when it has a DB row", async () => {
+    it("re-renders and edits the previous bearer in place when it's a non-standalone overlay bearer with a DB row", async () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "old-bearer",
+        toolbarIsStandalone: false,
         isClosed: false,
       });
       const staffRow = {
@@ -275,6 +284,26 @@ describe("ToolbarService", () => {
       expect(channel.messages.edit.mock.calls[0][1].components).toHaveLength(1);
     });
 
+    it("never deletes a non-standalone overlay bearer whose message row hasn't committed yet", async () => {
+      // Regression: the row for a relay's own bearer is saved by the
+      // CALLER (e.g. MessageRelayService.relayUserMessageToStaff) only
+      // after relay() returns, outside this lock. A fast-following second
+      // relay must not infer "no row yet" as "safe to delete" -- that
+      // would destroy real, not-yet-persisted content.
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "old-bearer",
+        toolbarIsStandalone: false,
+        isClosed: false,
+      });
+      messageRepository.getByThreadMessageId.mockResolvedValue(null);
+
+      await service.relay(threadChannelId, { content: "hello" } as any);
+
+      expect(channel.messages.delete).not.toHaveBeenCalled();
+      expect(channel.messages.edit).not.toHaveBeenCalled();
+    });
+
     it("does not strip when there was no previous bearer", async () => {
       await service.relay(threadChannelId, { content: "hello" } as any);
 
@@ -282,7 +311,7 @@ describe("ToolbarService", () => {
       expect(channel.messages.delete).not.toHaveBeenCalled();
     });
 
-    it("falls back to a separate toolbar message when composing would exceed the CV2 component budget", async () => {
+    it("falls back to a separate standalone toolbar message when composing would exceed the CV2 component budget", async () => {
       // 41 button-like nodes in the base -- alone already over budget with
       // the toolbar's own handful of components added on top.
       const manyComponents = Array.from({ length: 41 }, (_, i) => ({
@@ -299,28 +328,51 @@ describe("ToolbarService", () => {
       expect(sent.id).toBe("sent-msg-1");
       expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
         threadChannelId,
-        "sent-msg-2"
+        "sent-msg-2",
+        true
       );
     });
 
     it("serializes overlapping relays for the same thread", async () => {
+      // Stateful thread + row lookups, unlike the other tests' static
+      // mocks -- this is the only way to actually observe a race: a
+      // broken lock would let the second relay read the pre-relay bearer
+      // and edit the message the first relay just made the live bearer.
       let storedToolbarMessageId: string | null = "toolbar-msg-id";
+      let storedIsStandalone = false;
       threadRepository.getThreadByChannelId.mockImplementation(async () => ({
         guildId,
         toolbarMessageId: storedToolbarMessageId,
+        toolbarIsStandalone: storedIsStandalone,
         isClosed: false,
       }));
       threadRepository.setToolbarMessageId.mockImplementation(
-        async (_channelId: string, messageId: string | null) => {
+        async (_channelId: string, messageId: string | null, isStandalone: boolean) => {
           storedToolbarMessageId = messageId;
+          storedIsStandalone = isStandalone;
         }
       );
-      messageRepository.getByThreadMessageId.mockResolvedValue(null);
+      messageRepository.getByThreadMessageId.mockImplementation(
+        async (messageId: string) => ({
+          isStaff: () => true,
+          isUser: () => false,
+          messageId,
+          authorId: "author-id",
+          content: "x",
+          forwarded: false,
+          isAnonymous: false,
+          isPlainText: false,
+          isSnippet: false,
+          dmFailed: null,
+          editedById: null,
+        })
+      );
 
-      const deleteTargets: string[] = [];
-      channel.messages.delete.mockImplementation(async (id: string) => {
-        deleteTargets.push(id);
+      const editTargets: string[] = [];
+      channel.messages.edit.mockImplementation(async (id: string) => {
+        editTargets.push(id);
         await new Promise((resolve) => setTimeout(resolve, 5));
+        return { id: `edited-${id}` };
       });
 
       await Promise.all([
@@ -332,7 +384,7 @@ describe("ToolbarService", () => {
       // just posted ("sent-msg-1"), never the original "toolbar-msg-id"
       // a second time -- a broken lock would let both reads see the
       // pre-relay bearer.
-      expect(deleteTargets).toEqual(["toolbar-msg-id", "sent-msg-1"]);
+      expect(editTargets).toEqual(["toolbar-msg-id", "sent-msg-1"]);
     });
 
     it("throws if the channel is not text-based", async () => {
@@ -347,6 +399,7 @@ describe("ToolbarService", () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "old-bearer",
+        toolbarIsStandalone: false,
         isClosed: false,
       });
       messageRepository.getByThreadMessageId.mockRejectedValue(
@@ -358,13 +411,13 @@ describe("ToolbarService", () => {
       expect(sent.id).toBe("sent-msg-1");
     });
 
-    it("swallows UnknownMessage when the previous bearer is already gone", async () => {
+    it("swallows UnknownMessage when the previous standalone bearer is already gone", async () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "already-gone",
+        toolbarIsStandalone: true,
         isClosed: false,
       });
-      messageRepository.getByThreadMessageId.mockResolvedValue(null);
       channel.messages.delete.mockRejectedValue(unknownMessageError());
 
       await expect(
@@ -457,13 +510,13 @@ describe("ToolbarService", () => {
   });
 
   describe("close", () => {
-    it("strips the overlay off the bearer by editing it, without sending anything new", async () => {
+    it("deletes a standalone bearer outright, without sending anything new", async () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "bearer-id",
+        toolbarIsStandalone: true,
         isClosed: false,
       });
-      messageRepository.getByThreadMessageId.mockResolvedValue(null);
 
       await service.close(threadChannelId);
 
@@ -471,14 +524,16 @@ describe("ToolbarService", () => {
       expect(channel.messages.delete).toHaveBeenCalledWith("bearer-id");
       expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
         threadChannelId,
-        null
+        null,
+        false
       );
     });
 
-    it("re-renders base content (no toolbar) when the bearer has a DB row", async () => {
+    it("re-renders base content (no toolbar) when the bearer is a non-standalone overlay with a DB row", async () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "bearer-id",
+        toolbarIsStandalone: false,
         isClosed: false,
       });
       messageRepository.getByThreadMessageId.mockResolvedValue({
@@ -498,6 +553,27 @@ describe("ToolbarService", () => {
       );
     });
 
+    it("never deletes a non-standalone overlay bearer whose row is (transiently) missing", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "bearer-id",
+        toolbarIsStandalone: false,
+        isClosed: false,
+      });
+      messageRepository.getByThreadMessageId.mockResolvedValue(null);
+
+      await service.close(threadChannelId);
+
+      expect(channel.messages.delete).not.toHaveBeenCalled();
+      expect(channel.messages.edit).not.toHaveBeenCalled();
+      // Still clears the pointer -- the thread is closing regardless.
+      expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
+        threadChannelId,
+        null,
+        false
+      );
+    });
+
     it("does nothing if the thread doesn't exist", async () => {
       threadRepository.getThreadByChannelId.mockResolvedValue(null);
 
@@ -511,6 +587,7 @@ describe("ToolbarService", () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: null,
+        toolbarIsStandalone: true,
         isClosed: false,
       });
 
@@ -518,7 +595,8 @@ describe("ToolbarService", () => {
 
       expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
         threadChannelId,
-        null
+        null,
+        false
       );
     });
   });
@@ -556,7 +634,8 @@ describe("ToolbarService", () => {
       expect(channel.send).toHaveBeenCalledTimes(1);
       expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
         threadChannelId,
-        "sent-msg-1"
+        "sent-msg-1",
+        true
       );
     });
 
@@ -607,8 +686,10 @@ describe("ToolbarService", () => {
       isAnonymous: false,
       isPlainText: true,
       isSnippet: false,
+      snippetName: null,
       dmFailed: true,
       editedById: "editor-id",
+      deletedById: null,
     };
 
     const userRow = {
@@ -624,6 +705,7 @@ describe("ToolbarService", () => {
       threadRepository.getThreadByChannelId.mockResolvedValue({
         guildId,
         toolbarMessageId: "old-bearer",
+        toolbarIsStandalone: false,
         isClosed: false,
       });
     });
@@ -683,6 +765,120 @@ describe("ToolbarService", () => {
 
       const isEditedArg = spy.mock.calls[0][3];
       expect(isEditedArg).toBe(true);
+    });
+
+    it("passes deletedById through so a stripped deleted staff message keeps its attribution", async () => {
+      messageRepository.getByThreadMessageId.mockResolvedValue({
+        ...staffRow,
+        deletedById: "deleter-id",
+      });
+      const spy = spyOn(StaffThreadView, "staffReplyComponents");
+
+      await service.relay(threadChannelId, { content: "hello" } as any);
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ deletedById: "deleter-id" })
+      );
+    });
+
+    it("passes snippetName through so a stripped snippet-sent message keeps its badge", async () => {
+      messageRepository.getByThreadMessageId.mockResolvedValue({
+        ...staffRow,
+        isSnippet: true,
+        snippetName: "welcome",
+      });
+      const spy = spyOn(StaffThreadView, "staffReplyComponents");
+
+      await service.relay(threadChannelId, { content: "hello" } as any);
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ snippet: true, snippetName: "welcome" }),
+        expect.anything()
+      );
+    });
+  });
+
+  describe("bumpToBottom", () => {
+    it("strips the current bearer and reposts a fresh standalone toolbar at the bottom", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "bearer-id",
+        toolbarIsStandalone: false,
+        isClosed: false,
+      });
+      messageRepository.getByThreadMessageId.mockResolvedValue({
+        isStaff: () => false,
+        isUser: () => true,
+        messageId: "bearer-id",
+        authorId: "author-id",
+        content: "hi",
+        forwarded: false,
+      });
+
+      await service.bumpToBottom(threadChannelId);
+
+      // The old bearer is re-rendered in place (it's real content)...
+      expect(channel.messages.edit).toHaveBeenCalledWith(
+        "bearer-id",
+        expect.objectContaining({ components: expect.any(Array) })
+      );
+      // ...and a fresh standalone toolbar is posted after it.
+      expect(channel.send).toHaveBeenCalledTimes(1);
+      expect(threadRepository.setToolbarMessageId).toHaveBeenCalledWith(
+        threadChannelId,
+        "sent-msg-1",
+        true
+      );
+    });
+
+    it("deletes a standalone bearer instead of re-rendering it", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "bearer-id",
+        toolbarIsStandalone: true,
+        isClosed: false,
+      });
+
+      await service.bumpToBottom(threadChannelId);
+
+      expect(channel.messages.delete).toHaveBeenCalledWith("bearer-id");
+      expect(channel.messages.edit).not.toHaveBeenCalled();
+      expect(channel.send).toHaveBeenCalledTimes(1);
+    });
+
+    it("is a no-op when there's no bearer", async () => {
+      await service.bumpToBottom(threadChannelId);
+
+      expect(channel.send).not.toHaveBeenCalled();
+      expect(channel.messages.delete).not.toHaveBeenCalled();
+      expect(channel.messages.edit).not.toHaveBeenCalled();
+    });
+
+    it("is a no-op in a closed thread", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue({
+        guildId,
+        toolbarMessageId: "bearer-id",
+        toolbarIsStandalone: true,
+        isClosed: true,
+      });
+
+      await service.bumpToBottom(threadChannelId);
+
+      expect(channel.send).not.toHaveBeenCalled();
+      expect(channel.messages.delete).not.toHaveBeenCalled();
+    });
+
+    it("is a no-op if the thread doesn't exist", async () => {
+      threadRepository.getThreadByChannelId.mockResolvedValue(null);
+
+      await service.bumpToBottom(threadChannelId);
+
+      expect(channel.send).not.toHaveBeenCalled();
     });
   });
 });
