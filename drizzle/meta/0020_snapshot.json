@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a951b8d2-60bf-4c01-bc89-588be95c70da",
+  "id": "1fc8c4ee-8b5b-41e7-b6db-92a8c50bc6b6",
   "prevId": "356ce380-8299-4429-8897-f394c446aaa4",
   "tables": {
     "additional_message_ids": {
@@ -386,6 +386,20 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "deleted_by_id": {
+          "name": "deleted_by_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "snippet_name": {
+          "name": "snippet_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -665,6 +679,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "toolbar_is_standalone": {
+          "name": "toolbar_is_standalone",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         }
       },
       "indexes": {},

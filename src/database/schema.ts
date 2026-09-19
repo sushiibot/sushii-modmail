@@ -34,10 +34,22 @@ export const threads = sqliteTable(
 
     closedBy: text(),
 
-    // The currently-live toolbar message in this thread, if any. Deleted and
-    // re-created (not edited) on new activity so it always sits at the
-    // bottom of the thread -- see ToolbarService.
+    // The currently-live toolbar message in this thread, if any. This
+    // message is either the toolbar riding as an overlay on the latest
+    // relayed content, or (when toolbarIsStandalone) a toolbar-only
+    // message with no relayed content of its own -- see ToolbarService.
     toolbarMessageId: text(),
+
+    // True iff toolbarMessageId points at a toolbar-only message (the
+    // initial thread toolbar, a component-budget fallback toolbar, or one
+    // reposted by bumpToBottom) rather than an overlay riding on a real
+    // relayed message. Read before deciding whether stripBearer may safely
+    // delete the old bearer outright (standalone) or must re-render it from
+    // its message row instead (overlay, which is real content). Defaults to
+    // true because every thread's toolbarMessageId predates the overlay
+    // design and was always a standalone toolbar message under the old
+    // fold-based behavior.
+    toolbarIsStandalone: integer({ mode: "boolean" }).notNull().default(true),
   },
   (table) => [
     // Ensure IDs are numeric
@@ -94,10 +106,12 @@ export const messages = sqliteTable(
 
     // Staff-only render flags, persisted so a toolbar-overlay strip (see
     // ToolbarService.renderMessageBase) can re-render this message from its
-    // stored model without misrepresenting a failed DM or a since-edited
-    // message as if neither had happened.
+    // stored model without misrepresenting a failed DM, a since-edited
+    // message, a deletion, or a snippet send as if none of those happened.
     dmFailed: integer({ mode: "boolean" }),
     editedById: text(),
+    deletedById: text(),
+    snippetName: text(),
   },
   (table) => [
     // IDs
