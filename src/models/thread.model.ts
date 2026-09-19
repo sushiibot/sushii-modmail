@@ -10,6 +10,9 @@ export class Thread {
   public closedAt: Date | null;
   public closedBy: string | null;
   public toolbarMessageId: string | null;
+  // True iff toolbarMessageId is a toolbar-only message with no relayed
+  // content -- see the column comment in database/schema.ts.
+  public toolbarIsStandalone: boolean;
 
   constructor(
     guildId: string,
@@ -19,7 +22,8 @@ export class Thread {
     createdAt: Date,
     closedAt: Date | null = null,
     closedBy: string | null = null,
-    toolbarMessageId: string | null = null
+    toolbarMessageId: string | null = null,
+    toolbarIsStandalone: boolean = true
   ) {
     this.guildId = guildId;
     this.channelId = channelId;
@@ -29,6 +33,7 @@ export class Thread {
     this.closedAt = closedAt;
     this.closedBy = closedBy;
     this.toolbarMessageId = toolbarMessageId;
+    this.toolbarIsStandalone = toolbarIsStandalone;
   }
 
   static fromDatabaseRow(row: typeof threads.$inferSelect): Thread {
@@ -40,7 +45,8 @@ export class Thread {
       row.createdAt,
       row.closedAt,
       row.closedBy,
-      row.toolbarMessageId
+      row.toolbarMessageId,
+      row.toolbarIsStandalone
     );
   }
 

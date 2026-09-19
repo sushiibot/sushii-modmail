@@ -21,6 +21,7 @@ export type NewMessage = {
   attachmentUrls: string[];
   stickers: MessageSticker[];
   dmFailed?: boolean | null;
+  snippetName?: string | null;
 };
 
 export class MessageRepository {
@@ -52,6 +53,7 @@ export class MessageRepository {
         attachmentUrls: JSON.stringify(msg.attachmentUrls),
         stickers: JSON.stringify(msg.stickers),
         dmFailed: msg.dmFailed ?? null,
+        snippetName: msg.snippetName ?? null,
       })
       .returning();
 
@@ -89,15 +91,18 @@ export class MessageRepository {
       .execute();
   }
 
-  async deleteMessage(messageId: string): Promise<void> {
-    this.logger.debug({ messageId }, "Marking message as deleted");
+  async deleteMessage(messageId: string, deletedById: string): Promise<void> {
+    this.logger.debug({ messageId, deletedById }, "Marking message as deleted");
 
     // Doesn't actually delete, just marks it as deleted since we still want to
-    // track it
+    // track it. deletedById is persisted (not just rendered in the moment)
+    // so a later toolbar-overlay strip re-render keeps the "Deleted by X"
+    // attribution.
     await this.db
       .update(messages)
       .set({
         isDeleted: true,
+        deletedById,
       })
       .where(eq(messages.messageId, messageId))
       .execute();

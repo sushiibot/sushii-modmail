@@ -69,6 +69,8 @@ export class StaffMessage extends BaseMessage {
   // when a toolbar-overlay strip rebuilds it from this model alone.
   public readonly dmFailed: boolean | null;
   public readonly editedById: string | null;
+  public readonly deletedById: string | null;
+  public readonly snippetName: string | null;
 
   constructor(
     threadId: string,
@@ -84,7 +86,8 @@ export class StaffMessage extends BaseMessage {
     // State
     isDeleted: boolean,
     dmFailed: boolean | null = null,
-    editedById: string | null = null
+    editedById: string | null = null,
+    deletedById: string | null = null
   ) {
     super(
       threadId,
@@ -104,10 +107,12 @@ export class StaffMessage extends BaseMessage {
     this.isAnonymous = options.isAnonymous;
     this.isPlainText = options.isPlainText;
     this.isSnippet = options.isSnippet;
+    this.snippetName = options.snippetName ?? null;
 
     this.isDeleted = isDeleted;
     this.dmFailed = dmFailed;
     this.editedById = editedById;
+    this.deletedById = deletedById;
   }
 
   get staffRelayedMessageId(): string {
@@ -208,10 +213,12 @@ export const Message = {
           isAnonymous: row.isAnonymous,
           isPlainText: row.isPlainText,
           isSnippet: row.isSnippet,
+          snippetName: row.snippetName ?? undefined,
         },
         row.isDeleted,
         row.dmFailed,
-        row.editedById
+        row.editedById,
+        row.deletedById
       );
     } else {
       if (row.userDmMessageId === null) {

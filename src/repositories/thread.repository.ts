@@ -109,13 +109,20 @@ export class ThreadRepository {
       .where(eq(threads.threadId, channelId));
   }
 
+  /**
+   * `isStandalone` is written atomically with the pointer -- never let the
+   * two drift out of sync, since stripBearer relies on it to decide whether
+   * the old bearer is safe to delete outright (standalone) or must be
+   * re-rendered from its message row instead (a real relayed message).
+   */
   async setToolbarMessageId(
     channelId: string,
-    messageId: string | null
+    messageId: string | null,
+    isStandalone: boolean
   ): Promise<void> {
     await this.db
       .update(threads)
-      .set({ toolbarMessageId: messageId })
+      .set({ toolbarMessageId: messageId, toolbarIsStandalone: isStandalone })
       .where(eq(threads.threadId, channelId));
   }
 
