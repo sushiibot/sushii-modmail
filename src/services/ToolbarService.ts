@@ -27,9 +27,14 @@ interface ThreadRepository {
   getThreadByChannelId(channelId: string): Promise<{
     guildId: string;
     toolbarMessageId: string | null;
+    toolbarIsStandalone: boolean;
     isClosed: boolean;
   } | null>;
-  setToolbarMessageId(channelId: string, messageId: string | null): Promise<void>;
+  setToolbarMessageId(
+    channelId: string,
+    messageId: string | null,
+    isStandalone: boolean
+  ): Promise<void>;
 }
 
 interface MessageRepository {
@@ -218,13 +223,12 @@ export class ToolbarService {
           anonymous: row.isAnonymous,
           plainText: row.isPlainText,
           snippet: row.isSnippet,
+          snippetName: row.snippetName ?? undefined,
         },
         {
           failed: row.dmFailed ?? undefined,
           editedById: row.editedById ?? undefined,
-          // deletedById isn't persisted (only known at the moment of the
-          // delete interaction) -- a strip of a deleted message loses that
-          // attribution badge. Flagged as a known gap, not resolved here.
+          deletedById: row.deletedById ?? undefined,
         }
       );
     }
@@ -263,25 +267,45 @@ export class ToolbarService {
   }
 
   /**
-   * Strips the toolbar off a previous bearer by re-rendering it from its
-   * stored model (no wire-splicing) and editing it in place. Never throws --
-   * the relay/refresh/close that triggered this already landed and must not
-   * be lost over a best-effort cleanup failing.
+   * Strips the toolbar off a previous bearer. Never throws -- the
+   * relay/refresh/close that triggered this already landed and must not be
+   * lost over a best-effort cleanup failing.
+   *
+   * `isStandalone` (the thread's persisted toolbarIsStandalone at the time
+   * this bearer was set) decides the strategy -- NOT "does a DB row exist
+   * for this message ID". A relay's caller (e.g.
+   * MessageRelayService.relayUserMessageToStaff) saves that row only AFTER
+   * `relay()` returns, outside this method's lock, so a fast-following
+   * second relay could observe a real overlay bearer with no row YET and,
+   * if row-absence meant "safe to delete", destroy real user/staff content.
+   * `isStandalone` is set atomically with the pointer, so it can never lie
+   * about a message that direction.
    */
   private async stripBearer(
     channel: SendableChannel,
     threadChannelId: string,
-    bearerId: string
+    bearerId: string,
+    isStandalone: boolean
   ): Promise<void> {
     try {
-      const row = await this.messageRepository.getByThreadMessageId(bearerId);
-
-      if (!row) {
-        // No DB row means this bearer was never a relayed message -- either
-        // the standalone initial toolbar (ToolbarService.send) or a
-        // budget-guard fallback toolbar. Both are toolbar-only, so there's
-        // nothing to preserve; just remove it.
+      if (isStandalone) {
+        // A toolbar-only message (the initial thread toolbar, a
+        // budget-guard fallback toolbar, or one reposted by
+        // bumpToBottom) -- nothing to preserve.
         await channel.messages.delete(bearerId);
+        return;
+      }
+
+      const row = await this.messageRepository.getByThreadMessageId(bearerId);
+      if (!row) {
+        // This is a real overlay bearer whose row hasn't committed yet (or
+        // was somehow lost) -- never infer "safe to delete" from a missing
+        // row alone. Leave it; the worst case is a stray toolbar-less
+        // message, not a destroyed one.
+        this.logger.warn(
+          { threadChannelId, bearerId },
+          "Overlay bearer has no message row yet -- skipping strip rather than risking deletion"
+        );
         return;
       }
 
@@ -329,6 +353,7 @@ export class ToolbarService {
         threadChannelId
       );
       const previousBearerId = thread?.toolbarMessageId ?? null;
+      const previousBearerIsStandalone = thread?.toolbarIsStandalone ?? true;
 
       // Guards a relay racing with close from resurrecting a live toolbar
       // (with a still-clickable Close button) in a now-locked thread --
@@ -343,6 +368,7 @@ export class ToolbarService {
 
       let sent: Message;
       let newBearerId: string;
+      let newBearerIsStandalone: boolean;
 
       if (wouldExceedComponentBudget([...baseComponents, toolbarContainer])) {
         // Composing would exceed CV2's 40-component cap and Discord would
@@ -351,21 +377,29 @@ export class ToolbarService {
         sent = await channel.send(content);
         const toolbarMsg = await channel.send(toolbarMessage);
         newBearerId = toolbarMsg.id;
+        newBearerIsStandalone = true;
       } else {
         sent = await channel.send({
           ...content,
           components: withToolbar(baseComponents, toolbarContainer),
         });
         newBearerId = sent.id;
+        newBearerIsStandalone = false;
       }
 
       await this.threadRepository.setToolbarMessageId(
         threadChannelId,
-        newBearerId
+        newBearerId,
+        newBearerIsStandalone
       );
 
       if (previousBearerId && previousBearerId !== newBearerId) {
-        await this.stripBearer(channel, threadChannelId, previousBearerId);
+        await this.stripBearer(
+          channel,
+          threadChannelId,
+          previousBearerId,
+          previousBearerIsStandalone
+        );
       }
 
       return sent;
@@ -374,8 +408,8 @@ export class ToolbarService {
 
   /**
    * Sends the initial toolbar for a brand new thread. Standalone (no base
-   * message to overlay onto yet), so it has no DB row -- stripBearer treats
-   * that as toolbar-only and deletes it outright once superseded.
+   * message to overlay onto yet) -- stripBearer deletes it outright once
+   * superseded.
    */
   async send(threadChannelId: string): Promise<void> {
     const thread = await this.threadRepository.getThreadByChannelId(
@@ -392,7 +426,11 @@ export class ToolbarService {
 
     const { full } = await this.getToolbarPieces(thread.guildId);
     const message = await channel.send(full);
-    await this.threadRepository.setToolbarMessageId(threadChannelId, message.id);
+    await this.threadRepository.setToolbarMessageId(
+      threadChannelId,
+      message.id,
+      true
+    );
   }
 
   /**
@@ -490,7 +528,11 @@ export class ToolbarService {
       }
 
       const message = await channel.send(full);
-      await this.threadRepository.setToolbarMessageId(threadChannelId, message.id);
+      await this.threadRepository.setToolbarMessageId(
+        threadChannelId,
+        message.id,
+        true
+      );
     });
   }
 
@@ -511,10 +553,52 @@ export class ToolbarService {
 
       if (thread.toolbarMessageId) {
         const channel = await this.fetchChannel(threadChannelId);
-        await this.stripBearer(channel, threadChannelId, thread.toolbarMessageId);
+        await this.stripBearer(
+          channel,
+          threadChannelId,
+          thread.toolbarMessageId,
+          thread.toolbarIsStandalone
+        );
       }
 
-      await this.threadRepository.setToolbarMessageId(threadChannelId, null);
+      await this.threadRepository.setToolbarMessageId(threadChannelId, null, false);
+    });
+  }
+
+  /**
+   * Moves the toolbar back to the bottom of the thread. The invariant is
+   * "the toolbar is always the last thing in the thread" -- anything that
+   * plain-`channel.send()`s into the thread instead of going through
+   * `relay()` (a system notice, an edit-history overflow message, etc.)
+   * would otherwise strand the toolbar mid-thread. Strips the current
+   * bearer in place (re-rendering it if it's real content, deleting it if
+   * it's already just a standalone toolbar) and reposts a fresh standalone
+   * toolbar after. A safe no-op with no bearer or a closed thread.
+   */
+  async bumpToBottom(threadChannelId: string): Promise<void> {
+    return this.withThreadLock(threadChannelId, async () => {
+      const thread = await this.threadRepository.getThreadByChannelId(
+        threadChannelId
+      );
+      if (!thread || thread.isClosed || !thread.toolbarMessageId) {
+        return;
+      }
+
+      const channel = await this.fetchChannel(threadChannelId);
+      await this.stripBearer(
+        channel,
+        threadChannelId,
+        thread.toolbarMessageId,
+        thread.toolbarIsStandalone
+      );
+
+      const { full } = await this.getToolbarPieces(thread.guildId);
+      const message = await channel.send(full);
+      await this.threadRepository.setToolbarMessageId(
+        threadChannelId,
+        message.id,
+        true
+      );
     });
   }
 }

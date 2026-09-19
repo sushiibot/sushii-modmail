@@ -26,6 +26,7 @@ export interface MessageRelayService {
   ): Promise<void>;
   sendInitialMessageToUser(userId: string): Promise<string>;
   sendInitialMessageToStaff(channelId: string, content: string): Promise<void>;
+  bumpToolbarToBottom(channelId: string): Promise<void>;
 }
 
 export interface Thread {
@@ -155,6 +156,11 @@ export class DMController {
               thread.channelId,
               content
             );
+
+            // The initial notice above landed below the toolbar's overlay
+            // bearer (the user's first relayed message), stranding it
+            // mid-thread -- move it back to the bottom.
+            await this.messageService.bumpToolbarToBottom(thread.channelId);
           }
         }
       } catch (err) {

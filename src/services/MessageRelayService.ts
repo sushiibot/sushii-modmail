@@ -98,7 +98,7 @@ interface ConfigRepository {
 
 interface MessageRepository {
   saveMessage(msg: NewMessage): Promise<Message>;
-  deleteMessage(messageId: string): Promise<void>;
+  deleteMessage(messageId: string, deletedById: string): Promise<void>;
   getByThreadMessageId(messageId: string): Promise<Message | null>;
   getByUserDMMessageId(dmMessageId: string): Promise<Message | null>;
   saveNewMessageVersion(messageId: string, newContent: string): Promise<void>;
@@ -130,6 +130,7 @@ interface ToolbarService {
     messageId: string,
     baseEditOptions: MessageEditOptions
   ): Promise<MessageEditOptions>;
+  bumpToBottom(threadChannelId: string): Promise<void>;
 }
 
 export class MessageRelayService {
@@ -474,6 +475,11 @@ export class MessageRelayService {
         },
         "Saved additional message ID for user edit history"
       );
+
+      // This plain send() landed below the toolbar's overlay bearer,
+      // stranding it mid-thread -- the toolbar must always be the last
+      // thing in the thread.
+      await this.toolbarService.bumpToBottom(threadId);
     }
   }
 
@@ -527,6 +533,11 @@ export class MessageRelayService {
     );
 
     await threadChannel.send(msg);
+
+    // This plain send() landed below the toolbar's overlay bearer,
+    // stranding it mid-thread -- the toolbar must always be the last
+    // thing in the thread.
+    await this.toolbarService.bumpToBottom(threadId);
   }
 
   // ---------------------------------------------------------------------------
@@ -703,6 +714,7 @@ export class MessageRelayService {
             isAnonymous: options.anonymous,
             isPlainText: options.plainText,
             isSnippet: options.snippet,
+            snippetName: options.snippetName,
             attachmentUrls: attachmentURLs,
             stickers,
           });
@@ -740,6 +752,11 @@ export class MessageRelayService {
           },
         });
 
+        // This plain send() landed below the toolbar's overlay bearer,
+        // stranding it mid-thread -- the toolbar must always be the last
+        // thing in the thread.
+        await this.toolbarService.bumpToBottom(threadId);
+
         recordMessageRelay("staff_to_user", "failure", "dm_blocked");
         return;
       }
@@ -759,6 +776,7 @@ export class MessageRelayService {
       isAnonymous: options.anonymous,
       isPlainText: options.plainText,
       isSnippet: options.snippet,
+      snippetName: options.snippetName,
       attachmentUrls: attachmentURLs,
       stickers: stickers,
     });
@@ -779,6 +797,7 @@ export class MessageRelayService {
     isAnonymous: boolean;
     isPlainText: boolean;
     isSnippet: boolean;
+    snippetName?: string;
     attachmentUrls: string[];
     stickers: MessageSticker[];
   }): Promise<void> {
@@ -794,6 +813,7 @@ export class MessageRelayService {
       isAnonymous: options.isAnonymous,
       isPlainText: options.isPlainText,
       isSnippet: options.isSnippet,
+      snippetName: options.snippetName ?? null,
       attachmentUrls: options.attachmentUrls,
       stickers: options.stickers,
     });
@@ -1109,7 +1129,7 @@ export class MessageRelayService {
     );
     await threadChannel.messages.edit(messageData.messageId, editOptions);
 
-    await this.messageRepository.deleteMessage(messageData.messageId);
+    await this.messageRepository.deleteMessage(messageData.messageId, deletedById);
 
     return {
       ok: true,
@@ -1154,14 +1174,23 @@ export class MessageRelayService {
 
     // Plain send, not a relay -- this system message has no DB row (it's
     // never edited/deleted like a real relayed message), so it can't be
-    // faithfully re-rendered by a toolbar-overlay strip. Under the old
-    // fold design this had to carry the toolbar to avoid stranding it
-    // mid-thread; that's no longer true since the toolbar always rides on
-    // the latest real relay instead of a standalone message.
+    // faithfully re-rendered by a toolbar-overlay strip. This lands below
+    // the toolbar's overlay bearer and strands it mid-thread -- the caller
+    // (DMController, for the new-thread path this is only ever used in)
+    // is responsible for calling bumpToolbarToBottom afterward.
     const channel = await this.client.channels.fetch(channelId);
     if (!channel || !channel.isSendable()) {
       throw new Error(`Cannot send to channel: ${channelId}`);
     }
     await channel.send(msg);
+  }
+
+  /**
+   * Moves the toolbar back to the bottom of the thread channel. Needed
+   * after any plain (non-relay) send into the thread -- the design
+   * invariant is "the toolbar is always the last thing in the thread".
+   */
+  async bumpToolbarToBottom(channelId: string): Promise<void> {
+    await this.toolbarService.bumpToBottom(channelId);
   }
 }

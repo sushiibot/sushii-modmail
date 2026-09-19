@@ -46,8 +46,8 @@ import { registerBotThreadRepository } from "utils/threadMetricsRegistry";
 /**
  * Every service/repository that must have exactly ONE live instance per bot
  * process -- not because they're expensive to construct, but because some
- * of them hold in-process state (ToolbarService's per-thread debounce
- * timers, ThreadService's per-user thread-creation locks) that a second
+ * of them hold in-process state (ToolbarService's per-thread relay/strip
+ * lock, ThreadService's per-user thread-creation locks) that a second
  * independent instance can't see or coordinate with. Building this once in
  * buildClient and threading it into both buildCommandRouter (text commands)
  * and registerEventHandlers (DM/reaction/interaction handling) is what
