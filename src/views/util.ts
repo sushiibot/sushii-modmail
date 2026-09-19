@@ -92,6 +92,26 @@ export function extractComponentImages(msg: Message): {
   };
 }
 
+// Messages sent before media galleries carried a `.setId()` (some older
+// user-relayed messages) have no ID to match against. Falling back to
+// positional order (attachments gallery before stickers gallery, the order
+// both view functions have always built them in) still recovers them
+// instead of silently stripping their gallery on the next overlay strip.
+function findMediaGalleryComponent(
+  galleries: MediaGalleryComponent[],
+  id: number,
+  positionalIndex: number
+): MediaGalleryComponent | undefined {
+  const byId = galleries.find((c) => c.id === id);
+  if (byId) {
+    return byId;
+  }
+
+  return galleries.every((c) => c.id !== undefined)
+    ? undefined
+    : galleries[positionalIndex];
+}
+
 export function extractImageURLsFromComponents(msg: Message): string[] {
   const containerComponent = msg.components.find(
     (c) => c.type === ComponentType.Container
@@ -100,10 +120,13 @@ export function extractImageURLsFromComponents(msg: Message): string[] {
     throw new Error("No container component found");
   }
 
-  const mediaGalleryComponent = containerComponent.components.find(
-    (c): c is MediaGalleryComponent =>
-      c.type === ComponentType.MediaGallery &&
-      c.id === MediaGalleryAttachmentsID
+  const galleries = containerComponent.components.filter(
+    (c): c is MediaGalleryComponent => c.type === ComponentType.MediaGallery
+  );
+  const mediaGalleryComponent = findMediaGalleryComponent(
+    galleries,
+    MediaGalleryAttachmentsID,
+    0
   );
 
   if (!mediaGalleryComponent) {
@@ -125,9 +148,13 @@ export function extractStickersFromComponents(msg: Message): MessageSticker[] {
     throw new Error("No container component found");
   }
 
-  const mediaGalleryComponents = containerComponent.components.find(
-    (c): c is MediaGalleryComponent =>
-      c.type === ComponentType.MediaGallery && c.id === MediaGalleryStickersID
+  const galleries = containerComponent.components.filter(
+    (c): c is MediaGalleryComponent => c.type === ComponentType.MediaGallery
+  );
+  const mediaGalleryComponents = findMediaGalleryComponent(
+    galleries,
+    MediaGalleryStickersID,
+    1
   );
   if (!mediaGalleryComponents) {
     return [];

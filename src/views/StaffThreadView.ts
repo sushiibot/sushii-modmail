@@ -424,18 +424,21 @@ export class StaffThreadView {
   }
 
   /**
-   * Creates v2 components for a user reply message, created or edited. Message
-   * edits can only change the content, so attachments and stickers are excluded
-   * when isEdited is true.
+   * Creates v2 components for a user reply message: an initial send (real
+   * uploaded files, referenced as `attachment://name`), a content-only edit
+   * (isEdited, attachments passed as `[]` since they're unchanged and not
+   * re-uploaded), or a toolbar-overlay strip re-render (fresh CDN URLs
+   * extracted from the live message, passed as strings -- see
+   * ToolbarService.renderMessageBase).
    *
    * @param userMessage
-   * @param attachments
+   * @param attachments AttachmentBuilder[] for a fresh upload, or string[] CDN URLs to reference directly
    * @param isEdited
    * @returns
    */
   static userReplyComponents(
     userMessage: UserToStaffMessage,
-    attachments: AttachmentBuilder[],
+    attachments: (AttachmentBuilder | string)[],
     messageVersions: MessageVersion[],
     isEdited: boolean,
     emojis: StaffThreadEmojis
@@ -522,19 +525,24 @@ export class StaffThreadView {
       }
     }
 
-    // 3. Attachments - use reuploaded attachments
-    if (!isEdited && attachments.length > 0) {
+    // 3. Attachments -- rendered whenever the caller provides any, whether
+    // that's freshly-uploaded files (initial send) or fresh CDN URLs (a
+    // toolbar-overlay strip re-render). Callers that don't want this block
+    // touched by a content-only edit pass `[]`, which is how
+    // MessageRelayService's user edit-sync opts out today.
+    if (attachments.length > 0) {
       primaryContainer.addSeparatorComponents(
         new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Large)
       );
 
       const attachmentItems = attachments.map((attachment) =>
-        // Reference file attachments
-        new MediaGalleryItemBuilder().setURL(`attachment://` + attachment.name)
+        typeof attachment === "string"
+          ? new MediaGalleryItemBuilder().setURL(attachment)
+          : new MediaGalleryItemBuilder().setURL(`attachment://` + attachment.name)
       );
-      const attachmentText = new MediaGalleryBuilder().addItems(
-        attachmentItems
-      );
+      const attachmentText = new MediaGalleryBuilder()
+        .setId(MediaGalleryAttachmentsID)
+        .addItems(attachmentItems);
 
       primaryContainer.addMediaGalleryComponents(attachmentText);
     }
@@ -547,7 +555,9 @@ export class StaffThreadView {
           .setURL(sticker.url)
           .setDescription(sticker.name)
       );
-      const stickerText = new MediaGalleryBuilder().addItems(stickerItems);
+      const stickerText = new MediaGalleryBuilder()
+        .setId(MediaGalleryStickersID)
+        .addItems(stickerItems);
 
       primaryContainer.addMediaGalleryComponents(stickerText);
     }
