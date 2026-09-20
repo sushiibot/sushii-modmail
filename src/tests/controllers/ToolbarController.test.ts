@@ -437,8 +437,10 @@ describe("ToolbarController", () => {
         id: "interaction-1",
         reply: mock().mockResolvedValue(undefined),
         deferReply: mock().mockResolvedValue(undefined),
+        deferUpdate: mock().mockResolvedValue(undefined),
         editReply: mock().mockResolvedValue(undefined),
         deleteReply: mock().mockResolvedValue(undefined),
+        followUp: mock().mockResolvedValue(undefined),
         fields: {
           getTextInputValue: mock().mockReturnValue(inputValue),
         },
@@ -463,7 +465,7 @@ describe("ToolbarController", () => {
 
       await controller.handleModalSubmit(interaction);
 
-      expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+      expect(interaction.deferUpdate).toHaveBeenCalled();
       expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
         "channel-1",
         "user-1",
@@ -471,7 +473,9 @@ describe("ToolbarController", () => {
         expect.objectContaining({ content: "hello from the modal" }),
         expect.objectContaining({ anonymous: false, snippet: false })
       );
-      expect(interaction.deleteReply).toHaveBeenCalled();
+      // Silent ack -- no ephemeral reply created or torn down.
+      expect(interaction.deleteReply).not.toHaveBeenCalled();
+      expect(interaction.followUp).not.toHaveBeenCalled();
     });
 
     it("relays an anon reply modal submission", async () => {
@@ -501,8 +505,11 @@ describe("ToolbarController", () => {
       await controller.handleModalSubmit(interaction);
 
       expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
-      expect(interaction.editReply).toHaveBeenCalledWith(
-        expect.stringContaining("closed")
+      expect(interaction.followUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining("closed"),
+          ephemeral: true,
+        })
       );
     });
 
@@ -530,7 +537,8 @@ describe("ToolbarController", () => {
           snippetName: "faq",
         })
       );
-      expect(interaction.deleteReply).toHaveBeenCalled();
+      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.deleteReply).not.toHaveBeenCalled();
     });
 
     it("denies a modal submission from a member without staff permission", async () => {

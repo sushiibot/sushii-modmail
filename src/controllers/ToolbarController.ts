@@ -382,23 +382,20 @@ export class ToolbarController {
       customId === toolbarCustomID.modalReply ||
       customId === toolbarCustomID.modalAnonReply
     ) {
-      // deferReply (not deferUpdate) deliberately doesn't reference the
-      // origin toolbar message -- staff can spend a while composing in the
-      // modal, and the debounced resend may have deleted that message by
-      // the time they submit. deferUpdate() against a deleted message would
-      // silently drop the reply with no feedback. On success this deferred
-      // reply is just deleted (the folded message already shows the reply
-      // went out); on failure it's edited to explain why, since that's the
-      // only place staff would see it.
-      await interaction.deferReply({ ephemeral: true });
+      // deferUpdate, not deferReply: silently acknowledge with no loading
+      // state and nothing to clean up. The relayed message in the channel is
+      // the confirmation, and the reply is sent by the relay below regardless
+      // of how this interaction is acked, so a silent ack can't drop it.
+      await interaction.deferUpdate();
 
       const thread = await this.threadService.getThreadByChannelId(
         interaction.channelId
       );
       if (!thread || thread.isClosed) {
-        await interaction.editReply(
-          "This thread is closed -- your reply was not sent."
-        );
+        await interaction.followUp({
+          content: "This thread is closed -- your reply was not sent.",
+          ephemeral: true,
+        });
         return;
       }
 
@@ -425,15 +422,14 @@ export class ToolbarController {
           snippet: false,
         }
       );
-      // No visible confirmation needed -- the fold above already shows the
-      // reply in the channel, so this deferred ack just gets discarded.
-      await interaction.deleteReply();
+      // No visible confirmation needed -- the relayed message in the channel
+      // is the feedback, and deferUpdate left nothing to clean up.
       return;
     }
 
     const snippetName = parseSnippetModalCustomId(customId);
     if (snippetName !== null) {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferUpdate();
       await this.handleSnippetModalSubmit(interaction, snippetName);
       return;
     }
@@ -449,9 +445,10 @@ export class ToolbarController {
       interaction.channelId
     );
     if (!thread || thread.isClosed) {
-      await interaction.editReply(
-        "This thread is closed -- your reply was not sent."
-      );
+      await interaction.followUp({
+        content: "This thread is closed -- your reply was not sent.",
+        ephemeral: true,
+      });
       return;
     }
 
@@ -480,8 +477,7 @@ export class ToolbarController {
         snippetName,
       }
     );
-    // No visible confirmation needed -- the fold above already shows the
-    // reply in the channel, so this deferred ack just gets discarded.
-    await interaction.deleteReply();
+    // No visible confirmation needed -- the relayed message in the channel
+    // is the feedback, and deferUpdate left nothing to clean up.
   }
 }
