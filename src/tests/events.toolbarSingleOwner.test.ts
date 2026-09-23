@@ -12,6 +12,8 @@ import { buildSharedServices } from "../services/botFactory";
 import { SnippetRepository } from "../repositories/snippet.repository";
 import { CloseCommand } from "../commands/CloseCommand";
 import { AddSnippetCommand } from "../commands/snippets/AddSnippetCommand";
+import { EditCommand } from "../commands/EditCommand";
+import type { MessageRelayService } from "../services/MessageRelayService";
 
 const globals: GlobalConfig = {
   LOG_LEVEL: "info",
@@ -49,13 +51,20 @@ function makeFakeForumChannel() {
   };
 }
 
-function makeFakeClient(threadChannelId: string, forumChannelId: string): Client {
+function makeFakeClient(
+  threadChannelId: string,
+  forumChannelId: string,
+  guildId: string
+): Client {
   const emitter = new EventEmitter();
   const threadChannel = makeFakeThreadChannel(threadChannelId);
   const forumChannel = makeFakeForumChannel();
   return Object.assign(emitter, {
     user: { id: "bot-user-id", tag: "TestBot#0000", setPresence: () => {} },
-    guilds: { fetch: async () => ({}) },
+    guilds: {
+      fetch: async () => ({}),
+      cache: new Map([[guildId, { id: guildId }]]),
+    },
     channels: {
       fetch: async (id: string) => {
         if (id === threadChannelId) return threadChannel;
@@ -104,20 +113,52 @@ describe("reply-to-toolbar single-owner wiring (via registerEventHandlers)", () 
     await threadRepository.createThread(guildId, userId, threadChannelId);
     await threadRepository.setToolbarMessageId(threadChannelId, toolbarMessageId, false);
 
-    const client = makeFakeClient(threadChannelId, forumChannelId);
+    const client = makeFakeClient(threadChannelId, forumChannelId, guildId);
     const commandRouter = new CommandRouter(runtimeConfigRepository, config);
     const botManager = new BotManager(db, globals);
     const shared = buildSharedServices(config, client, db);
 
-    // Registering only the two commands this test's scenarios need --
+    const editCalls: { targetId: string; content: string }[] = [];
+    const stubMessageService = {
+      editStaffMessage: async (
+        targetId: string,
+        _userId: string,
+        _guild: unknown,
+        edit: { content: string }
+      ) => {
+        editCalls.push({ targetId, content: edit.content });
+        return { ok: true };
+      },
+    } as unknown as MessageRelayService;
+
+    // Registering only the commands this test's scenarios need --
     // proves generic dispatch works for a real, arbitrary command, not
     // just that the wiring happens to route somewhere.
     commandRouter.addCommands(
       new CloseCommand(shared.threadService, runtimeConfigRepository),
-      new AddSnippetCommand(shared.snippetService)
+      new AddSnippetCommand(shared.snippetService),
+      new EditCommand(
+        shared.threadService,
+        stubMessageService,
+        runtimeConfigRepository
+      )
     );
 
+    const relayedContents: string[] = [];
+    shared.messageService.relayStaffMessageToUser = async (
+      _threadId,
+      _userId,
+      _guild,
+      msg
+    ) => {
+      relayedContents.push(msg.content);
+    };
+
+    await new SnippetRepository(db).createSnippet(guildId, "greet", "Hello!");
+
     registerEventHandlers(config, client, db, commandRouter, botManager, shared);
+
+    const channelSends: unknown[] = [];
 
     function mockMessage(content: string) {
       return {
@@ -140,15 +181,34 @@ describe("reply-to-toolbar single-owner wiring (via registerEventHandlers)", () 
           id: threadChannelId,
           parentId: forumChannelId,
           isThread: () => true,
-          send: async () => ({ id: "sent-msg-id" }),
+          send: async (options: unknown) => {
+            channelSends.push(options);
+            return { id: "sent-msg-id" };
+          },
+          messages: {
+            fetch: async () => ({ author: { id: "bot-user-id" } }),
+          },
         },
         reply: async () => ({ id: "reply-msg-id" }),
+        react: async () => {},
+        delete: async () => {},
         inGuild: () => true,
         client,
       } as any;
     }
 
-    return { client, db, guildId, threadRepository, mockMessage };
+    return {
+      client,
+      db,
+      guildId,
+      threadRepository,
+      mockMessage,
+      editCalls,
+      channelSends,
+      relayedContents,
+      toolbarMessageId,
+      discordClientId: config.discordClientId,
+    };
   }
 
   it("closes the thread via the real MessageCreate wiring when replying 'close' to the toolbar", async () => {
@@ -184,5 +244,85 @@ describe("reply-to-toolbar single-owner wiring (via registerEventHandlers)", () 
     const snippetRepository = new SnippetRepository(db);
     const snippet = await snippetRepository.getSnippet(guildId, "helpme");
     expect(snippet?.content).toBe("Hi, what can we help with?");
+  });
+
+  async function emitAndSettle(client: Client, message: unknown) {
+    (client as unknown as EventEmitter).emit(Events.MessageCreate, message);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  it("dispatches `@bot edit ...` replied to the toolbar message to EditCommand", async () => {
+    const { client, mockMessage, editCalls, toolbarMessageId, discordClientId } =
+      await setup();
+
+    await emitAndSettle(client, mockMessage(`<@${discordClientId}> edit new text`));
+
+    expect(editCalls).toEqual([{ targetId: toolbarMessageId, content: "new text" }]);
+  });
+
+  it("preserves multi-line edit content after an @mention", async () => {
+    const { client, mockMessage, editCalls, toolbarMessageId, discordClientId } =
+      await setup();
+
+    await emitAndSettle(
+      client,
+      mockMessage(`<@${discordClientId}> edit line one\n\nline  two`)
+    );
+
+    expect(editCalls).toEqual([
+      { targetId: toolbarMessageId, content: "line one\n\nline  two" },
+    ]);
+  });
+
+  it("still dispatches a bare `edit ...` with no prefix or mention", async () => {
+    const { client, mockMessage, editCalls, toolbarMessageId } = await setup();
+
+    await emitAndSettle(client, mockMessage("edit new text"));
+
+    expect(editCalls).toEqual([{ targetId: toolbarMessageId, content: "new text" }]);
+  });
+
+  it("replies with a hint when a toolbar reply isn't a known command", async () => {
+    const { client, mockMessage, editCalls, channelSends, discordClientId } =
+      await setup();
+
+    await emitAndSettle(client, mockMessage(`<@${discordClientId}> edt oops`));
+
+    expect(editCalls.length).toBe(0);
+    expect(channelSends).toContainEqual(
+      expect.objectContaining({
+        content: expect.stringContaining("Unknown command `edt`"),
+      })
+    );
+  });
+
+  it("sends a snippet for a mentioned toolbar reply, without a hint", async () => {
+    const { client, mockMessage, channelSends, relayedContents, discordClientId } =
+      await setup();
+
+    await emitAndSettle(client, mockMessage(`<@${discordClientId}> greet`));
+
+    expect(relayedContents).toEqual(["Hello!"]);
+    expect(channelSends).toEqual([]);
+  });
+
+  it("sends a snippet for a prefixed toolbar reply", async () => {
+    const { client, mockMessage, channelSends, relayedContents } = await setup();
+
+    await emitAndSettle(client, mockMessage("-greet"));
+
+    expect(relayedContents).toEqual(["Hello!"]);
+    expect(channelSends).toEqual([]);
+  });
+
+  it("stays silent for a markdown bullet replied to the toolbar", async () => {
+    const { client, mockMessage, channelSends, relayedContents, editCalls } =
+      await setup();
+
+    await emitAndSettle(client, mockMessage("- also check their alt"));
+
+    expect(relayedContents).toEqual([]);
+    expect(editCalls).toEqual([]);
+    expect(channelSends).toEqual([]);
   });
 });

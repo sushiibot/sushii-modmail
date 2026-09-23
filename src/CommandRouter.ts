@@ -8,6 +8,8 @@ import { CommandErrorView } from "views/CommandErrorView";
 import { withSpan } from "./tracing";
 import { recordCommandInvocation } from "utils/metrics";
 import { hasStaffPermission } from "utils/permissions";
+import { matchBotRoleMention } from "utils/botMention";
+import { GuildOwnershipConflictError } from "repositories/errors";
 
 interface CommandEntry {
   handler: TextCommandHandler | null;
@@ -144,7 +146,9 @@ export default class CommandRouter {
   async stripPrefixDetailed(
     msg: Message<true>
   ): Promise<{ content: string; viaMention: boolean } | null> {
-    const mentionMatch = msg.content.match(this.mentionPrefixRegex);
+    const mentionMatch =
+      msg.content.match(this.mentionPrefixRegex) ??
+      matchBotRoleMention(msg);
     if (mentionMatch) {
       return {
         content: msg.content.slice(mentionMatch[0].length),
@@ -290,18 +294,20 @@ export default class CommandRouter {
   }
 
   /**
-   * Runs `content` through the exact same command dispatch as a normal
-   * prefixed/mentioned message -- same permission check, subcommand
-   * resolution, primary-server gating, and metrics -- but treats it as
-   * already unprefixed. Used by the staff toolbar's reply-to-toolbar
-   * shortcut so any registered command works there without a prefix,
-   * without duplicating this dispatch logic a second time.
+   * Runs a reply-to-toolbar message through the exact same command dispatch
+   * as a normal prefixed/mentioned message -- same permission check,
+   * subcommand resolution, primary-server gating, and metrics -- but a
+   * prefix or @mention is optional. Never shows the prefix-deprecation
+   * nudge since this isn't the deprecated path.
    *
-   * viaMention is deliberately false: an owner-only command (bot roster
-   * admin) still requires an actual @mention, and this path never shows
-   * the prefix-deprecation nudge since it isn't the deprecated path.
+   * When a prefixed or mentioned reply isn't a command, `onUnknownCommand`
+   * gets a chance to handle it (e.g. as a snippet) and should resolve true
+   * if it did; otherwise an @mentioned reply gets an unknown-command hint.
    */
-  async handleUnprefixedMessage(msg: Message): Promise<void> {
+  async handleUnprefixedMessage(
+    msg: Message,
+    options: { onUnknownCommand?: () => Promise<boolean> } = {}
+  ): Promise<void> {
     if (msg.author.bot) {
       return;
     }
@@ -310,24 +316,78 @@ export default class CommandRouter {
       return;
     }
 
-    await this.dispatchCommand(msg, msg.content, {
-      viaMention: false,
-      warnOnPrefix: false,
-    });
+    try {
+      // Staff often @mention out of habit even when replying to the toolbar.
+      const prefixMatch = await this.stripPrefixDetailed(msg);
+
+      await this.dispatchCommand(msg, prefixMatch?.content ?? msg.content, {
+        viaMention: prefixMatch?.viaMention ?? false,
+        warnOnPrefix: false,
+        onUnknown:
+          prefixMatch === null
+            ? undefined
+            : async (commandName) => {
+                if (await options.onUnknownCommand?.()) {
+                  return;
+                }
+
+                // The text prefix defaults to `-`, which is also a markdown
+                // bullet, so a prefix alone isn't a clear enough signal.
+                if (prefixMatch.viaMention) {
+                  await this.replyUnknownToolbarCommand(msg, commandName);
+                }
+              },
+      });
+    } catch (err) {
+      // Threads aren't scoped per bot, so in a shared-DB guild every bot
+      // sees this reply; the non-owning bots' config lookups throw here.
+      if (err instanceof GuildOwnershipConflictError) {
+        this.logger.debug(
+          { messageId: msg.id, guildId: msg.guildId },
+          "Ignoring toolbar reply in a guild owned by another bot"
+        );
+        return;
+      }
+
+      throw err;
+    }
+  }
+
+  private async replyUnknownToolbarCommand(
+    msg: Message<true>,
+    commandName: string
+  ): Promise<void> {
+    if (!commandName || !(await this.hasPermission(msg))) {
+      return;
+    }
+
+    this.logger.info(
+      { commandName: commandName.slice(0, 50), messageId: msg.id },
+      "No command matched toolbar reply"
+    );
+    await msg.channel.send(CommandErrorView.unknownToolbarCommand(commandName));
   }
 
   private async dispatchCommand(
     msg: Message<true>,
     content: string,
-    options: { viaMention: boolean; warnOnPrefix: boolean }
+    options: {
+      viaMention: boolean;
+      warnOnPrefix: boolean;
+      onUnknown?: (commandName: string) => Promise<void>;
+    }
   ): Promise<void> {
     const [commandName, subCommandName, args, rawArgs] =
       await this.breakDownMessage(content);
 
     let rootCommand = this.commands.get(commandName);
 
-    // No matching command
     if (!rootCommand) {
+      this.logger.debug(
+        { commandName: commandName.slice(0, 50), messageId: msg.id },
+        "No command matched"
+      );
+      await options.onUnknown?.(commandName);
       return;
     }
 
@@ -352,8 +412,10 @@ export default class CommandRouter {
 
     if (!handler) {
       this.logger.warn(
-        `Command handler not found: ${rootCommand} ${subCommandName}`
+        `Command handler not found: ${commandName} ${subCommandName}`
       );
+
+      await options.onUnknown?.(commandName);
 
       return;
     }

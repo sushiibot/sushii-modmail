@@ -43,9 +43,19 @@ export class EditCommand extends TextCommandHandler {
       return;
     }
 
+    const repliedToMessage = msg.reference?.messageId;
+    const logContext = {
+      messageId: msg.id,
+      channelId: msg.channelId,
+      targetMessageId: repliedToMessage,
+    };
+
+    this.logger.info(logContext, "Edit command started");
+
     const config = await this.configRepository.getConfig(msg.guildId);
 
     if (!config.forumChannelId) {
+      this.logger.warn(logContext, "Edit rejected: forum channel not configured");
       await msg.channel.send(
         "Not configured yet! Please set up the modmail forum channel first."
       );
@@ -55,12 +65,12 @@ export class EditCommand extends TextCommandHandler {
 
     // Check if the message is in a modmail thread
     if (msg.channel.parentId !== config.forumChannelId) {
+      this.logger.debug(logContext, "Edit ignored: not in a modmail thread");
       return;
     }
 
-    // Check if the message is replying to another message
-    const repliedToMessage = msg.reference?.messageId;
     if (!repliedToMessage) {
+      this.logger.warn(logContext, "Edit rejected: not a reply");
       await msg.channel.send(
         "To edit a message: Reply to a message with this command and your new message."
       );
@@ -69,6 +79,7 @@ export class EditCommand extends TextCommandHandler {
 
     const editContent = rawArgs;
     if (!editContent) {
+      this.logger.warn(logContext, "Edit rejected: empty content");
       await msg.channel.send("Please provide a new message content.");
       return;
     }
@@ -79,6 +90,10 @@ export class EditCommand extends TextCommandHandler {
 
       // Check if the message is from the bot
       if (targetMessage.author.id !== msg.client.user.id) {
+        this.logger.warn(
+          { ...logContext, targetAuthorId: targetMessage.author.id },
+          "Edit rejected: target is not a bot message"
+        );
         await msg.channel.send(
           "You can only edit staff messages. Make sure to reply to the bot message you want to edit."
         );
@@ -92,6 +107,7 @@ export class EditCommand extends TextCommandHandler {
       );
 
       if (!thread) {
+        this.logger.warn(logContext, "Edit rejected: no thread for channel");
         await msg.channel.send(
           "Could not find the thread information... hmm... maybe this was a manually created forum thread?"
         );
@@ -100,6 +116,7 @@ export class EditCommand extends TextCommandHandler {
       }
 
       if (thread.isClosed) {
+        this.logger.warn(logContext, "Edit rejected: thread is closed");
         await msg.channel.send(
           "This thread is closed. Cannot edit messages in a closed thread."
         );
@@ -124,6 +141,10 @@ export class EditCommand extends TextCommandHandler {
       );
 
       if (!result.ok) {
+        this.logger.warn(
+          { ...logContext, reason: result.message },
+          "Edit failed"
+        );
         await msg.channel.send(result.message);
 
         return;

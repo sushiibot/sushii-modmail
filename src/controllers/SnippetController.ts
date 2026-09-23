@@ -9,6 +9,7 @@ import type {
 import { StaffThreadView } from "views/StaffThreadView";
 import type { StaffToUserMessage } from "../models/relayMessage";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
+import { matchBotRoleMention } from "utils/botMention";
 
 export interface Thread {
   userId: string;
@@ -70,41 +71,49 @@ export class SnippetController {
     this.mentionPrefixRegex = new RegExp(`^<@!?${discordClientId}>\\s*`);
   }
 
-  async handleThreadMessage(client: Client, message: Message): Promise<void> {
+  /**
+   * Resolves true if the message named an existing snippet, even if relaying
+   * it then failed (the error reply already answered the staffer).
+   */
+  async handleThreadMessage(client: Client, message: Message): Promise<boolean> {
+    let snippetFound = false;
+
     try {
       if (!message.inGuild()) {
-        return;
+        return false;
       }
 
       if (!message.channel.isThread()) {
-        return;
+        return false;
       }
 
       const config = await this.configRepository.getConfig(message.guildId);
 
       if (!config.forumChannelId) {
-        return;
+        return false;
       }
 
       // Check if this is the modmail channel
       if (message.channel.parentId !== config.forumChannelId) {
-        return;
+        return false;
       }
 
       if (message.author.bot) {
-        return;
+        return false;
       }
 
       // Snippets can be triggered by the configured text prefix or by
       // @mentioning the bot, matching the CommandRouter's trigger rules.
-      const mentionMatch = message.content.match(this.mentionPrefixRegex);
+      const mentionMatch =
+        message.content.match(this.mentionPrefixRegex) ??
+        matchBotRoleMention(message);
       let rest: string;
       if (mentionMatch) {
         rest = message.content.slice(mentionMatch[0].length);
       } else if (message.content.startsWith(config.prefix)) {
         rest = message.content.slice(config.prefix.length);
       } else {
-        return;
+        return false;
       }
 
       // Find modmail thread
@@ -113,14 +122,14 @@ export class SnippetController {
       );
 
       if (!thread) {
-        return;
+        return false;
       }
 
       // Extract snippet name
       const snippetName = rest.trim().split(/\s+/)[0];
 
       if (!snippetName) {
-        return;
+        return false;
       }
 
       this.logger.debug(
@@ -136,8 +145,10 @@ export class SnippetController {
       if (!snippet) {
         // Ignore
         this.logger.debug(`Snippet not found: ${snippetName}`);
-        return;
+        return false;
       }
+
+      snippetFound = true;
 
       // Get the guild
       const guild = client.guilds.cache.get(thread.guildId);
@@ -180,11 +191,15 @@ export class SnippetController {
 
       // Delete the original message
       await message.delete();
+
+      return true;
     } catch (err) {
       this.logger.error(err, `Error handling snippet command`);
       await message.reply(
         "An error occurred while processing the snippet command."
       );
+
+      return snippetFound;
     }
   }
 }

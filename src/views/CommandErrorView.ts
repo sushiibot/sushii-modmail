@@ -65,4 +65,13 @@ export class CommandErrorView {
       allowedMentions: { parse: [] },
     };
   }
+
+  static unknownToolbarCommand(commandName: string): MessageCreateOptions {
+    const safeName = commandName.replace(/`/g, "").slice(0, 50);
+
+    return {
+      content: `Unknown command \`${safeName}\`. Reply to the toolbar with a command like \`reply …\`, \`edit …\`, or \`close\`.`,
+      allowedMentions: { parse: [] },
+    };
+  }
 }

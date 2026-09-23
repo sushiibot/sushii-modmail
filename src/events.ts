@@ -266,19 +266,19 @@ export function registerEventHandlers(
         return;
       }
 
-      // Single owner: a reply to the toolbar itself is consumed exclusively
-      // here, before the command router's normal (prefixed) path or the
-      // snippet trigger ever see it -- otherwise a bare word like "close"
-      // or a snippet name is ambiguous between this and those paths. Routes
-      // through the real command dispatch (unprefixed) so any registered
-      // command works, not just a hardcoded subset.
+      // Single owner: a reply to the toolbar is consumed exclusively here,
+      // so exactly one of command / snippet / unknown-command hint answers
+      // it instead of the normal command and snippet paths racing.
       if (message.inGuild() && message.channel.isThread()) {
         const thread = await threadService.getThreadByChannelId(
           message.channel.id
         );
 
         if (thread && toolbarController.isReplyToToolbar(message, thread)) {
-          await commandRouter.handleUnprefixedMessage(message);
+          await commandRouter.handleUnprefixedMessage(message, {
+            onUnknownCommand: () =>
+              snippetController.handleThreadMessage(message.client, message),
+          });
           return;
         }
       }
