@@ -44,6 +44,7 @@ import {
   recordSnippetUsage,
   recordThreadClosed,
 } from "utils/metrics";
+import { getUndeliverableDMReason } from "utils/discordErrors";
 
 interface Config {
   guildId: string;
@@ -644,125 +645,100 @@ export class MessageRelayService {
       files,
     });
 
-    // Extract the attachment URLs from the message
-    const { attachmentUrls: attachmentURLs, stickers } =
-      extractComponentImages(threadStaffMsg);
-
-    this.logger.debug(
-      { attachmentURLs, stickers },
-      "Extracted attachment URLs and stickers from staff message"
-    );
-
-    // -------------------------------------------------
-    // USER DM
-    // Format the message for user facing DM
-
-    // Create a new message object with extracted attachment URLs
-    const msgWithExtractedAttachments: StaffToUserMessage = {
-      ...msg,
-      attachments: attachmentURLs.map((url, index) => ({
-        id: `extracted-${index}`,
-        name: msg.attachments[index]?.name || `attachment-${index}`,
-        url,
-      })),
-      stickers,
-    };
-
-    // Use the extracted attachment URLs and stickers to build the message
-    const message = await UserThreadView.staffMessage(
-      guild,
-      msgWithExtractedAttachments,
-      options
-    );
-
+    let attachmentURLs: string[] = [];
+    let stickers: MessageSticker[] = [];
     let relayedMsg;
     try {
+      // Extract the attachment URLs from the message
+      ({ attachmentUrls: attachmentURLs, stickers } =
+        extractComponentImages(threadStaffMsg));
+
+      this.logger.debug(
+        { attachmentURLs, stickers },
+        "Extracted attachment URLs and stickers from staff message"
+      );
+
+      // -------------------------------------------------
+      // USER DM
+      // Format the message for user facing DM
+
+      // Create a new message object with extracted attachment URLs
+      const msgWithExtractedAttachments: StaffToUserMessage = {
+        ...msg,
+        attachments: attachmentURLs.map((url, index) => ({
+          id: `extracted-${index}`,
+          name: msg.attachments[index]?.name || `attachment-${index}`,
+          url,
+        })),
+        stickers,
+      };
+
+      // Use the extracted attachment URLs and stickers to build the message
+      const message = await UserThreadView.staffMessage(
+        guild,
+        msgWithExtractedAttachments,
+        options
+      );
+
       relayedMsg = await user.send(message);
     } catch (error) {
-      if (
-        error instanceof DiscordAPIError &&
-        error.code === RESTJSONErrorCodes.CannotSendMessagesToThisUser
-      ) {
-        // User has blocked the bot or has privacy settings that prevent DMs
-        this.logger.debug(
-          {
-            userId: user.id,
-            threadId: threadId,
-            error: error.message,
-          },
-          "User has blocked the bot or has privacy settings that prevent DMs"
-        );
+      // The staff message is already posted (possibly as the toolbar
+      // bearer), so it needs a row and a failed render for any error --
+      // otherwise a later strip skips it and it looks delivered.
+      await this.markStaffMessageFailed(threadId, threadStaffMsg, msg, options, {
+        emojis,
+        attachmentURLs,
+        stickers,
+      });
 
-        // Edit the staff thread message to indicate the user cannot be DMed
-        const failedComponents = StaffThreadView.staffReplyComponents(
-          msg,
-          emojis,
-          options,
-          { failed: true }
-        );
+      const undeliverableReason = getUndeliverableDMReason(error);
+      if (!undeliverableReason) {
+        throw error;
+      }
 
-        try {
-          // Persisted (not saved earlier, since a DM-blocked send never
-          // produces a relayed message) so a later toolbar-overlay strip
-          // re-render never shows this as a successful delivery.
-          await this.saveStaffMessage({
-            threadId,
-            threadMessageId: threadStaffMsg.id,
-            relayedMessageId: null,
-            authorId: msg.author.id,
-            content: msg.content,
-            isAnonymous: options.anonymous,
-            isPlainText: options.plainText,
-            isSnippet: options.snippet,
-            snippetName: options.snippetName,
-            attachmentUrls: attachmentURLs,
-            stickers,
-          });
-          await this.messageRepository.setDmFailed(threadStaffMsg.id, true);
+      this.logger.debug(
+        {
+          userId: user.id,
+          threadId: threadId,
+          reason: undeliverableReason,
+          error: (error as Error).message,
+        },
+        "Cannot DM user, reply not delivered"
+      );
 
-          const editOptions = await this.toolbarService.reapplyIfBearer(
-            threadId,
-            threadStaffMsg.id,
-            {
-              components: failedComponents,
-              flags: MessageFlags.IsComponentsV2,
-              allowedMentions: { parse: [] },
-            }
-          );
-          await threadStaffMsg.edit(editOptions);
-        } catch (err) {
-          this.logger.error(
-            {
-              threadId: threadId,
-              messageId: threadStaffMsg.id,
-              error: (err as Error).message,
-            },
-            "Failed to edit staff thread message after user DM failure"
-          );
+      // Recorded before the best-effort follow-ups below so their failure
+      // can't turn a handled undeliverable DM into a generic failure.
+      recordMessageRelay("staff_to_user", "failure", "dm_blocked");
 
-          // Continue to send the error message
-        }
-
-        // Send error message to staff thread
-        const errorMessage = StaffThreadView.userDMsDisabledError();
+      try {
+        const errorMessage =
+          StaffThreadView.userDMsDisabledError(undeliverableReason);
         await staffThread.send({
           ...errorMessage,
           reply: {
             messageReference: threadStaffMsg.id,
           },
         });
+      } catch (err) {
+        this.logger.error(
+          { threadId, messageId: threadStaffMsg.id, error: (err as Error).message },
+          "Failed to send DM failure notice to staff thread"
+        );
+      }
 
+      try {
         // This plain send() landed below the toolbar's overlay bearer,
         // stranding it mid-thread -- the toolbar must always be the last
         // thing in the thread.
         await this.toolbarService.bumpToBottom(threadId);
-
-        recordMessageRelay("staff_to_user", "failure", "dm_blocked");
-        return;
+      } catch (err) {
+        this.logger.error(
+          { threadId, error: (err as Error).message },
+          "Failed to move toolbar to bottom after DM failure notice"
+        );
       }
 
-      // Re-throw other errors
-      throw error;
+      return;
     }
 
     // ------------------------------------------------
@@ -785,6 +761,71 @@ export class MessageRelayService {
 
     if (options.snippet) {
       recordSnippetUsage();
+    }
+  }
+
+  /**
+   * Persists a staff message whose DM relay failed and re-renders it as
+   * failed. Never throws -- the caller still has to report the original
+   * failure.
+   */
+  private async markStaffMessageFailed(
+    threadId: string,
+    threadStaffMsg: DiscordMessage,
+    msg: StaffToUserMessage,
+    options: StaffMessageOptions,
+    extracted: {
+      emojis: StaffThreadEmojis;
+      attachmentURLs: string[];
+      stickers: MessageSticker[];
+    }
+  ): Promise<void> {
+    try {
+      // A failed send never produces a relayed message, so this row is the
+      // only thing that lets a toolbar strip re-render it as failed.
+      await this.saveStaffMessage({
+        threadId,
+        threadMessageId: threadStaffMsg.id,
+        relayedMessageId: null,
+        authorId: msg.author.id,
+        content: msg.content,
+        isAnonymous: options.anonymous,
+        isPlainText: options.plainText,
+        isSnippet: options.snippet,
+        snippetName: options.snippetName,
+        attachmentUrls: extracted.attachmentURLs,
+        stickers: extracted.stickers,
+      });
+      await this.messageRepository.setDmFailed(threadStaffMsg.id, true);
+    } catch (err) {
+      this.logger.error(
+        { threadId, messageId: threadStaffMsg.id, error: (err as Error).message },
+        "Failed to persist staff message after user DM failure"
+      );
+    }
+
+    try {
+      const failedComponents = StaffThreadView.staffReplyComponents(
+        msg,
+        extracted.emojis,
+        options,
+        { failed: true }
+      );
+      const editOptions = await this.toolbarService.reapplyIfBearer(
+        threadId,
+        threadStaffMsg.id,
+        {
+          components: failedComponents,
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] },
+        }
+      );
+      await threadStaffMsg.edit(editOptions);
+    } catch (err) {
+      this.logger.error(
+        { threadId, messageId: threadStaffMsg.id, error: (err as Error).message },
+        "Failed to edit staff thread message after user DM failure"
+      );
     }
   }
 

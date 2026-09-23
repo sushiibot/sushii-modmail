@@ -11,6 +11,7 @@ import {
   type BotSummary,
 } from "services/BotManager";
 import { getCurrentBot } from "./botContext";
+import { CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS } from "./discordErrors";
 import { getRegisteredThreadRepository } from "./threadMetricsRegistry";
 
 // MAIL_GUILD_ID only changes on a redeploy, so once a conflict is
@@ -156,6 +157,7 @@ export function classifyDiscordError(err: unknown): string {
   if (err instanceof DiscordAPIError) {
     switch (err.code) {
       case RESTJSONErrorCodes.CannotSendMessagesToThisUser:
+      case CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS:
         return "dm_blocked";
       case RESTJSONErrorCodes.UnknownChannel:
       case RESTJSONErrorCodes.UnknownMessage:

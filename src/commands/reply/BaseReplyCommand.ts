@@ -145,9 +145,17 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
     } catch (error) {
       this.logger.error(`Error sending reply: ${error}`);
 
+      const codeSuffix =
+        error instanceof DiscordAPIError ? ` (Discord error ${error.code})` : "";
       await msg.channel.send(
-        "Error while sending reply. See logs for details."
+        `Error while sending reply${codeSuffix}. See logs for details.`
       );
+
+      try {
+        await this.messageService.bumpToolbarToBottom(msg.channelId);
+      } catch (bumpErr) {
+        this.logger.error(`Error moving toolbar to bottom: ${bumpErr}`);
+      }
     }
   }
 }

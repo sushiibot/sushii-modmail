@@ -29,6 +29,8 @@ import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { randomSnowflakeID } from "tests/utils/snowflake";
 import type { BotConfig } from "models/botConfig.model";
 import * as util from "views/util";
+import * as metrics from "utils/metrics";
+import { CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS } from "utils/discordErrors";
 
 describe("MessageRelayService", () => {
   let client: Client;
@@ -602,6 +604,338 @@ describe("MessageRelayService", () => {
         expect.objectContaining({ components: [] })
       );
       expect(threadStaffMessage.edit).toHaveBeenCalled();
+    });
+
+    it("handles no-mutual-guilds (50278) as undeliverable: persists dmFailed, sends a reason-specific notice, bumps the toolbar, no throw", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const options = { anonymous: false, plainText: false, snippet: false };
+
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content: "Hello, user!",
+        attachments: [],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+
+      const user = {
+        id: userId,
+        send: mock().mockRejectedValue(
+          new DiscordAPIError(
+            {
+              code: CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS,
+              message:
+                "Cannot send messages to this user due to having no mutual guilds",
+            },
+            CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS,
+            400,
+            "POST",
+            "url",
+            {}
+          )
+        ),
+      } as unknown as User;
+
+      const threadStaffMessage = {
+        id: "staff-thread-message-id",
+        edit: mock().mockResolvedValue(undefined),
+        attachments: { values: () => [] },
+        stickers: [],
+      };
+      toolbarService.relay.mockResolvedValue(threadStaffMessage);
+
+      const staffThreadChannel = {
+        send: mock().mockResolvedValue({ id: "error-message-id" }),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(util, "downloadAttachments").mockResolvedValue([]);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [],
+        stickers: [],
+      });
+      spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
+      const noticeSpy = spyOn(StaffThreadView, "userDMsDisabledError");
+
+      try {
+        await service.relayStaffMessageToUser(threadId, userId, guild, msg, options);
+
+        expect(messageRepository.saveMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            threadId,
+            messageId: "staff-thread-message-id",
+            isStaff: true,
+            staffRelayedMessageId: null,
+          })
+        );
+        expect(messageRepository.setDmFailed).toHaveBeenCalledWith(
+          "staff-thread-message-id",
+          true
+        );
+        expect(threadStaffMessage.edit).toHaveBeenCalled();
+        expect(noticeSpy).toHaveBeenCalledWith("no_mutual_guilds");
+        expect(staffThreadChannel.send).toHaveBeenCalledWith(
+          expect.objectContaining({
+            reply: { messageReference: "staff-thread-message-id" },
+          })
+        );
+        expect(toolbarService.bumpToBottom).toHaveBeenCalledWith(threadId);
+
+        // The bump strips the old bearer from its row, so the row must be
+        // marked failed first; the notice must land before the bump.
+        const bumpOrder = toolbarService.bumpToBottom.mock.invocationCallOrder[0];
+        expect(
+          messageRepository.setDmFailed.mock.invocationCallOrder[0]
+        ).toBeLessThan(bumpOrder);
+        expect(
+          (staffThreadChannel.send as any).mock.invocationCallOrder[0]
+        ).toBeLessThan(bumpOrder);
+      } finally {
+        noticeSpy.mockRestore();
+      }
+    });
+
+    it("persists and re-renders the staff message as failed on a non-DM send error, then rethrows", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const options = { anonymous: false, plainText: false, snippet: false };
+
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content: "Hello, user!",
+        attachments: [],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+
+      const sendError = new DiscordAPIError(
+        { code: RESTJSONErrorCodes.MaximumActiveThreads, message: "other" },
+        RESTJSONErrorCodes.MaximumActiveThreads,
+        400,
+        "POST",
+        "url",
+        {}
+      );
+      const user = {
+        id: userId,
+        send: mock().mockRejectedValue(sendError),
+      } as unknown as User;
+
+      const threadStaffMessage = {
+        id: "staff-thread-message-id",
+        edit: mock().mockResolvedValue(undefined),
+        attachments: { values: () => [] },
+        stickers: [],
+      };
+      toolbarService.relay.mockResolvedValue(threadStaffMessage);
+
+      const staffThreadChannel = {
+        send: mock().mockResolvedValue({ id: "error-message-id" }),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(util, "downloadAttachments").mockResolvedValue([]);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [],
+        stickers: [],
+      });
+      const componentsSpy = spyOn(
+        StaffThreadView,
+        "staffReplyComponents"
+      ).mockReturnValue([]);
+
+      await expect(
+        service.relayStaffMessageToUser(threadId, userId, guild, msg, options)
+      ).rejects.toBe(sendError);
+
+      expect(messageRepository.saveMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messageId: "staff-thread-message-id",
+          isStaff: true,
+          staffRelayedMessageId: null,
+        })
+      );
+      expect(messageRepository.setDmFailed).toHaveBeenCalledWith(
+        "staff-thread-message-id",
+        true
+      );
+      expect(componentsSpy).toHaveBeenCalledWith(msg, expect.any(Map), options, {
+        failed: true,
+      });
+      expect(toolbarService.reapplyIfBearer).toHaveBeenCalledWith(
+        threadId,
+        "staff-thread-message-id",
+        expect.objectContaining({ components: [] })
+      );
+      expect(threadStaffMessage.edit).toHaveBeenCalled();
+      // Callers report the error themselves; no DM-blocked notice here.
+      expect(staffThreadChannel.send).not.toHaveBeenCalled();
+    });
+
+    it("still edits the staff message as failed when persisting the row throws", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const options = { anonymous: false, plainText: false, snippet: false };
+
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content: "Hello, user!",
+        attachments: [],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+
+      const user = {
+        id: userId,
+        send: mock().mockRejectedValue(
+          new DiscordAPIError(
+            {
+              code: RESTJSONErrorCodes.CannotSendMessagesToThisUser,
+              message: "Cannot send messages to this user",
+            },
+            RESTJSONErrorCodes.CannotSendMessagesToThisUser,
+            403,
+            "POST",
+            "url",
+            {}
+          )
+        ),
+      } as unknown as User;
+
+      const threadStaffMessage = {
+        id: "staff-thread-message-id",
+        edit: mock().mockResolvedValue(undefined),
+        attachments: { values: () => [] },
+        stickers: [],
+      };
+      toolbarService.relay.mockResolvedValue(threadStaffMessage);
+      messageRepository.saveMessage.mockRejectedValue(new Error("db down"));
+
+      const staffThreadChannel = {
+        send: mock().mockResolvedValue({ id: "error-message-id" }),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(util, "downloadAttachments").mockResolvedValue([]);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [],
+        stickers: [],
+      });
+      spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
+
+      await service.relayStaffMessageToUser(threadId, userId, guild, msg, options);
+
+      expect(threadStaffMessage.edit).toHaveBeenCalled();
+    });
+
+    it("returns normally and records dm_blocked when the toolbar bump throws in the handled path", async () => {
+      const threadId = randomSnowflakeID();
+      const userId = randomSnowflakeID();
+      const guild = {} as UserThreadViewGuild;
+      const options = { anonymous: false, plainText: false, snippet: false };
+
+      const msg: StaffToUserMessage = {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "Staff#1234",
+          displayName: "Staff",
+          displayAvatarURL: () => "https://example.com/staff-avatar.png",
+        },
+        content: "Hello, user!",
+        attachments: [],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+
+      const user = {
+        id: userId,
+        send: mock().mockRejectedValue(
+          new DiscordAPIError(
+            {
+              code: CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS,
+              message: "no mutual guilds",
+            },
+            CANNOT_SEND_MESSAGES_NO_MUTUAL_GUILDS,
+            400,
+            "POST",
+            "url",
+            {}
+          )
+        ),
+      } as unknown as User;
+
+      const threadStaffMessage = {
+        id: "staff-thread-message-id",
+        edit: mock().mockResolvedValue(undefined),
+        attachments: { values: () => [] },
+        stickers: [],
+      };
+      toolbarService.relay.mockResolvedValue(threadStaffMessage);
+      toolbarService.bumpToBottom.mockRejectedValue(new Error("bump failed"));
+
+      const staffThreadChannel = {
+        send: mock().mockRejectedValue(new Error("notice failed")),
+        isSendable: mock().mockReturnValue(true),
+      } as unknown as TextChannel;
+
+      spyOn(client.channels, "fetch").mockResolvedValue(staffThreadChannel);
+      spyOn(client.users, "fetch").mockResolvedValue(user);
+      spyOn(util, "downloadAttachments").mockResolvedValue([]);
+      spyOn(util, "extractComponentImages").mockReturnValue({
+        attachmentUrls: [],
+        stickers: [],
+      });
+      spyOn(StaffThreadView, "staffReplyComponents").mockReturnValue([]);
+      const metricSpy = spyOn(metrics, "recordMessageRelay");
+
+      try {
+        await service.relayStaffMessageToUser(
+          threadId,
+          userId,
+          guild,
+          msg,
+          options
+        );
+
+        expect(toolbarService.bumpToBottom).toHaveBeenCalledWith(threadId);
+        expect(metricSpy).toHaveBeenCalledTimes(1);
+        expect(metricSpy).toHaveBeenCalledWith(
+          "staff_to_user",
+          "failure",
+          "dm_blocked"
+        );
+      } finally {
+        metricSpy.mockRestore();
+      }
     });
   });
 

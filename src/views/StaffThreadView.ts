@@ -29,6 +29,7 @@ import type {
 } from "../models/relayMessage";
 import type { BotEmojiName, MessageEmojiMap } from "models/botEmoji.model";
 import type { MessageVersion } from "models/messageVersion.model";
+import type { UndeliverableDMReason } from "utils/discordErrors";
 
 export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
@@ -239,7 +240,7 @@ export class StaffThreadView {
     displayOptions: {
       editedById?: string;
       deletedById?: string;
-      failed?: boolean; // If failed to send due to DM permissions
+      failed?: boolean; // If the DM relay to the user failed
     } = {}
   ): BaseMessageOptions["components"] {
     const container = new ContainerBuilder();
@@ -381,11 +382,17 @@ export class StaffThreadView {
     };
   }
 
-  static userDMsDisabledError(): MessageCreateOptions {
+  static userDMsDisabledError(
+    reason: UndeliverableDMReason
+  ): MessageCreateOptions {
     const container = new ContainerBuilder().setAccentColor(HexColor.Pink);
 
     let content = "## Cannot message user";
-    content += `\nThe user has either blocked the bot or their privacy settings don't allow DMs from server members.`;
+    if (reason === "no_mutual_guilds") {
+      content += `\nThe user isn't in any server shared with the bot (they likely left or were removed), so this reply was not delivered.`;
+    } else {
+      content += `\nThe user has either blocked the bot or their privacy settings don't allow DMs from server members.`;
+    }
 
     const textDisplay = new TextDisplayBuilder().setContent(content);
 
