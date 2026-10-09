@@ -237,7 +237,6 @@ export function buildClient(
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMessageReactions,
       GatewayIntentBits.GuildModeration,
-      GatewayIntentBits.MessageContent,
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.DirectMessageReactions,
     ],
