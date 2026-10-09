@@ -1,0 +1,49 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_version:
+        description: "Existing image tag to deploy (leave empty to use the selected commit)"
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: deploy-production
+  # Queue new runs so an active deployment can finish.
+  cancel-in-progress: false
+
+jobs:
+  image-version:
+    runs-on: ubuntu-latest
+    outputs:
+      image_version: ${{ steps.version.outputs.image_version }}
+    steps:
+      - name: Select image version
+        id: version
+        env:
+          IMAGE_VERSION: ${{ inputs.image_version }}
+        run: |
+          version="${IMAGE_VERSION:-${GITHUB_SHA::7}}"
+          if [[ ! "$version" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "Expected a commit SHA image tag" >&2
+            exit 1
+          fi
+          echo "image_version=$version" >> "$GITHUB_OUTPUT"
+          echo "Deploying ghcr.io/sushiibot/modmail:$version" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: image-version
+    uses: sushiibot/sushii-workflows/.github/workflows/deploy.yml@main # zizmor: ignore[unpinned-uses] first-party, tracked at @main by design
+    with:
+      service: modmail/sushii-modmail-prod
+      host: apps
+      image_version: ${{ needs.image-version.outputs.image_version }}
+      environment: production
+    secrets:
+      ANSIBLE_REPO_TOKEN: ${{ secrets.ANSIBLE_REPO_TOKEN }}
+      ANSIBLE_SSH_PRIVATE_KEY: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
+      ANSIBLE_KNOWN_HOSTS: ${{ secrets.ANSIBLE_KNOWN_HOSTS }}
+      ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
