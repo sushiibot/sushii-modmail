@@ -264,8 +264,9 @@ export class BotManager {
     mailGuildId: string,
     invokerId: string
   ): Promise<ManagedBot> {
-    registerSecretValue(token);
     const applicationId = await this.deps.resolveApplicationId(token);
+    // Only once Discord accepts it, so a mistakenly pasted id isn't redacted everywhere.
+    registerSecretValue(token);
 
     return this.withAppLock(applicationId, async () => {
       const existing = await this.botRepository.findByApplicationId(
@@ -311,8 +312,8 @@ export class BotManager {
     newToken: string,
     invokerId: string
   ): Promise<ManagedBot> {
-    registerSecretValue(newToken);
     const resolvedApplicationId = await this.deps.resolveApplicationId(newToken);
+    registerSecretValue(newToken);
     if (resolvedApplicationId !== applicationId) {
       throw new Error(
         "This token belongs to a different application than the bot being rotated."

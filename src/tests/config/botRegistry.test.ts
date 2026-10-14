@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { EnvBotRegistry } from "../../config/botRegistry";
+import { knownSecretValues } from "../../config/secrets";
 
 function env(vars: Record<string, string>): NodeJS.ProcessEnv {
   return vars as NodeJS.ProcessEnv;
@@ -158,5 +159,23 @@ describe("EnvBotRegistry", () => {
         expect(String(err)).not.toContain("same-secret-token");
       }
     });
+  });
+});
+
+describe("EnvBotRegistry secret registration", () => {
+  it("registers numbered and legacy tokens for scrubbing", () => {
+    new EnvBotRegistry(
+      env({
+        BOT_1_NAME: "lisa",
+        BOT_1_DISCORD_TOKEN: "numbered-registry-token-907",
+        BOT_1_MAIL_GUILD_ID: "guild1",
+      })
+    ).getBotConfigs();
+    new EnvBotRegistry(
+      env({ DISCORD_TOKEN: "legacy-registry-token-908", MAIL_GUILD_ID: "guild1" })
+    ).getBotConfigs();
+
+    expect(knownSecretValues()).toContain("numbered-registry-token-907");
+    expect(knownSecretValues()).toContain("legacy-registry-token-908");
   });
 });

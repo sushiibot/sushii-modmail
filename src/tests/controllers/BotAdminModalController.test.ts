@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { BotAdminModalController } from "../../controllers/BotAdminModalController";
 import { botAdminCustomID } from "../../views/BotAdmin";
+import { registerSecretValue } from "../../config/secrets";
 
 const OWNER_ID = "owner-user-id";
 
@@ -94,5 +95,29 @@ describe("BotAdminModalController -- fall-through contract (customId check befor
     await controller.handleModal(interaction);
 
     expect(calls).toEqual(["deferReply", "editReply"]);
+  });
+});
+
+describe("BotAdminModalController failure reply", () => {
+  it("scrubs a registered token from the error text it replies with", async () => {
+    const token = "modal-reply-echo-token-906";
+    registerSecretValue(token);
+    const manager = {
+      ...fakeBotManager(),
+      addBot: async () => {
+        throw new Error(`insert failed for ${token}`);
+      },
+    } as any;
+    const replies: string[] = [];
+    const { interaction } = fakeInteraction(botAdminCustomID.addModal, OWNER_ID);
+    interaction.editReply = async (text: string) => {
+      replies.push(text);
+    };
+
+    await new BotAdminModalController(manager, OWNER_ID).handleModal(interaction);
+
+    expect(replies).toHaveLength(1);
+    expect(replies[0]).toContain("Failed: insert failed for [REDACTED]");
+    expect(replies[0]).not.toContain(token);
   });
 });

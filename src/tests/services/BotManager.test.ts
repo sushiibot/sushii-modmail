@@ -11,6 +11,7 @@ import {
 } from "../../services/BotManager";
 import type { GlobalConfig } from "../../models/botConfig.model";
 import { runtimeConfig, botEmojis } from "../../database/schema";
+import { knownSecretValues } from "../../config/secrets";
 
 const globals: GlobalConfig = {
   LOG_LEVEL: "info",
@@ -566,5 +567,98 @@ describe("deriveStatus", () => {
     expect(deriveStatus(managedWithWsStatus(Status.Idle))).toBe(
       "disconnected"
     );
+  });
+});
+
+describe("BotManager secret registration", () => {
+  let db: ReturnType<typeof getDb>;
+  let botRepository: BotRepository;
+
+  beforeEach(() => {
+    db = getDb(":memory:");
+    botRepository = new BotRepository(db);
+  });
+
+  function loginEchoes(token: string) {
+    return {
+      ws: { status: Status.Ready, ping: 12 },
+      login: async () => {
+        throw new Error(`login rejected token ${token}`);
+      },
+      destroy: async () => {},
+    };
+  }
+
+  it("addBot does not register a value Discord rejects", async () => {
+    const pasted = "pasted-guild-id-addbot-901";
+    const manager = new BotManager(db, globals, botRepository, makeDeps());
+
+    await expect(
+      manager.addBot("lisa", pasted, "111111111111111111", "invoker-1")
+    ).rejects.toThrow();
+
+    expect(knownSecretValues()).not.toContain(pasted);
+  });
+
+  it("addBot registers an accepted token, untrimmed and trimmed, and scrubs it from lastError", async () => {
+    const token = "addbot-login-echo-token-902";
+    const appId = "100000000000000902";
+    const deps = makeDeps({
+      tokenToAppId: { [`${token}\n`]: appId },
+      clientsByAppId: { [appId]: loginEchoes(`${token}\n`) as any },
+    });
+    const manager = new BotManager(db, globals, botRepository, deps);
+
+    await manager.addBot("lisa", `${token}\n`, "111111111111111111", "invoker-1");
+
+    expect(knownSecretValues()).toContain(`${token}\n`);
+    expect(knownSecretValues()).toContain(token);
+    const [summary] = manager.getSummaries();
+    expect(summary?.lastError).toContain("[REDACTED]");
+    expect(summary?.lastError).not.toContain(token);
+  });
+
+  it("rotateToken does not register a value Discord rejects", async () => {
+    const deps = makeDeps();
+    const manager = new BotManager(db, globals, botRepository, deps);
+    await manager.addBot("lisa", "token-1", "111111111111111111", "invoker-1");
+
+    const pasted = "pasted-app-id-rotate-903";
+    await expect(
+      manager.rotateToken("100000000000000001", pasted, "invoker-1")
+    ).rejects.toThrow();
+
+    expect(knownSecretValues()).not.toContain(pasted);
+  });
+
+  it("rotateToken registers an accepted token and scrubs it from lastError", async () => {
+    const appId = "100000000000000001";
+    const token = "rotate-login-echo-token-904";
+    const deps = makeDeps({ tokenToAppId: { [token]: appId } });
+    const manager = new BotManager(db, globals, botRepository, deps);
+    await manager.addBot("lisa", "token-1", "111111111111111111", "invoker-1");
+    deps.clientsByAppId[appId] = loginEchoes(token);
+
+    await manager.rotateToken(appId, token, "invoker-1");
+
+    expect(knownSecretValues()).toContain(token);
+    const [summary] = manager.getSummaries();
+    expect(summary?.lastError).toContain("[REDACTED]");
+    expect(summary?.lastError).not.toContain(token);
+  });
+
+  it("a DB-loaded token is registered before login and scrubbed from lastError", async () => {
+    const appId = "100000000000000905";
+    const token = "db-loaded-login-echo-token-905";
+    const deps = makeDeps({ clientsByAppId: { [appId]: loginEchoes(token) as any } });
+    const manager = new BotManager(db, globals, botRepository, deps);
+
+    await manager.startAllForBoot([
+      { applicationId: appId, discordToken: token, name: "lisa", mailGuildId: "111111111111111111" },
+    ]);
+
+    expect(knownSecretValues()).toContain(token);
+    const [summary] = manager.getSummaries();
+    expect(summary?.lastError).not.toContain(token);
   });
 });

@@ -37,6 +37,13 @@ export function readSecret(
 /** Adds a value obtained at runtime (a DB-held or newly entered bot token) to log scrubbing. */
 export function registerSecretValue(value: string): void {
   extraValues.add(value);
+  const trimmed = value.trim();
+  if (trimmed !== value) extraValues.add(trimmed);
+}
+
+/** Zod issues as `path (code)` only: some zod messages echo the received value. */
+export function issueNames(error: z.ZodError): string {
+  return error.issues.map((i) => `${i.path.join(".")} (${i.code})`).join(", ");
 }
 
 export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
@@ -45,11 +52,7 @@ export function loadSecrets(env: NodeJS.ProcessEnv = process.env): Secrets {
   );
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    // Names and issue codes only: some zod messages echo the received value.
-    const names = parsed.error.issues.map(
-      (i) => `${i.path.join(".")} (${i.code})`
-    );
-    throw new Error(`Missing or invalid secrets: ${names.join(", ")}`);
+    throw new Error(`Missing or invalid secrets: ${issueNames(parsed.error)}`);
   }
   return Object.freeze(parsed.data);
 }

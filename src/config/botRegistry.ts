@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { REST, Routes } from "discord.js";
-import { readSecret, registerSecretValue } from "./secrets";
+import { issueNames, readSecret, registerSecretValue } from "./secrets";
 
 export interface BotRosterEntry {
   // Stable id for logs/health, e.g. "lisa"
@@ -11,11 +11,6 @@ export interface BotRosterEntry {
 
 export interface BotRegistry {
   getBotConfigs(): BotRosterEntry[] | Promise<BotRosterEntry[]>;
-}
-
-function issueNames(error: z.ZodError): string {
-  // Names and issue codes only: some zod messages echo the received value.
-  return error.issues.map((i) => `${i.path.join(".")} (${i.code})`).join(", ");
 }
 
 const rosterEntrySchema = z.object({

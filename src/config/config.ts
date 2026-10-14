@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { issueNames } from "./secrets";
 
 const configSchema = z.object({
   LOG_LEVEL: z.string().optional().default("info"),
@@ -27,11 +28,7 @@ export function getConfigFromEnv(): ConfigType {
   const config = configSchema.safeParse(process.env);
 
   if (!config.success) {
-    // Names and issue codes only: some zod messages echo the received value.
-    const names = config.error.issues.map(
-      (i) => `${i.path.join(".")} (${i.code})`
-    );
-    throw new Error(`Invalid environment variables: ${names.join(", ")}`);
+    throw new Error(`Invalid environment variables: ${issueNames(config.error)}`);
   }
 
   return config.data;
