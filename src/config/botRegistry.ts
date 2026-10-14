@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { REST, Routes } from "discord.js";
+import { readSecret, registerSecretValue } from "./secrets";
 
 export interface BotRosterEntry {
   // Stable id for logs/health, e.g. "lisa"
@@ -10,6 +11,11 @@ export interface BotRosterEntry {
 
 export interface BotRegistry {
   getBotConfigs(): BotRosterEntry[] | Promise<BotRosterEntry[]>;
+}
+
+function issueNames(error: z.ZodError): string {
+  // Names and issue codes only: some zod messages echo the received value.
+  return error.issues.map((i) => `${i.path.join(".")} (${i.code})`).join(", ");
 }
 
 const rosterEntrySchema = z.object({
@@ -54,7 +60,8 @@ export class EnvBotRegistry implements BotRegistry {
         break;
       }
 
-      const discordToken = this.env[`BOT_${n}_DISCORD_TOKEN`];
+      const discordToken = readSecret(`BOT_${n}_DISCORD_TOKEN`, this.env);
+      if (discordToken) registerSecretValue(discordToken);
       const mailGuildId = this.env[`BOT_${n}_MAIL_GUILD_ID`];
 
       const parsed = rosterEntrySchema.safeParse({
@@ -65,7 +72,7 @@ export class EnvBotRegistry implements BotRegistry {
 
       if (!parsed.success) {
         throw new Error(
-          `Incomplete or invalid roster entry for BOT_${n}_*: ${parsed.error}`
+          `Incomplete or invalid roster entry for BOT_${n}_*: ${issueNames(parsed.error)}`
         );
       }
 
@@ -76,7 +83,8 @@ export class EnvBotRegistry implements BotRegistry {
   }
 
   private readLegacyFallback(): BotRosterEntry[] {
-    const discordToken = this.env.DISCORD_TOKEN;
+    const discordToken = readSecret("DISCORD_TOKEN", this.env);
+    if (discordToken) registerSecretValue(discordToken);
     const mailGuildId = this.env.MAIL_GUILD_ID;
 
     const parsed = rosterEntrySchema.safeParse({
@@ -88,7 +96,7 @@ export class EnvBotRegistry implements BotRegistry {
     if (!parsed.success) {
       throw new Error(
         `No BOT_1_* roster entries found and legacy DISCORD_TOKEN/` +
-          `MAIL_GUILD_ID vars are missing or incomplete: ${parsed.error}`
+          `MAIL_GUILD_ID vars are missing or incomplete: ${issueNames(parsed.error)}`
       );
     }
 

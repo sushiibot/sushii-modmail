@@ -11,7 +11,8 @@ import { runtimeConfig, botEmojis } from "database/schema";
 import { eq } from "drizzle-orm";
 import { resolveApplicationId as defaultResolveApplicationId } from "config/botRegistry";
 import { buildClient as defaultBuildClient } from "./botFactory";
-import { getLogger } from "utils/logger";
+import { registerSecretValue } from "config/secrets";
+import { getLogger, scrubSecrets } from "utils/logger";
 
 const START_TIMEOUT_MS = 30_000;
 
@@ -179,6 +180,7 @@ export class BotManager {
     // a throw here must still land in getSummaries() as a failed entry
     // rather than propagate uncaught out of Promise.allSettled callers.
     let client: Client | null = null;
+    registerSecretValue(entry.discordToken);
 
     try {
       client = this.deps.buildClient(entry, this.globals, this.db, this);
@@ -203,7 +205,7 @@ export class BotManager {
       this.bots.set(applicationId, managed);
       return managed;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = scrubSecrets(err instanceof Error ? err.message : String(err));
       this.logger.error(
         { err, applicationId, name: entry.name },
         `Failed to start bot "${entry.name}"`
@@ -262,6 +264,7 @@ export class BotManager {
     mailGuildId: string,
     invokerId: string
   ): Promise<ManagedBot> {
+    registerSecretValue(token);
     const applicationId = await this.deps.resolveApplicationId(token);
 
     return this.withAppLock(applicationId, async () => {
@@ -308,6 +311,7 @@ export class BotManager {
     newToken: string,
     invokerId: string
   ): Promise<ManagedBot> {
+    registerSecretValue(newToken);
     const resolvedApplicationId = await this.deps.resolveApplicationId(newToken);
     if (resolvedApplicationId !== applicationId) {
       throw new Error(

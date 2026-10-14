@@ -14,7 +14,7 @@ describe("getConfigFromEnv", () => {
 
     const config = getConfigFromEnv();
 
-    expect(config.DISCORD_TOKEN).toBe("token");
+    expect(config).not.toHaveProperty("DISCORD_TOKEN");
     expect(config.LOG_LEVEL).toBe("info");
     expect(config.HEALTHCHECK_PORT).toBe(3000);
   });
@@ -26,6 +26,20 @@ describe("getConfigFromEnv", () => {
     delete process.env.MAIL_GUILD_ID;
 
     expect(() => getConfigFromEnv()).toThrow();
+  });
+
+  it("names an invalid variable without echoing its value", () => {
+    process.env = { DATABASE_URI: "db", HEALTHCHECK_PORT: "not-a-port-value" };
+
+    let message = "";
+    try {
+      getConfigFromEnv();
+    } catch (e) {
+      message = String(e);
+    }
+
+    expect(message).toContain("HEALTHCHECK_PORT");
+    expect(message).not.toContain("not-a-port-value");
   });
 });
 

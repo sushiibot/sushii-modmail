@@ -3,7 +3,7 @@ import {
   type InteractionReplyOptions,
   type ModalSubmitInteraction,
 } from "discord.js";
-import { getLogger } from "utils/logger";
+import { getLogger, scrubSecrets } from "utils/logger";
 import type { BotManager } from "services/BotManager";
 import { botAdminCustomID, BotAdminView } from "views/BotAdmin";
 import { buildInviteLink } from "utils/discordInvite";
@@ -47,7 +47,8 @@ export class BotAdminModalController {
       }
     } catch (err) {
       this.logger.error(err, "Failed to handle bot admin modal submission");
-      const message = err instanceof Error ? err.message : String(err);
+      // The reply quotes error text, which can carry the token just submitted.
+      const message = scrubSecrets(err instanceof Error ? err.message : String(err));
 
       // editReply can itself fail on a self-targeted reload/rotate (the
       // client answering this interaction may be the one just destroyed)

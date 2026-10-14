@@ -3,10 +3,8 @@ import { z } from "zod";
 const configSchema = z.object({
   LOG_LEVEL: z.string().optional().default("info"),
 
-  // Legacy single-bot identity vars. Optional at the schema level -- they
-  // remain a fully supported way to run one bot (EnvBotRegistry's legacy
-  // fallback), used when no BOT_1_* numbered roster vars are present.
-  DISCORD_TOKEN: z.string().optional(),
+  // Legacy single-bot guild id; EnvBotRegistry pairs it with DISCORD_TOKEN
+  // (config/secrets) when no BOT_1_* roster vars are present.
   MAIL_GUILD_ID: z.string().optional(),
 
   DATABASE_URI: z.string(),
@@ -29,7 +27,11 @@ export function getConfigFromEnv(): ConfigType {
   const config = configSchema.safeParse(process.env);
 
   if (!config.success) {
-    throw new Error(`Invalid environment variables: ${config.error}`);
+    // Names and issue codes only: some zod messages echo the received value.
+    const names = config.error.issues.map(
+      (i) => `${i.path.join(".")} (${i.code})`
+    );
+    throw new Error(`Invalid environment variables: ${names.join(", ")}`);
   }
 
   return config.data;
