@@ -39,13 +39,18 @@ jobs:
   deploy-staging:
     needs: docker-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: sushiibot/sushii-workflows/.github/workflows/deploy.yml@main # zizmor: ignore[unpinned-uses] first-party, tracked at @main by design
+    # apps deploys on its own (sushii-ansible roles/pull_deploy): this bumps the tag and waits for its
+    # status, which is mirrored onto this commit with a Grafana log link.
+    permissions:
+      statuses: write
+    uses: sushiibot/sushii-workflows/.github/workflows/pull-deploy.yml@9c7c7076f75ec0356eee1ce8cd62b1496b161e7e # pull-deploy
     with:
       service: modmail/sushii-modmail-staging
       host: apps
       image_version: ${{ needs.docker-build.outputs.image_version }}
       environment: staging
-    secrets: inherit
+    secrets:
+      SUSHII_CI_PRIVATE_KEY: ${{ secrets.SUSHII_CI_PRIVATE_KEY }}
 
   docker-cleanup:
     needs: docker-build
