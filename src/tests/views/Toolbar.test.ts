@@ -131,6 +131,13 @@ describe("ToolbarView.closeReasonModal", () => {
 });
 
 describe("ToolbarView.pinsEditorMessage", () => {
+  it("explains that pins are shared server-wide", () => {
+    const message = ToolbarView.pinsEditorMessage([]);
+    const json = JSON.stringify(message.components.map((c: any) => c.toJSON()));
+
+    expect(json).toContain("Pins are shared by all staff in this server");
+  });
+
   it("shows a placeholder message when no snippets exist yet", () => {
     const message = ToolbarView.pinsEditorMessage([]);
     const json = JSON.stringify(message.components.map((c: any) => c.toJSON()));

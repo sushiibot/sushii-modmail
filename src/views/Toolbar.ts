@@ -366,7 +366,8 @@ export class ToolbarView {
 
     let content = "## Pinned Snippets";
     content += `\nPick up to ${PIN_SLOT_COUNT} snippets to show as quick-access buttons on the toolbar.`;
-    content += "\n-# Only you can see this";
+    content +=
+      "\n-# Only you can see this editor. Pins are shared by all staff in this server; other threads update on their next message.";
 
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(content)
