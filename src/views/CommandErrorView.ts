@@ -6,6 +6,13 @@ import {
 } from "discord.js";
 import { HexColor } from "./Color";
 
+// Shared plain-text command errors, so the same condition always reads the
+// same way regardless of which command hit it.
+export const THREAD_NOT_FOUND_MESSAGE =
+  "Couldn't find modmail thread info for this channel. It may have been created manually rather than by the bot.";
+export const NOT_CONFIGURED_MESSAGE =
+  "Not configured yet! Please set up the modmail forum channel first.";
+
 export class CommandErrorView {
   static primaryServerOnlyError(
     primaryGuildName: string,

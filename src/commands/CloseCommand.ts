@@ -2,6 +2,7 @@ import type { Message } from "discord.js";
 import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import { getLogger } from "utils/logger";
+import { NOT_CONFIGURED_MESSAGE, THREAD_NOT_FOUND_MESSAGE } from "views/CommandErrorView";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 interface ConfigRepository {
@@ -41,9 +42,7 @@ export class CloseCommand extends TextCommandHandler {
     const config = await this.configRepository.getConfig(msg.guildId);
 
     if (!config.forumChannelId) {
-      await msg.channel.send(
-        "Not configured yet! Please set up the modmail forum channel first."
-      );
+      await msg.channel.send(NOT_CONFIGURED_MESSAGE);
 
       return;
     }
@@ -66,9 +65,7 @@ export class CloseCommand extends TextCommandHandler {
     );
 
     if (!thread) {
-      await msg.channel.send(
-        "Hmm... couldn't find the thread information, maybe this was a manually created forum thread."
-      );
+      await msg.channel.send(THREAD_NOT_FOUND_MESSAGE);
 
       return;
     }

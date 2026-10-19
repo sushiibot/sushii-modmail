@@ -3,6 +3,7 @@ import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
+import { NOT_CONFIGURED_MESSAGE, THREAD_NOT_FOUND_MESSAGE } from "views/CommandErrorView";
 import { StaffThreadView } from "../views/StaffThreadView";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 
@@ -43,9 +44,7 @@ export class LogsCommand extends TextCommandHandler {
     const config = await this.configRepository.getConfig(msg.guildId);
 
     if (!config.forumChannelId) {
-      await msg.channel.send(
-        "Not configured yet! Please set up the modmail forum channel first."
-      );
+      await msg.channel.send(NOT_CONFIGURED_MESSAGE);
 
       return;
     }
@@ -83,7 +82,7 @@ export class LogsCommand extends TextCommandHandler {
     );
 
     if (!thread) {
-      await msg.channel.send("Thread not found somehow.");
+      await msg.channel.send(THREAD_NOT_FOUND_MESSAGE);
       return;
     }
 

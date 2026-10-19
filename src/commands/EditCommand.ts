@@ -3,6 +3,7 @@ import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
+import { NOT_CONFIGURED_MESSAGE, THREAD_NOT_FOUND_MESSAGE } from "views/CommandErrorView";
 import type { RuntimeConfig } from "models/runtimeConfig.model";
 
 interface ConfigRepository {
@@ -56,9 +57,7 @@ export class EditCommand extends TextCommandHandler {
 
     if (!config.forumChannelId) {
       this.logger.warn(logContext, "Edit rejected: forum channel not configured");
-      await msg.channel.send(
-        "Not configured yet! Please set up the modmail forum channel first."
-      );
+      await msg.channel.send(NOT_CONFIGURED_MESSAGE);
 
       return;
     }
@@ -108,9 +107,7 @@ export class EditCommand extends TextCommandHandler {
 
       if (!thread) {
         this.logger.warn(logContext, "Edit rejected: no thread for channel");
-        await msg.channel.send(
-          "Could not find the thread information... hmm... maybe this was a manually created forum thread?"
-        );
+        await msg.channel.send(THREAD_NOT_FOUND_MESSAGE);
 
         return;
       }

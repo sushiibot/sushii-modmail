@@ -3,6 +3,7 @@ import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
 import { getLogger } from "utils/logger";
+import { THREAD_NOT_FOUND_MESSAGE } from "views/CommandErrorView";
 import { StaffThreadView } from "views/StaffThreadView";
 
 export class DeleteCommand extends TextCommandHandler {
@@ -60,9 +61,7 @@ export class DeleteCommand extends TextCommandHandler {
       );
 
       if (!thread) {
-        await msg.channel.send(
-          "Could not find the thread information... hmm... maybe this was a manually created forum thread?"
-        );
+        await msg.channel.send(THREAD_NOT_FOUND_MESSAGE);
 
         return;
       }
