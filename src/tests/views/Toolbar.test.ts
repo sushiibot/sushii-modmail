@@ -85,7 +85,7 @@ describe("ToolbarView reply/snippet modals", () => {
     return (modal.toJSON() as any).components;
   }
 
-  it("wraps the reply input in a Label and adds a message-style select defaulting to the card", () => {
+  it("wraps the reply input in a Label and adds a message-style select defaulting to the embed", () => {
     const [message, format] = labels(ToolbarView.replyModal(false));
 
     expect(message.type).toBe(18); // Label
@@ -95,7 +95,7 @@ describe("ToolbarView reply/snippet modals", () => {
     expect(message.component.label).toBeUndefined();
 
     expect(format.type).toBe(18);
-    expect(format.label).toBe("How it looks to the user");
+    expect(format.label).toBe("Style");
     expect(format.component.custom_id).toBe(toolbarCustomID.modalFormatSelect);
     const options = format.component.options;
     expect(options.map((o: any) => o.value)).toEqual(["rich", "plain"]);

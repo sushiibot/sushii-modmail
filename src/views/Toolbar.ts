@@ -276,12 +276,12 @@ export class ToolbarView {
 
   /**
    * Message-style select shared by the reply and snippet modals -- the modal
-   * equivalent of preply/apreply. Defaults to the card style so the common
+   * equivalent of preply/apreply. Defaults to the embed so the common
    * path needs no extra click.
    */
   private static formatLabel(): LabelBuilder {
     return new LabelBuilder()
-      .setLabel("How it looks to the user")
+      .setLabel("Style")
       .setStringSelectMenuComponent(
         new StringSelectMenuBuilder()
           .setCustomId(toolbarCustomID.modalFormatSelect)
@@ -289,14 +289,12 @@ export class ToolbarView {
           .setMaxValues(1)
           .addOptions(
             new StringSelectMenuOptionBuilder()
-              .setLabel("Message card (recommended)")
+              .setLabel("Formatted embed")
               .setValue("rich")
-              .setDescription("Shown in a colored box with the server name")
               .setDefault(true),
             new StringSelectMenuOptionBuilder()
-              .setLabel("Regular message")
+              .setLabel("Plain text, no embed")
               .setValue("plain")
-              .setDescription("Looks like a normal chat message, no box")
           )
       );
   }
