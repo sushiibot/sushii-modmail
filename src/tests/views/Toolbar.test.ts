@@ -85,7 +85,7 @@ describe("ToolbarView reply/snippet modals", () => {
     return (modal.toJSON() as any).components;
   }
 
-  it("wraps the reply input in a Label and adds a Format select defaulting to Rich", () => {
+  it("wraps the reply input in a Label and adds a message-style select defaulting to the card", () => {
     const [message, format] = labels(ToolbarView.replyModal(false));
 
     expect(message.type).toBe(18); // Label
@@ -95,14 +95,14 @@ describe("ToolbarView reply/snippet modals", () => {
     expect(message.component.label).toBeUndefined();
 
     expect(format.type).toBe(18);
-    expect(format.label).toBe("Format");
+    expect(format.label).toBe("How it looks to the user");
     expect(format.component.custom_id).toBe(toolbarCustomID.modalFormatSelect);
     const options = format.component.options;
     expect(options.map((o: any) => o.value)).toEqual(["rich", "plain"]);
     expect(options.find((o: any) => o.value === "rich").default).toBe(true);
   });
 
-  it("adds the same Format select to the snippet modal", () => {
+  it("adds the same message-style select to the snippet modal", () => {
     const modal = ToolbarView.snippetModal(mockSnippet("faq"), "nonce-1");
     const [message, format] = labels(modal);
 
