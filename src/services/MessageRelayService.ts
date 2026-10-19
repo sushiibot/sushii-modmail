@@ -973,16 +973,15 @@ export class MessageRelayService {
     const messageData = await this.messageRepository.getByThreadMessageId(
       staffViewMessageId
     );
-    if (!messageData) {
-      throw new Error(`Message not found: ${staffViewMessageId}`);
-    }
-
-    if (messageData.isUser()) {
+    // No row means it isn't a relayed message at all -- e.g. replying to a
+    // standalone toolbar message. Same staff-facing answer as a user message.
+    if (!messageData || messageData.isUser()) {
       this.logger.debug(
         {
-          messageId: messageData.messageId,
+          messageId: staffViewMessageId,
+          found: !!messageData,
         },
-        "Cannot edit relayed staff message: is a user message"
+        "Cannot edit relayed staff message: not a staff message"
       );
 
       return {
@@ -1143,14 +1142,12 @@ export class MessageRelayService {
     const messageData = await this.messageRepository.getByThreadMessageId(
       staffViewMessageId
     );
-    if (!messageData) {
-      throw new Error(`Message not found: ${staffViewMessageId}`);
-    }
-
-    if (messageData.isUser()) {
+    // No row means it isn't a relayed message at all -- e.g. replying to a
+    // standalone toolbar message. Same staff-facing answer as a user message.
+    if (!messageData || messageData.isUser()) {
       this.logger.debug(
-        messageData,
-        "Cannot delete relayed staff message: is a user message"
+        { messageId: staffViewMessageId, found: !!messageData },
+        "Cannot delete relayed staff message: not a staff message"
       );
 
       return {

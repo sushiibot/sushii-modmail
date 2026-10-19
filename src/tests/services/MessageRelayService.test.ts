@@ -1212,6 +1212,44 @@ describe("MessageRelayService", () => {
     });
   });
 
+  describe("missing message rows", () => {
+    it("returns ok:false instead of throwing when editing a message with no row", async () => {
+      messageRepository.getByThreadMessageId.mockResolvedValue(null);
+      spyOn(client.users, "fetch").mockResolvedValue({} as User);
+
+      const result = await service.editStaffMessage(
+        randomSnowflakeID(),
+        randomSnowflakeID(),
+        {} as UserThreadViewGuild,
+        { author: { id: "x" }, content: "y" } as StaffToUserMessage
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        message:
+          "You can only edit staff messages. Make sure to reply to the staff message you want to edit.",
+      });
+      expect(messageRepository.updateStaffMessageContent).not.toHaveBeenCalled();
+    });
+
+    it("returns ok:false instead of throwing when deleting a message with no row", async () => {
+      messageRepository.getByThreadMessageId.mockResolvedValue(null);
+      spyOn(client.users, "fetch").mockResolvedValue({} as User);
+
+      const result = await service.deleteStaffMessage(
+        randomSnowflakeID(),
+        randomSnowflakeID(),
+        randomSnowflakeID()
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        message:
+          "You can only delete staff messages. Make sure to reply to the staff message you want to delete.",
+      });
+    });
+  });
+
   describe("sendInitialMessageToUser", () => {
     it("should send initial message to user", async () => {
       const userId = randomSnowflakeID();

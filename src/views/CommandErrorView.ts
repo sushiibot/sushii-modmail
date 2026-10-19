@@ -70,7 +70,7 @@ export class CommandErrorView {
     const safeName = commandName.replace(/`/g, "").slice(0, 50);
 
     return {
-      content: `Unknown command \`${safeName}\`. Reply to the toolbar with a command like \`reply …\`, \`edit …\`, or \`close\`.`,
+      content: `Unknown command \`${safeName}\`. Reply to the toolbar with a command like \`reply …\`, \`close\`, or \`edit …\` (edits the latest message if it's a staff reply).`,
       allowedMentions: { parse: [] },
     };
   }
