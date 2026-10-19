@@ -126,7 +126,14 @@ export class SnippetController {
       }
 
       // Extract snippet name
-      const snippetName = rest.trim().split(/\s+/)[0];
+      const trimmedRest = rest.trim();
+      const snippetName = trimmedRest.split(/\s+/)[0];
+      // Only a standalone `-p` AFTER the name counts as the plain-text flag --
+      // matching anywhere in the message would catch the prefix itself
+      // (`-ping` with the default `-` prefix) or names like `help-page`.
+      const plainText = /(^|\s)-p(\s|$)/.test(
+        trimmedRest.slice(snippetName.length)
+      );
 
       if (!snippetName) {
         return false;
@@ -159,7 +166,7 @@ export class SnippetController {
       // Relay the snippet content to the user
       const options: StaffMessageOptions = {
         anonymous: config.anonymousSnippets,
-        plainText: message.content.includes("-p"),
+        plainText,
         snippet: true,
         snippetName: snippetName,
       };
