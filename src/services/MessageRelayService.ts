@@ -8,6 +8,7 @@ import {
   DiscordAPIError,
   MessageFlags,
   RESTJSONErrorCodes,
+  type GuildMember,
   type Message as DiscordMessage,
   type MessageCreateOptions,
   type MessageEditOptions,
@@ -1276,10 +1277,57 @@ export class MessageRelayService {
     channelId: string,
     content: string
   ): Promise<void> {
-    const msg = StaffThreadView.systemMessage(content);
+    await this.sendSystemMessageToStaff(
+      channelId,
+      StaffThreadView.systemMessage(content, {
+        audience: "user",
+        title: "Automated greeting",
+      })
+    );
+  }
 
-    // Plain send, not a relay -- this system message has no DB row (it's
-    // never edited/deleted like a real relayed message), so it can't be
+  /**
+   * Posts a system message warning staff if the user is a new member, has a
+   * new account, or isn't in the server. The thread's header already lists
+   * these, but it scrolls out of view as soon as the thread starts, so this
+   * repeats them next to the user's first message. Does nothing if there are
+   * no warnings.
+   */
+  async sendUserWarningsToStaff(
+    channelId: string,
+    userId: string
+  ): Promise<void> {
+    const guild = this.client.guilds.cache.get(this.config.guildId);
+    if (!guild) {
+      throw new Error(`Guild not found: ${this.config.guildId}`);
+    }
+
+    let member: GuildMember | null = null;
+    try {
+      // Single member fetch by ID is a REST call, no members intent needed
+      member = await guild.members.fetch(userId);
+    } catch {
+      // Not a member of the server
+    }
+    const user = await this.client.users.fetch(userId);
+
+    const warnings = StaffThreadView.userWarnings({ user, member });
+    if (warnings.length === 0) {
+      return;
+    }
+
+    await this.sendSystemMessageToStaff(
+      channelId,
+      StaffThreadView.userWarningsMessage(warnings)
+    );
+  }
+
+  private async sendSystemMessageToStaff(
+    channelId: string,
+    msg: MessageCreateOptions
+  ): Promise<void> {
+    // Plain send, not a relay -- system messages have no DB row (they're
+    // never edited/deleted like a real relayed message), so they can't be
     // faithfully re-rendered by a toolbar-overlay strip. This lands below
     // the toolbar's overlay bearer and strands it mid-thread -- the caller
     // (DMController, for the new-thread path this is only ever used in)

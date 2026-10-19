@@ -3,6 +3,7 @@ import {
   Collection,
   ContainerBuilder,
   EmbedBuilder,
+  GuildMemberFlags,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
   MessageFlags,
@@ -35,6 +36,12 @@ export const MediaGalleryAttachmentsID = 101;
 export const MediaGalleryStickersID = 102;
 
 const MAX_MESSAGE_LENGTH = 4000;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Members who joined for the first time within this window are flagged, to
+// help staff spot accounts that joined just to report someone.
+export const NEW_MEMBER_THRESHOLD_MS = 7 * DAY_MS;
+export const NEW_ACCOUNT_THRESHOLD_MS = 30 * DAY_MS;
 
 export const StaffThreadEmojis = [
   "message_id",
@@ -71,6 +78,7 @@ interface UserThreadInfo {
       cache: Collection<string, MemberRole>;
     };
     joinedTimestamp: number | null;
+    flags?: { has(flag: GuildMemberFlags): boolean };
     nickname: string | null;
     avatarURL(): string | null;
   } | null;
@@ -79,6 +87,36 @@ interface UserThreadInfo {
 }
 
 export class StaffThreadView {
+  /**
+   * Warnings about a user that may make a report less trustworthy, e.g. a
+   * brand new account or a member who just joined for the first time.
+   */
+  static userWarnings(
+    userInfo: Pick<UserThreadInfo, "user" | "member">,
+    now: number = Date.now()
+  ): string[] {
+    const warnings: string[] = [];
+    const { user, member } = userInfo;
+
+    if (!member) {
+      warnings.push("Not a member of this server");
+    } else if (
+      member.joinedTimestamp &&
+      now - member.joinedTimestamp < NEW_MEMBER_THRESHOLD_MS &&
+      !member.flags?.has(GuildMemberFlags.DidRejoin)
+    ) {
+      const joinedTs = Math.floor(member.joinedTimestamp / 1000);
+      warnings.push(`New member: first joined <t:${joinedTs}:R>`);
+    }
+
+    if (now - user.createdTimestamp < NEW_ACCOUNT_THRESHOLD_MS) {
+      const createdTs = Math.floor(user.createdTimestamp / 1000);
+      warnings.push(`New account: created <t:${createdTs}:R>`);
+    }
+
+    return warnings;
+  }
+
   /**
    * Generates the initial message for a new modmail thread
    */
@@ -92,6 +130,11 @@ export class StaffThreadView {
     const container = new ContainerBuilder().setAccentColor(HexColor.Gray);
 
     let content = `### Modmail Thread`;
+
+    const warnings = StaffThreadView.userWarnings(userInfo);
+    if (warnings.length > 0) {
+      content += `\n${warnings.map((w) => `⚠️ **${w}**`).join("\n")}`;
+    }
 
     // Basic info
     content += `\n${emojis.user} <@${userInfo.user.id}>`;
@@ -109,6 +152,9 @@ export class StaffThreadView {
       const joinedTs = Math.floor(userInfo.member.joinedTimestamp / 1000);
 
       content += `\n${emojis.arrow_down_right} Joined Server: <t:${joinedTs}:R>`;
+      if (userInfo.member.flags?.has(GuildMemberFlags.DidRejoin)) {
+        content += ` (rejoined)`;
+      }
     }
 
     // Roles
@@ -355,20 +401,33 @@ export class StaffThreadView {
     return [container];
   }
 
+  static userWarningsMessage(warnings: string[]): MessageCreateOptions {
+    return StaffThreadView.systemMessage(
+      warnings.map((w) => `⚠️ **${w}**`).join("\n"),
+      { audience: "staff", title: "Heads up" }
+    );
+  }
+
+  /**
+   * A bot-generated notice in the thread. The audience is shown in the
+   * header so staff can tell what the user actually received apart from
+   * internal notes: messages that went to the user use the same green as
+   * staff replies, staff-only notes are gray.
+   */
   static systemMessage(
     content: string,
     options: {
-      automated: boolean;
-    } = { automated: true }
-  ): MessageCreateOptions {
-    const container = new ContainerBuilder();
-
-    let textDisplayContent = `### System`;
-    if (options.automated) {
-      textDisplayContent += " (Automated)";
+      audience: "user" | "staff";
+      title: string;
     }
+  ): MessageCreateOptions {
+    const container = new ContainerBuilder().setAccentColor(
+      options.audience === "user" ? HexColor.Green : HexColor.Gray
+    );
 
-    textDisplayContent += `\n${content}`;
+    const audienceLabel =
+      options.audience === "user" ? "Sent to user" : "Staff only";
+    const textDisplayContent = `### ${audienceLabel} · ${options.title}\n${content}`;
 
     const contentText = new TextDisplayBuilder().setContent(textDisplayContent);
     container.addTextDisplayComponents(contentText);

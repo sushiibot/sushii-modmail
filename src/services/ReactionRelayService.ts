@@ -105,7 +105,8 @@ export class ReactionRelayService {
       }
 
       const systemMessage = StaffThreadView.systemMessage(content, {
-        automated: false,
+        audience: "staff",
+        title: "Reaction",
       });
 
       // Add reply to the reacted message
@@ -221,7 +222,8 @@ export class ReactionRelayService {
 
       // Send a system message indicating a reaction was removed
       const systemMessage = StaffThreadView.systemMessage(content, {
-        automated: false,
+        audience: "staff",
+        title: "Reaction",
       });
 
       // Add reply to the reacted message
@@ -339,7 +341,8 @@ export class ReactionRelayService {
           const warningMessage = StaffThreadView.systemMessage(
             `I couldn't add the reaction ${emojiIdentifier} to the user's message. I can only add reactions for emojis from servers I'm in.`,
             {
-              automated: false,
+              audience: "staff",
+              title: "Reaction not sent",
             }
           );
 

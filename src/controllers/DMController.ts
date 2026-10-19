@@ -26,6 +26,7 @@ export interface MessageRelayService {
   ): Promise<void>;
   sendInitialMessageToUser(userId: string): Promise<string>;
   sendInitialMessageToStaff(channelId: string, content: string): Promise<void>;
+  sendUserWarningsToStaff(channelId: string, userId: string): Promise<void>;
   bumpToolbarToBottom(channelId: string): Promise<void>;
 }
 
@@ -166,6 +167,21 @@ export class DMController {
                 thread.channelId,
                 content
               );
+
+              // Repeat new member / new account warnings here, since the
+              // thread header with them is already scrolled out of view.
+              // Failing this shouldn't stop the toolbar bump below.
+              try {
+                await this.messageService.sendUserWarningsToStaff(
+                  thread.channelId,
+                  userId
+                );
+              } catch (err) {
+                this.logger.warn(
+                  { err, threadId: thread.channelId, userId },
+                  "Failed to send user warnings to staff"
+                );
+              }
 
               // The initial notice above landed below the toolbar's overlay
               // bearer (the user's first relayed message), stranding it

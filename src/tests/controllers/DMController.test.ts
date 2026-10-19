@@ -40,6 +40,7 @@ describe("DMController", () => {
       relayUserDeletedMessageToStaff: mock(),
       sendInitialMessageToUser: mock().mockResolvedValue("welcome content"),
       sendInitialMessageToStaff: mock().mockResolvedValue(undefined),
+      sendUserWarningsToStaff: mock().mockResolvedValue(undefined),
       bumpToolbarToBottom: mock().mockResolvedValue(undefined),
     };
     logService = { logError: mock() };
@@ -73,6 +74,44 @@ describe("DMController", () => {
       expect(staffCallOrder).toBeLessThan(bumpCallOrder);
     });
 
+    it("sends user warnings after the initial notice and before the toolbar bump", async () => {
+      threadService.getOrCreateThread.mockResolvedValue({
+        thread: { channelId },
+        isNew: true,
+      });
+      const message = mockDMMessage();
+
+      await controller.handleUserDM({} as any, message);
+
+      expect(messageService.sendUserWarningsToStaff).toHaveBeenCalledWith(
+        channelId,
+        message.author.id
+      );
+      const staffCallOrder =
+        messageService.sendInitialMessageToStaff.mock.invocationCallOrder[0];
+      const warningsCallOrder =
+        messageService.sendUserWarningsToStaff.mock.invocationCallOrder[0];
+      const bumpCallOrder =
+        messageService.bumpToolbarToBottom.mock.invocationCallOrder[0];
+      expect(staffCallOrder).toBeLessThan(warningsCallOrder);
+      expect(warningsCallOrder).toBeLessThan(bumpCallOrder);
+    });
+
+    it("still bumps the toolbar if sending user warnings fails", async () => {
+      threadService.getOrCreateThread.mockResolvedValue({
+        thread: { channelId },
+        isNew: true,
+      });
+      messageService.sendUserWarningsToStaff.mockRejectedValue(
+        new Error("missing permissions")
+      );
+      const message = mockDMMessage();
+
+      await controller.handleUserDM({} as any, message);
+
+      expect(messageService.bumpToolbarToBottom).toHaveBeenCalledWith(channelId);
+    });
+
     it("does not bump the toolbar for an existing thread", async () => {
       threadService.getOrCreateThread.mockResolvedValue({
         thread: { channelId },
@@ -83,6 +122,7 @@ describe("DMController", () => {
       await controller.handleUserDM({} as any, message);
 
       expect(messageService.sendInitialMessageToStaff).not.toHaveBeenCalled();
+      expect(messageService.sendUserWarningsToStaff).not.toHaveBeenCalled();
       expect(messageService.bumpToolbarToBottom).not.toHaveBeenCalled();
     });
 
