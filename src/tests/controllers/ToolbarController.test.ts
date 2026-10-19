@@ -153,9 +153,35 @@ describe("ToolbarController", () => {
       expect(interaction.deferUpdate).toHaveBeenCalled();
       expect(threadService.closeThread).toHaveBeenCalledWith(
         expect.objectContaining({ channelId: "channel-1" }),
-        "staff-1"
+        "staff-1",
+        undefined
       );
       expect(interaction.deleteReply).toHaveBeenCalled();
+    });
+
+    it("offers Close with Reason on the confirm prompt", async () => {
+      const interaction = mockButtonInteraction(toolbarCustomID.close);
+
+      await controller.handleButton(interaction);
+
+      const replyArg = interaction.reply.mock.calls[0][0];
+      expect(JSON.stringify(replyArg.components[0].toJSON())).toContain(
+        toolbarCustomID.closeWithReason
+      );
+    });
+
+    it("opens a nonce'd close-reason modal without deferring first", async () => {
+      const interaction = mockButtonInteraction(toolbarCustomID.closeWithReason);
+
+      await controller.handleButton(interaction);
+
+      expect(interaction.deferUpdate).not.toHaveBeenCalled();
+      expect(interaction.showModal).toHaveBeenCalledTimes(1);
+      const modal = interaction.showModal.mock.calls[0][0];
+      expect(modal.data.custom_id).toBe(
+        toolbarCustomID.modalCloseReason(interaction.id)
+      );
+      expect(threadService.closeThread).not.toHaveBeenCalled();
     });
 
     it("shows the error in the confirm prompt if closing fails", async () => {
@@ -563,6 +589,62 @@ describe("ToolbarController", () => {
         interaction.guild,
         expect.anything(),
         expect.objectContaining({ plainText: true, snippet: true })
+      );
+    });
+
+    it("closes the thread with the staff-only reason from the close-reason modal", async () => {
+      const interaction = mockModalInteraction(
+        toolbarCustomID.modalCloseReason("nonce-1"),
+        "  resolved via DM  "
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.fields.getTextInputValue).toHaveBeenCalledWith(
+        toolbarCustomID.modalCloseReasonInput
+      );
+      expect(threadService.closeThread).toHaveBeenCalledWith(
+        expect.objectContaining({ channelId: "channel-1" }),
+        "staff-1",
+        "resolved via DM"
+      );
+      expect(interaction.deleteReply).toHaveBeenCalled();
+      expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
+    });
+
+    it("closes without a reason when the close-reason modal is whitespace-only", async () => {
+      const interaction = mockModalInteraction(
+        toolbarCustomID.modalCloseReason("nonce-1"),
+        "   "
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(threadService.closeThread).toHaveBeenCalledWith(
+        expect.anything(),
+        "staff-1",
+        undefined
+      );
+    });
+
+    it("re-checks for an already-closed thread on close-reason submit", async () => {
+      const interaction = mockModalInteraction(
+        toolbarCustomID.modalCloseReason("nonce-1"),
+        "dupe"
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(
+        mockThread({ isClosed: true })
+      );
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(threadService.closeThread).not.toHaveBeenCalled();
+      expect(interaction.deleteReply).not.toHaveBeenCalled();
+      expect(JSON.stringify(interaction.editReply.mock.calls[0][0])).toContain(
+        "already closed"
       );
     });
 

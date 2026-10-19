@@ -31,6 +31,7 @@ export const toolbarCustomID = {
   anonReply: id("anonReply"),
   close: id("close"),
   confirmClose: id("confirmClose"),
+  closeWithReason: id("closeWithReason"),
   cancelClose: id("cancelClose"),
   editPins: id("editPins"),
   snippetSelect: id("snippetSelect"),
@@ -49,7 +50,14 @@ export const toolbarCustomID = {
   // next time that snippet's modal is opened.
   modalSnippet: (nonce: string, name: string) => modalId(`snippet.${nonce}.${name}`),
   modalSnippetInput: modalId("snippet.input"),
+  // Nonce'd for the same stale-draft reason as modalSnippet above.
+  modalCloseReason: (nonce: string) => modalId(`closeReason.${nonce}`),
+  modalCloseReasonInput: modalId("closeReasonInput"),
 };
+
+export function isCloseReasonModalCustomId(customId: string): boolean {
+  return customId.startsWith(modalId("closeReason."));
+}
 
 // `cmd.toolbar.pin.<name>` -- extracts the snippet name back out
 export function parsePinnedSnippetCustomId(customId: string): string | null {
@@ -206,6 +214,10 @@ export class ToolbarView {
         .setLabel("Confirm Close")
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
+        .setCustomId(toolbarCustomID.closeWithReason)
+        .setLabel("Close with Reason…")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
         .setCustomId(toolbarCustomID.cancelClose)
         .setLabel("Cancel")
         .setStyle(ButtonStyle.Secondary)
@@ -235,6 +247,31 @@ export class ToolbarView {
       components: [container],
       flags: MessageFlags.IsComponentsV2,
     };
+  }
+
+  /**
+   * Opened from the close-confirmation prompt. The reason is staff-only --
+   * it's shown in the thread's closed message, never sent to the user.
+   */
+  static closeReasonModal(nonce: string): ModalBuilder {
+    const modal = new ModalBuilder()
+      .setCustomId(toolbarCustomID.modalCloseReason(nonce))
+      .setTitle("Close Thread");
+
+    const input = new TextInputBuilder()
+      .setCustomId(toolbarCustomID.modalCloseReasonInput)
+      .setRequired(true)
+      .setMaxLength(1000)
+      .setPlaceholder("Visible only to staff in this thread.")
+      .setStyle(TextInputStyle.Paragraph);
+
+    modal.addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Reason (staff only, not sent to user)")
+        .setTextInputComponent(input)
+    );
+
+    return modal;
   }
 
   /**

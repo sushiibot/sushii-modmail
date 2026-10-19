@@ -112,6 +112,24 @@ describe("ToolbarView reply/snippet modals", () => {
   });
 });
 
+describe("ToolbarView.closeReasonModal", () => {
+  it("has a single required, 1000-char staff-only reason input in a Label", () => {
+    const json = ToolbarView.closeReasonModal("nonce-1").toJSON() as any;
+
+    expect(json.custom_id).toBe(toolbarCustomID.modalCloseReason("nonce-1"));
+    expect(json.components).toHaveLength(1);
+    const [label] = json.components;
+    expect(label.label).toContain("staff only");
+    expect(label.component.custom_id).toBe(toolbarCustomID.modalCloseReasonInput);
+    expect(label.component.required).toBe(true);
+    expect(label.component.max_length).toBe(1000);
+  });
+
+  it("is recognized as a toolbar modal", () => {
+    expect(isToolbarCustomId(toolbarCustomID.modalCloseReason("nonce-1"))).toBe(true);
+  });
+});
+
 describe("ToolbarView.pinsEditorMessage", () => {
   it("shows a placeholder message when no snippets exist yet", () => {
     const message = ToolbarView.pinsEditorMessage([]);

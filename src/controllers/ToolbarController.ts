@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 import { getLogger } from "utils/logger";
 import {
+  isCloseReasonModalCustomId,
   isToolbarCustomId,
   parsePinnedSnippetCustomId,
   parseSnippetModalCustomId,
@@ -53,7 +54,7 @@ interface Thread {
 
 interface ThreadService {
   getThreadByChannelId(channelId: string): Promise<Thread | null>;
-  closeThread(thread: Thread, userId: string): Promise<void>;
+  closeThread(thread: Thread, userId: string, closeReason?: string): Promise<void>;
 }
 
 interface MessageRelayService {
@@ -187,41 +188,13 @@ export class ToolbarController {
     }
 
     if (customId === toolbarCustomID.confirmClose) {
-      await interaction.deferUpdate();
-      try {
-        const thread = await this.threadService.getThreadByChannelId(
-          interaction.channelId
-        );
-        if (!thread || thread.isClosed) {
-          await interaction.editReply(
-            ToolbarView.closeResultMessage("This thread is already closed.")
-          );
-          return;
-        }
-        await this.threadService.closeThread(thread, interaction.user.id);
-        // No visible confirmation needed -- closeThread() already posts a
-        // permanent "closed" message to the channel, so this ephemeral
-        // confirm prompt just gets discarded.
-        await interaction.deleteReply();
-      } catch (err) {
-        this.logger.error({ err }, "Toolbar action failed: closing thread");
+      await this.closeFromToolbar(interaction);
+      return;
+    }
 
-        // Replace the confirm prompt (and its buttons) with the error.
-        const codeSuffix =
-          err instanceof DiscordAPIError ? ` (Discord error ${err.code})` : "";
-        try {
-          await interaction.editReply(
-            ToolbarView.closeResultMessage(
-              `Failed to close thread${codeSuffix}. See logs for details.`
-            )
-          );
-        } catch (reportErr) {
-          this.logger.error(
-            { err: reportErr },
-            "Failed to report toolbar error"
-          );
-        }
-      }
+    if (customId === toolbarCustomID.closeWithReason) {
+      // Must be the first response -- showModal isn't valid once deferred.
+      await interaction.showModal(ToolbarView.closeReasonModal(interaction.id));
       return;
     }
 
@@ -279,6 +252,55 @@ export class ToolbarController {
     }
 
     this.logger.warn({ customId }, "Unknown toolbar button interaction");
+  }
+
+  /**
+   * Shared by the Confirm Close button and the close-reason modal, both of
+   * which originate from the ephemeral confirm prompt -- deferUpdate +
+   * deleteReply discard that prompt once the thread is closed.
+   */
+  private async closeFromToolbar(
+    interaction:
+      | ButtonInteraction<"cached">
+      | ModalMessageModalSubmitInteraction<"cached">,
+    closeReason?: string
+  ): Promise<void> {
+    await interaction.deferUpdate();
+    try {
+      const thread = await this.threadService.getThreadByChannelId(
+        interaction.channelId
+      );
+      if (!thread || thread.isClosed) {
+        await interaction.editReply(
+          ToolbarView.closeResultMessage("This thread is already closed.")
+        );
+        return;
+      }
+      await this.threadService.closeThread(
+        thread,
+        interaction.user.id,
+        closeReason
+      );
+      // No visible confirmation needed -- closeThread() already posts a
+      // permanent "closed" message to the channel, so this ephemeral
+      // confirm prompt just gets discarded.
+      await interaction.deleteReply();
+    } catch (err) {
+      this.logger.error({ err }, "Toolbar action failed: closing thread");
+
+      // Replace the confirm prompt (and its buttons) with the error.
+      const codeSuffix =
+        err instanceof DiscordAPIError ? ` (Discord error ${err.code})` : "";
+      try {
+        await interaction.editReply(
+          ToolbarView.closeResultMessage(
+            `Failed to close thread${codeSuffix}. See logs for details.`
+          )
+        );
+      } catch (reportErr) {
+        this.logger.error({ err: reportErr }, "Failed to report toolbar error");
+      }
+    }
   }
 
   /**
@@ -514,6 +536,14 @@ export class ToolbarController {
       }
       // No visible confirmation needed -- the relayed message in the channel
       // is the feedback, and deferUpdate left nothing to clean up.
+      return;
+    }
+
+    if (isCloseReasonModalCustomId(customId)) {
+      const reason = interaction.fields
+        .getTextInputValue(toolbarCustomID.modalCloseReasonInput)
+        .trim();
+      await this.closeFromToolbar(interaction, reason || undefined);
       return;
     }
 
