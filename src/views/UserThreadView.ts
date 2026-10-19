@@ -60,7 +60,7 @@ export class UserThreadView {
     if (options.plainText) {
       let content = "";
       if (options.anonymous) {
-        content = `### Message from ${guild.name}**`;
+        content = `### Message from ${guild.name}`;
       } else {
         content = `### Message from ${guild.name} - ${msg.author.username}`;
       }
@@ -90,7 +90,8 @@ export class UserThreadView {
       }
 
       return {
-        content: msg.content,
+        content,
+        allowedMentions: { parse: [] },
       };
     }
 

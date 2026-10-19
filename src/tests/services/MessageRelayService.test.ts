@@ -130,7 +130,8 @@ describe("MessageRelayService", () => {
       expect(client.channels.fetch).toHaveBeenCalledWith(channelId);
       expect(StaffThreadView.userInitialReplyMessage).toHaveBeenCalledWith(
         message,
-        emojiMap
+        emojiMap,
+        expect.any(Number)
       );
       expect(toolbarService.relay).lastCalledWith(channelId, {
         components: [],
@@ -191,7 +192,8 @@ describe("MessageRelayService", () => {
       expect(client.channels.fetch).lastCalledWith(channelId);
       expect(StaffThreadView.userInitialReplyMessage).lastCalledWith(
         message,
-        emojiMap
+        emojiMap,
+        expect.any(Number)
       );
       expect(toolbarService.relay).lastCalledWith(channelId, {
         embeds: [],
@@ -269,7 +271,162 @@ describe("MessageRelayService", () => {
     });
   });
 
+  describe("relayUserEditedMessageToStaff", () => {
+    function editedMessage(content: string): UserToStaffMessage {
+      return {
+        id: randomSnowflakeID(),
+        author: {
+          id: randomSnowflakeID(),
+          username: "User#1234",
+          displayName: "User",
+          displayAvatarURL: () => "https://example.com/avatar.png",
+        },
+        content,
+        attachments: [],
+        stickers: [],
+        createdTimestamp: Date.now(),
+      };
+    }
+
+    beforeEach(() => {
+      messageRepository.saveNewMessageVersion = mock().mockResolvedValue(
+        undefined
+      );
+      messageRepository.getMessageVersions = mock().mockResolvedValue([]);
+    });
+
+    it("ignores updates with unchanged content (embed unfurl)", async () => {
+      const threadId = randomSnowflakeID();
+      messageRepository.getByUserDMMessageId.mockResolvedValue({
+        threadId,
+        messageId: "relay-id",
+        content: "check https://example.com",
+      });
+      const fetchSpy = spyOn(client.channels, "fetch");
+
+      await service.relayUserEditedMessageToStaff(
+        threadId,
+        editedMessage("check https://example.com")
+      );
+
+      expect(messageRepository.saveNewMessageVersion).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("ignores edits of messages relayed into a different thread", async () => {
+      messageRepository.getByUserDMMessageId.mockResolvedValue({
+        threadId: "old-closed-thread",
+        messageId: "relay-id",
+        content: "old",
+      });
+      const fetchSpy = spyOn(client.channels, "fetch");
+
+      await service.relayUserEditedMessageToStaff(
+        "current-open-thread",
+        editedMessage("new")
+      );
+
+      expect(messageRepository.saveNewMessageVersion).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("relays edits with changed content", async () => {
+      const threadId = randomSnowflakeID();
+      messageRepository.getByUserDMMessageId.mockResolvedValue({
+        threadId,
+        messageId: "relay-id",
+        content: "old",
+      });
+      const edit = mock().mockResolvedValue(undefined);
+      spyOn(client.channels, "fetch").mockResolvedValue({
+        isSendable: () => true,
+        messages: { edit },
+      } as any);
+      const componentsSpy = spyOn(
+        StaffThreadView,
+        "userReplyComponents"
+      ).mockReturnValue([[]] as any);
+
+      await service.relayUserEditedMessageToStaff(threadId, editedMessage("new"));
+
+      expect(messageRepository.saveNewMessageVersion).toHaveBeenCalledWith(
+        "relay-id",
+        "new"
+      );
+      expect(edit).toHaveBeenCalledWith("relay-id", expect.anything());
+      componentsSpy.mockRestore();
+    });
+  });
+
+  describe("relayUserDeletedMessageToStaff", () => {
+    it("does not post a notice for messages in a different thread", async () => {
+      messageRepository.getByUserDMMessageId.mockResolvedValue({
+        threadId: "old-closed-thread",
+        messageId: "relay-id",
+      });
+      const fetchSpy = spyOn(client.channels, "fetch");
+
+      await service.relayUserDeletedMessageToStaff(
+        "current-open-thread",
+        randomSnowflakeID()
+      );
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(toolbarService.bumpToBottom).not.toHaveBeenCalled();
+    });
+
+    it("posts a notice in the message's own thread", async () => {
+      const threadId = randomSnowflakeID();
+      messageRepository.getByUserDMMessageId.mockResolvedValue({
+        threadId,
+        messageId: "relay-id",
+      });
+      const send = mock().mockResolvedValue({});
+      spyOn(client.channels, "fetch").mockResolvedValue({
+        isSendable: () => true,
+        send,
+      } as any);
+
+      await service.relayUserDeletedMessageToStaff(threadId, randomSnowflakeID());
+
+      expect(send).toHaveBeenCalled();
+      expect(toolbarService.bumpToBottom).toHaveBeenCalledWith(threadId);
+    });
+  });
+
   describe("relayStaffMessageToUser", () => {
+    it("fails before posting if an attachment can't be re-uploaded", async () => {
+      spyOn(client.users, "fetch").mockResolvedValue({} as User);
+      const downloadSpy = spyOn(util, "downloadAttachments").mockResolvedValue(
+        []
+      );
+
+      await expect(
+        service.relayStaffMessageToUser(
+          randomSnowflakeID(),
+          randomSnowflakeID(),
+          { name: "Guild", iconURL: () => null },
+          {
+            id: randomSnowflakeID(),
+            author: {
+              id: randomSnowflakeID(),
+              username: "staff",
+              displayName: "Staff",
+              displayAvatarURL: () => "",
+            },
+            content: "see file",
+            attachments: [{ name: "huge.zip", url: "https://cdn/huge.zip" }],
+            stickers: [],
+            createdTimestamp: Date.now(),
+          },
+          { anonymous: false, plainText: false, snippet: false }
+        )
+      ).rejects.toThrow("Could not re-upload 1 attachment(s)");
+
+      expect(toolbarService.relay).not.toHaveBeenCalled();
+      downloadSpy.mockRestore();
+    });
+
     it("should relay staff message to user", async () => {
       const threadId = randomSnowflakeID();
       const userId = randomSnowflakeID();
@@ -467,7 +624,10 @@ describe("MessageRelayService", () => {
       );
 
       // Verify downloadAttachments was called with original attachments
-      expect(util.downloadAttachments).toHaveBeenCalledWith(msg.attachments);
+      expect(util.downloadAttachments).toHaveBeenCalledWith(
+        msg.attachments,
+        expect.any(Number)
+      );
 
       // Verify StaffThreadView.staffReplyComponents received attachments with proper names
       expect(StaffThreadView.staffReplyComponents).toHaveBeenCalledWith(

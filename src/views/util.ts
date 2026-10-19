@@ -2,6 +2,7 @@ import {
   AttachmentBuilder,
   Collection,
   ComponentType,
+  GuildPremiumTier,
   MediaGalleryComponent,
   Message,
   type EmbedBuilder,
@@ -13,10 +14,33 @@ import {
   MediaGalleryStickersID,
 } from "./StaffThreadView";
 import type { MessageSticker } from "models/message.model";
+import { getLogger } from "utils/logger";
+
+const logger = getLogger("views/util");
 
 interface Attachment {
   name: string;
   url: string;
+  // Present on discord.js Attachments, used to skip files the bot can't
+  // re-upload before downloading them.
+  size?: number;
+}
+
+const MiB = 1024 * 1024;
+
+/**
+ * Max size of a single file the bot can upload to a guild with the given
+ * boost tier.
+ */
+export function uploadLimitBytes(premiumTier?: GuildPremiumTier): number {
+  switch (premiumTier) {
+    case GuildPremiumTier.Tier3:
+      return 100 * MiB;
+    case GuildPremiumTier.Tier2:
+      return 50 * MiB;
+    default:
+      return 10 * MiB;
+  }
 }
 
 interface Sticker {
@@ -51,19 +75,41 @@ export function createAttachmentListField(
 }
 
 /**
- * Downloads attachments and converts them to AttachmentBuilder objects
+ * Downloads attachments and converts them to AttachmentBuilder objects.
+ * Files over maxBytes or that fail to download are skipped (and logged), so
+ * the result may be shorter than the input -- one oversized file would
+ * otherwise fail the whole upload.
  * @param attachments Collection of attachments to download
+ * @param maxBytes Max size of a file the bot can re-upload
  * @returns Promise resolving to an array of AttachmentBuilder objects
  */
 export async function downloadAttachments(
-  attachments: Attachment[]
+  attachments: Attachment[],
+  maxBytes: number = uploadLimitBytes()
 ): Promise<AttachmentBuilder[]> {
   if (attachments.length === 0) {
     return [];
   }
 
   const fileDownloads = attachments.map(async (file, i) => {
+    if (file.size !== undefined && file.size > maxBytes) {
+      logger.warn(
+        { name: file.name, size: file.size, maxBytes },
+        "Skipping attachment over upload limit"
+      );
+      return null;
+    }
+
     const res = await fetch(file.url);
+    if (!res.ok) {
+      // Don't re-upload an error page as the file contents
+      logger.warn(
+        { name: file.name, status: res.status },
+        "Skipping attachment that failed to download"
+      );
+      return null;
+    }
+
     const arrBuf = await res.arrayBuffer();
 
     const attachment = new AttachmentBuilder(Buffer.from(arrBuf));
@@ -76,7 +122,8 @@ export async function downloadAttachments(
   });
 
   // Download files in parallel
-  return Promise.all(fileDownloads);
+  const files = await Promise.all(fileDownloads);
+  return files.filter((f): f is AttachmentBuilder => f !== null);
 }
 
 export function extractComponentImages(msg: Message): {

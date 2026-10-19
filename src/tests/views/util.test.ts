@@ -1,6 +1,11 @@
-import { describe, it, expect } from "bun:test";
-import { Collection, EmbedBuilder } from "discord.js";
-import { createAttachmentListField, quoteText } from "../../views/util";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { Collection, EmbedBuilder, GuildPremiumTier } from "discord.js";
+import {
+  createAttachmentListField,
+  downloadAttachments,
+  quoteText,
+  uploadLimitBytes,
+} from "../../views/util";
 
 // Helper attachment/sticker interfaces
 interface Attachment {
@@ -40,5 +45,58 @@ describe("views/util", () => {
       const input = "line1\nline2";
       expect(quoteText(input)).toBe("> line1\n> line2");
     });
+  });
+});
+
+describe("downloadAttachments", () => {
+  let server: ReturnType<typeof Bun.serve>;
+  let base: string;
+
+  beforeAll(() => {
+    server = Bun.serve({
+      port: 0,
+      fetch(req) {
+        return new URL(req.url).pathname === "/ok"
+          ? new Response("file-data")
+          : new Response("Not Found", { status: 404 });
+      },
+    });
+    base = `http://localhost:${server.port}`;
+  });
+
+  afterAll(() => {
+    server.stop(true);
+  });
+
+  it("downloads files and prefixes names with their index", async () => {
+    const files = await downloadAttachments([
+      { name: "a.txt", url: `${base}/ok`, size: 9 },
+    ]);
+
+    expect(files.map((f) => f.name)).toEqual(["0-a.txt"]);
+  });
+
+  it("skips files that fail to download", async () => {
+    const files = await downloadAttachments([
+      { name: "missing.txt", url: `${base}/missing` },
+      { name: "b.txt", url: `${base}/ok` },
+    ]);
+
+    expect(files.map((f) => f.name)).toEqual(["1-b.txt"]);
+  });
+
+  it("skips files over the upload limit without fetching", async () => {
+    const files = await downloadAttachments(
+      [{ name: "big.zip", url: "http://invalid.invalid/big", size: 11 }],
+      10
+    );
+
+    expect(files).toEqual([]);
+  });
+
+  it("raises the upload limit with boost tier", () => {
+    expect(uploadLimitBytes()).toBe(10 * 1024 * 1024);
+    expect(uploadLimitBytes(GuildPremiumTier.Tier2)).toBe(50 * 1024 * 1024);
+    expect(uploadLimitBytes(GuildPremiumTier.Tier3)).toBe(100 * 1024 * 1024);
   });
 });

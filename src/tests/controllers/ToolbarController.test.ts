@@ -158,6 +158,20 @@ describe("ToolbarController", () => {
       expect(interaction.deleteReply).toHaveBeenCalled();
     });
 
+    it("shows the error in the confirm prompt if closing fails", async () => {
+      const interaction = mockButtonInteraction(toolbarCustomID.confirmClose);
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+      threadService.closeThread.mockRejectedValue(new Error("boom"));
+
+      await controller.handleButton(interaction);
+
+      expect(interaction.deleteReply).not.toHaveBeenCalled();
+      expect(interaction.editReply).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(interaction.editReply.mock.calls[0][0])).toContain(
+        "Failed to close thread"
+      );
+    });
+
     it("does not close an already-closed thread even if confirmed", async () => {
       const interaction = mockButtonInteraction(toolbarCustomID.confirmClose);
       threadService.getThreadByChannelId.mockResolvedValue(
@@ -241,7 +255,7 @@ describe("ToolbarController", () => {
       );
     });
 
-    it("acknowledges but does nothing for a pinned snippet that no longer exists", async () => {
+    it("replies ephemerally for a pinned snippet that no longer exists", async () => {
       const interaction = mockButtonInteraction(
         toolbarCustomID.pinnedSnippet("gone")
       );
@@ -250,7 +264,10 @@ describe("ToolbarController", () => {
 
       await controller.handleButton(interaction);
 
-      expect(interaction.deferUpdate).toHaveBeenCalled();
+      expect(interaction.reply).toHaveBeenCalledWith({
+        content: "Snippet `gone` no longer exists.",
+        ephemeral: true,
+      });
       expect(interaction.showModal).not.toHaveBeenCalled();
       expect(messageService.relayStaffMessageToUser).not.toHaveBeenCalled();
     });
@@ -476,6 +493,39 @@ describe("ToolbarController", () => {
       // Silent ack -- no ephemeral reply created or torn down.
       expect(interaction.deleteReply).not.toHaveBeenCalled();
       expect(interaction.followUp).not.toHaveBeenCalled();
+    });
+
+    it("tells the staff member if relaying a reply modal fails", async () => {
+      const interaction = mockModalInteraction(toolbarCustomID.modalReply, "hi");
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+      messageService.relayStaffMessageToUser.mockRejectedValue(
+        new Error("Unknown User")
+      );
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(interaction.followUp).toHaveBeenCalledWith({
+        content: "Error while sending reply. See logs for details.",
+        ephemeral: true,
+      });
+    });
+
+    it("tells the staff member if relaying a snippet modal fails", async () => {
+      const interaction = mockModalInteraction(
+        toolbarCustomID.modalSnippet("nonce-1", "faq"),
+        "content"
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+      messageService.relayStaffMessageToUser.mockRejectedValue(
+        new Error("boom")
+      );
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(interaction.followUp).toHaveBeenCalledWith({
+        content: "Error while sending snippet. See logs for details.",
+        ephemeral: true,
+      });
     });
 
     it("relays an anon reply modal submission", async () => {

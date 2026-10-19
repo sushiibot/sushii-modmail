@@ -100,5 +100,54 @@ describe("DMController", () => {
       expect(messageService.sendInitialMessageToStaff).not.toHaveBeenCalled();
       expect(messageService.bumpToolbarToBottom).not.toHaveBeenCalled();
     });
+    it("does not tell the user to resend if a post-relay step fails", async () => {
+      threadService.getOrCreateThread.mockResolvedValue({
+        thread: { channelId },
+        isNew: true,
+      });
+      messageService.sendInitialMessageToStaff.mockRejectedValue(
+        new Error("missing permissions")
+      );
+      const message = mockDMMessage();
+      message.author.send = mock().mockResolvedValue(undefined);
+
+      await controller.handleUserDM({} as any, message);
+
+      expect(message.react).toHaveBeenCalledWith("✅");
+      expect(logService.logError).toHaveBeenCalled();
+      expect(message.author.send).not.toHaveBeenCalled();
+    });
+
+    it("still sends the initial message if the react fails", async () => {
+      threadService.getOrCreateThread.mockResolvedValue({
+        thread: { channelId },
+        isNew: true,
+      });
+      const message = mockDMMessage();
+      message.react.mockRejectedValue(new Error("Unknown Message"));
+      message.author.send = mock().mockResolvedValue(undefined);
+
+      await controller.handleUserDM({} as any, message);
+
+      expect(messageService.sendInitialMessageToUser).toHaveBeenCalled();
+      expect(messageService.bumpToolbarToBottom).toHaveBeenCalledWith(channelId);
+      expect(message.author.send).not.toHaveBeenCalled();
+    });
+
+    it("notifies the user when the relay itself throws", async () => {
+      threadService.getOrCreateThread.mockResolvedValue({
+        thread: { channelId },
+        isNew: false,
+      });
+      messageService.relayUserMessageToStaff.mockRejectedValue(
+        new Error("relay failed")
+      );
+      const message = mockDMMessage();
+      message.author.send = mock().mockResolvedValue(undefined);
+
+      await controller.handleUserDM({} as any, message);
+
+      expect(message.author.send).toHaveBeenCalled();
+    });
   });
 });

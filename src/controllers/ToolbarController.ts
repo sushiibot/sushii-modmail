@@ -103,6 +103,31 @@ export class ToolbarController {
   }
 
   /**
+   * Logs a failed toolbar action and tells staff about it in an ephemeral
+   * follow-up, mirroring the text-command error reply in BaseReplyCommand.
+   * Only for interactions that were already deferred -- reporting failures
+   * are logged rather than thrown, so the original error isn't masked.
+   */
+  private async reportError(
+    interaction: { followUp(options: { content: string; ephemeral: boolean }): Promise<unknown> },
+    err: unknown,
+    action: string
+  ): Promise<void> {
+    this.logger.error({ err }, `Toolbar action failed: ${action}`);
+
+    const codeSuffix =
+      err instanceof DiscordAPIError ? ` (Discord error ${err.code})` : "";
+    try {
+      await interaction.followUp({
+        content: `Error while ${action}${codeSuffix}. See logs for details.`,
+        ephemeral: true,
+      });
+    } catch (reportErr) {
+      this.logger.error({ err: reportErr }, "Failed to report toolbar error");
+    }
+  }
+
+  /**
    * True if `message` is a reply targeting the toolbar itself -- the
    * disambiguator that lets the command word skip the usual prefix. A reply
    * to a regular relayed message is intentionally NOT handled here, so
@@ -145,20 +170,40 @@ export class ToolbarController {
 
     if (customId === toolbarCustomID.confirmClose) {
       await interaction.deferUpdate();
-      const thread = await this.threadService.getThreadByChannelId(
-        interaction.channelId
-      );
-      if (!thread || thread.isClosed) {
-        await interaction.editReply(
-          ToolbarView.closeResultMessage("This thread is already closed.")
+      try {
+        const thread = await this.threadService.getThreadByChannelId(
+          interaction.channelId
         );
-        return;
+        if (!thread || thread.isClosed) {
+          await interaction.editReply(
+            ToolbarView.closeResultMessage("This thread is already closed.")
+          );
+          return;
+        }
+        await this.threadService.closeThread(thread, interaction.user.id);
+        // No visible confirmation needed -- closeThread() already posts a
+        // permanent "closed" message to the channel, so this ephemeral
+        // confirm prompt just gets discarded.
+        await interaction.deleteReply();
+      } catch (err) {
+        this.logger.error({ err }, "Toolbar action failed: closing thread");
+
+        // Replace the confirm prompt (and its buttons) with the error.
+        const codeSuffix =
+          err instanceof DiscordAPIError ? ` (Discord error ${err.code})` : "";
+        try {
+          await interaction.editReply(
+            ToolbarView.closeResultMessage(
+              `Failed to close thread${codeSuffix}. See logs for details.`
+            )
+          );
+        } catch (reportErr) {
+          this.logger.error(
+            { err: reportErr },
+            "Failed to report toolbar error"
+          );
+        }
       }
-      await this.threadService.closeThread(thread, interaction.user.id);
-      // No visible confirmation needed -- closeThread() already posts a
-      // permanent "closed" message to the channel, so this ephemeral
-      // confirm prompt just gets discarded.
-      await interaction.deleteReply();
       return;
     }
 
@@ -203,7 +248,11 @@ export class ToolbarController {
         pinnedSnippetName
       );
       if (!snippet) {
-        await interaction.deferUpdate();
+        // Stale pin button left on the toolbar after the snippet was deleted
+        await interaction.reply({
+          content: `Snippet \`${pinnedSnippetName}\` no longer exists.`,
+          ephemeral: true,
+        });
         return;
       }
 
@@ -231,7 +280,26 @@ export class ToolbarController {
     // unmodified.
     if (snippet.content.length > 4000) {
       await interaction.deferReply({ ephemeral: true });
-      await this.sendSnippet(interaction, thread, snippet);
+      try {
+        await this.sendSnippet(interaction, thread, snippet);
+      } catch (err) {
+        this.logger.error({ err }, "Toolbar action failed: sending snippet");
+
+        // Resolve the deferred "thinking..." reply with the error instead
+        const codeSuffix =
+          err instanceof DiscordAPIError ? ` (Discord error ${err.code})` : "";
+        try {
+          await interaction.editReply(
+            `Error while sending snippet${codeSuffix}. See logs for details.`
+          );
+        } catch (reportErr) {
+          this.logger.error(
+            { err: reportErr },
+            "Failed to report toolbar error"
+          );
+        }
+        return;
+      }
       await interaction.editReply(
         "Snippet is too long to preview/edit -- sent as-is."
       );
@@ -403,25 +471,29 @@ export class ToolbarController {
         toolbarCustomID.modalReplyInput
       );
 
-      await this.messageService.relayStaffMessageToUser(
-        thread.channelId,
-        thread.userId,
-        interaction.guild,
-        {
-          id: interaction.id,
-          author: interaction.user,
-          content,
-          attachments: [],
-          stickers: [],
-          forwarded: false,
-          createdTimestamp: interaction.createdTimestamp,
-        },
-        {
-          anonymous: customId === toolbarCustomID.modalAnonReply,
-          plainText: false,
-          snippet: false,
-        }
-      );
+      try {
+        await this.messageService.relayStaffMessageToUser(
+          thread.channelId,
+          thread.userId,
+          interaction.guild,
+          {
+            id: interaction.id,
+            author: interaction.user,
+            content,
+            attachments: [],
+            stickers: [],
+            forwarded: false,
+            createdTimestamp: interaction.createdTimestamp,
+          },
+          {
+            anonymous: customId === toolbarCustomID.modalAnonReply,
+            plainText: false,
+            snippet: false,
+          }
+        );
+      } catch (err) {
+        await this.reportError(interaction, err, "sending reply");
+      }
       // No visible confirmation needed -- the relayed message in the channel
       // is the feedback, and deferUpdate left nothing to clean up.
       return;
@@ -452,31 +524,36 @@ export class ToolbarController {
       return;
     }
 
-    const config = await this.configRepository.getConfig(thread.guildId);
     const content = interaction.fields.getTextInputValue(
       toolbarCustomID.modalSnippetInput
     );
 
-    await this.messageService.relayStaffMessageToUser(
-      thread.channelId,
-      thread.userId,
-      interaction.guild,
-      {
-        id: interaction.id,
-        author: interaction.user,
-        content,
-        attachments: [],
-        stickers: [],
-        forwarded: false,
-        createdTimestamp: interaction.createdTimestamp,
-      },
-      {
-        anonymous: config.anonymousSnippets,
-        plainText: false,
-        snippet: true,
-        snippetName,
-      }
-    );
+    try {
+      const config = await this.configRepository.getConfig(thread.guildId);
+
+      await this.messageService.relayStaffMessageToUser(
+        thread.channelId,
+        thread.userId,
+        interaction.guild,
+        {
+          id: interaction.id,
+          author: interaction.user,
+          content,
+          attachments: [],
+          stickers: [],
+          forwarded: false,
+          createdTimestamp: interaction.createdTimestamp,
+        },
+        {
+          anonymous: config.anonymousSnippets,
+          plainText: false,
+          snippet: true,
+          snippetName,
+        }
+      );
+    } catch (err) {
+      await this.reportError(interaction, err, "sending snippet");
+    }
     // No visible confirmation needed -- the relayed message in the channel
     // is the feedback, and deferUpdate left nothing to clean up.
   }

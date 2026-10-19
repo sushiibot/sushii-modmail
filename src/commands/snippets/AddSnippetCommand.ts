@@ -19,7 +19,11 @@ export class AddSnippetCommand extends TextCommandHandler {
     this.snippetService = snippetService;
   }
 
-  async handler(msg: Message, args: string[]): Promise<void> {
+  async handler(
+    msg: Message,
+    args: string[],
+    rawArgs: string
+  ): Promise<void> {
     if (!msg.inGuild()) {
       await msg.reply(SnippetCommandView.notInGuild());
       return;
@@ -32,7 +36,9 @@ export class AddSnippetCommand extends TextCommandHandler {
     }
 
     const name = args[0].toLowerCase();
-    const content = args.slice(1).join(" ");
+    // Drop the name token from rawArgs instead of rejoining args, so
+    // newlines and repeated whitespace in the snippet content are kept.
+    const content = rawArgs.replace(/^\s*\S+/, "").replace(/^\s+/, "");
 
     try {
       // Check if name is reserved

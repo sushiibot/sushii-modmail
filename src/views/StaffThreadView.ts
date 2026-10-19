@@ -716,9 +716,15 @@ export class StaffThreadView {
    */
   static async userInitialReplyMessage(
     userMessage: UserToStaffMessage,
-    emojis: StaffThreadEmojis
+    emojis: StaffThreadEmojis,
+    maxUploadBytes?: number
   ): Promise<MessageCreateOptions> {
-    const files = await downloadAttachments(userMessage.attachments);
+    // Files that can't be re-uploaded (too large, failed download) are left
+    // out of the gallery but still listed in the original attachment links.
+    const files = await downloadAttachments(
+      userMessage.attachments,
+      maxUploadBytes
+    );
 
     const [primaryComponent] = this.userReplyComponents(
       userMessage,

@@ -1,4 +1,9 @@
-import type { Message, User } from "discord.js";
+import {
+  DiscordAPIError,
+  RESTJSONErrorCodes,
+  type Message,
+  type User,
+} from "discord.js";
 import TextCommandHandler from "./CommandHandler";
 import type { ThreadService } from "services/ThreadService";
 import type { MessageRelayService } from "services/MessageRelayService";
@@ -30,18 +35,35 @@ export class ContactCommand extends TextCommandHandler {
       return;
     }
 
-    // Creates a new thread as staff to contact specific members
-    const targetUserStr = args[0];
+    // Creates a new thread as staff to contact specific members. Parse the
+    // target from args[0] rather than msg.mentions, since a bot @mention
+    // prefix would otherwise be picked up as the target.
+    const match = args[0]?.match(/^<@!?(\d{17,20})>$|^(\d{17,20})$/);
+    const targetUserId = match?.[1] ?? match?.[2];
+    if (!targetUserId) {
+      await msg.channel.send("Usage: contact <@user | user ID>");
+      return;
+    }
 
-    // First check if mention
-    let targetUser = msg.mentions.users.first();
-    if (!targetUser) {
-      // Then try to fetch user by ID / user resolveable
-      targetUser = await msg.client.users.fetch(targetUserStr);
+    let targetUser: User;
+    try {
+      targetUser = await msg.client.users.fetch(targetUserId);
+    } catch (err) {
+      if (
+        err instanceof DiscordAPIError &&
+        (err.code === RESTJSONErrorCodes.UnknownUser ||
+          err.code === RESTJSONErrorCodes.InvalidFormBodyOrContentType)
+      ) {
+        await msg.channel.send("Could not find a user with that ID.");
+        return;
+      }
+
+      throw err;
     }
 
     if (targetUser.bot) {
       await msg.channel.send("You cannot open a thread with a bot.");
+      return;
     }
 
     const { thread, isNew } = await this.threadService.getOrCreateThread(

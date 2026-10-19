@@ -30,6 +30,7 @@ import {
 } from "views/UserThreadView";
 import {
   downloadAttachments,
+  uploadLimitBytes,
   extractComponentImages,
   extractImageURLsFromComponents,
 } from "views/util";
@@ -259,7 +260,11 @@ export class MessageRelayService {
 
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
 
-    const msg = await StaffThreadView.userInitialReplyMessage(message, emojis);
+    const msg = await StaffThreadView.userInitialReplyMessage(
+      message,
+      emojis,
+      this.getUploadLimitBytes()
+    );
     const relayedMsg = await this.toolbarService.relay(threadId, msg);
 
     // Save message to database
@@ -293,6 +298,13 @@ export class MessageRelayService {
     return true;
   }
 
+  // Max file size the bot can upload to the mail guild's threads
+  private getUploadLimitBytes(): number {
+    return uploadLimitBytes(
+      this.client.guilds.cache.get(this.config.guildId)?.premiumTier
+    );
+  }
+
   async relayUserEditedMessageToStaff(
     threadId: string,
     message: UserToStaffMessage
@@ -318,23 +330,6 @@ export class MessageRelayService {
     threadId: string,
     message: UserToStaffMessage
   ): Promise<void> {
-    const threadChannel = await this.client.channels.fetch(threadId);
-    if (!threadChannel) {
-      throw new Error(`Channel not found: ${threadId}`);
-    }
-
-    if (!threadChannel.isSendable()) {
-      throw new Error(`Cannot send to channel: ${threadId}`);
-    }
-
-    this.logger.debug(
-      {
-        user: message.author.username,
-        content: message.content,
-      },
-      "Relaying user edited message to staff"
-    );
-
     // Gets the thread message from user original DM message ID
     const threadMessage = await this.messageRepository.getByUserDMMessageId(
       message.id
@@ -351,6 +346,50 @@ export class MessageRelayService {
 
       return;
     }
+
+    // The edited DM was relayed into a different (closed) thread than the
+    // user's current open one -- closed threads aren't touched, and editing
+    // the relay message through the open thread would fail anyway.
+    if (threadMessage.threadId !== threadId) {
+      this.logger.debug(
+        {
+          threadId: threadId,
+          messageThreadId: threadMessage.threadId,
+          messageId: message.id,
+        },
+        "Ignoring user edit for message in a different thread"
+      );
+
+      return;
+    }
+
+    // Discord also emits MessageUpdate when it attaches link embeds to a
+    // DM, which isn't an actual edit by the user.
+    if ((threadMessage.content ?? "") === (message.content ?? "")) {
+      this.logger.debug(
+        { messageId: message.id },
+        "Ignoring user DM update with unchanged content (e.g. embed unfurl)"
+      );
+
+      return;
+    }
+
+    const threadChannel = await this.client.channels.fetch(threadId);
+    if (!threadChannel) {
+      throw new Error(`Channel not found: ${threadId}`);
+    }
+
+    if (!threadChannel.isSendable()) {
+      throw new Error(`Cannot send to channel: ${threadId}`);
+    }
+
+    this.logger.debug(
+      {
+        user: message.author.username,
+        content: message.content,
+      },
+      "Relaying user edited message to staff"
+    );
 
     // Update the existing message in the thread (showing previous versions too)
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
@@ -508,6 +547,25 @@ export class MessageRelayService {
     threadId: string,
     messageId: string
   ): Promise<void> {
+    const threadMessage = await this.messageRepository.getByUserDMMessageId(
+      messageId
+    );
+
+    // Deleted DM was relayed into a different (closed) thread, don't post
+    // the notice into the user's current unrelated thread.
+    if (threadMessage && threadMessage.threadId !== threadId) {
+      this.logger.debug(
+        {
+          threadId,
+          messageThreadId: threadMessage.threadId,
+          messageId,
+        },
+        "Ignoring user delete for message in a different thread"
+      );
+
+      return;
+    }
+
     const threadChannel = await this.client.channels.fetch(threadId);
     if (!threadChannel) {
       throw new Error(`Channel not found: ${threadId}`);
@@ -522,10 +580,6 @@ export class MessageRelayService {
         messageId,
       },
       "Relaying user deleted message to staff"
-    );
-
-    const threadMessage = await this.messageRepository.getByUserDMMessageId(
-      messageId
     );
 
     const msg = StaffThreadView.userReplyDeletedMessage(
@@ -605,7 +659,21 @@ export class MessageRelayService {
     // -------------------------------------------------------------------------
     // STAFF THREAD
     // Download the attachments and re-upload them to the staff thread
-    const files = await downloadAttachments(msg.attachments);
+    const files = await downloadAttachments(
+      msg.attachments,
+      this.getUploadLimitBytes()
+    );
+
+    // Unlike user messages, there's no link fallback here -- the staff
+    // command message (and its attachment URLs) gets deleted after relaying,
+    // so fail before posting anything rather than silently dropping files.
+    if (files.length !== msg.attachments.length) {
+      throw new Error(
+        `Could not re-upload ${
+          msg.attachments.length - files.length
+        } attachment(s): too large or failed to download`
+      );
+    }
 
     const emojis = await this.emojiRepository.getEmojiMap(StaffThreadEmojis);
 

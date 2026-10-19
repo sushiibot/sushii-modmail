@@ -139,28 +139,52 @@ export class DMController {
         );
 
         if (success) {
-          // React to the user's message to indicate that it was received
-          await message.react("✅");
+          // The message is already delivered to staff at this point, so
+          // failures below must not tell the user to resend it (which would
+          // duplicate it in the thread) -- only log them.
+          try {
+            // React to the user's message to indicate that it was received
+            await message.react("✅");
+          } catch (err) {
+            this.logger.warn(
+              { err, messageId: message.id },
+              "Failed to react to DM"
+            );
+          }
 
           // If this is a new thread, send the initial message
           if (isNew) {
-            const content = await this.messageService.sendInitialMessageToUser(
-              userId
-            );
+            try {
+              const content =
+                await this.messageService.sendInitialMessageToUser(userId);
 
-            // Also relay the initial message to the staff -- just for transparency
-            // so staff knows what the user received, otherwise sometimes forget
-            // people get an initial message and less likely to adjust it if needed
+              // Also relay the initial message to the staff -- just for transparency
+              // so staff knows what the user received, otherwise sometimes forget
+              // people get an initial message and less likely to adjust it if needed
 
-            await this.messageService.sendInitialMessageToStaff(
-              thread.channelId,
-              content
-            );
+              await this.messageService.sendInitialMessageToStaff(
+                thread.channelId,
+                content
+              );
 
-            // The initial notice above landed below the toolbar's overlay
-            // bearer (the user's first relayed message), stranding it
-            // mid-thread -- move it back to the bottom.
-            await this.messageService.bumpToolbarToBottom(thread.channelId);
+              // The initial notice above landed below the toolbar's overlay
+              // bearer (the user's first relayed message), stranding it
+              // mid-thread -- move it back to the bottom.
+              await this.messageService.bumpToolbarToBottom(thread.channelId);
+            } catch (err) {
+              span.recordException(err instanceof Error ? err : String(err));
+
+              const contextMsg = `Error sending initial message for new thread ${thread.channelId}`;
+              try {
+                await this.logService.logError(
+                  err,
+                  contextMsg,
+                  this.constructor.name
+                );
+              } catch (logErr) {
+                this.logger.error({ err, logErr }, contextMsg);
+              }
+            }
           }
         }
       } catch (err) {
