@@ -3,6 +3,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
+  LabelBuilder,
   MessageFlags,
   ModalBuilder,
   SeparatorBuilder,
@@ -39,6 +40,8 @@ export const toolbarCustomID = {
   modalReply: modalId("reply"),
   modalAnonReply: modalId("anonReply"),
   modalReplyInput: modalId("reply.input"),
+  // Shared by the reply and snippet modals -- "rich" (default) or "plain"
+  modalFormatSelect: modalId("reply.format"),
   // `nonce` is the triggering interaction's own ID -- makes every modal open
   // a distinct custom_id even for the same snippet. Discord's client caches
   // modal field state by custom_id, so reusing a static one would let a
@@ -234,21 +237,48 @@ export class ToolbarView {
     };
   }
 
+  /**
+   * "Format" select shared by the reply and snippet modals -- the modal
+   * equivalent of preply/apreply. Defaults to Rich so the common path needs
+   * no extra click.
+   */
+  private static formatLabel(): LabelBuilder {
+    return new LabelBuilder()
+      .setLabel("Format")
+      .setStringSelectMenuComponent(
+        new StringSelectMenuBuilder()
+          .setCustomId(toolbarCustomID.modalFormatSelect)
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("Rich (default)")
+              .setValue("rich")
+              .setDefault(true),
+            new StringSelectMenuOptionBuilder()
+              .setLabel("Plain text")
+              .setValue("plain")
+              .setDescription("Sent as a normal message, no embed")
+          )
+      );
+  }
+
   static replyModal(anonymous: boolean): ModalBuilder {
     const modal = new ModalBuilder()
       .setCustomId(anonymous ? toolbarCustomID.modalAnonReply : toolbarCustomID.modalReply)
       .setTitle(anonymous ? "Anonymous Reply" : "Reply");
 
+    // No setLabel on the input itself -- the Label wrapper carries it.
     const input = new TextInputBuilder()
       .setCustomId(toolbarCustomID.modalReplyInput)
-      .setLabel("Message")
       .setRequired(true)
       .setMaxLength(4000)
       .setStyle(TextInputStyle.Paragraph);
 
-    const row = new ActionRowBuilder<TextInputBuilder>();
-    row.addComponents(input);
-    modal.addComponents(row);
+    modal.addLabelComponents(
+      new LabelBuilder().setLabel("Message").setTextInputComponent(input),
+      ToolbarView.formatLabel()
+    );
 
     return modal;
   }
@@ -264,15 +294,17 @@ export class ToolbarView {
 
     const input = new TextInputBuilder()
       .setCustomId(toolbarCustomID.modalSnippetInput)
-      .setLabel("Message (editable)")
       .setRequired(true)
       .setMaxLength(4000)
       .setValue(snippet.content.slice(0, 4000))
       .setStyle(TextInputStyle.Paragraph);
 
-    const row = new ActionRowBuilder<TextInputBuilder>();
-    row.addComponents(input);
-    modal.addComponents(row);
+    modal.addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Message (editable)")
+        .setTextInputComponent(input),
+      ToolbarView.formatLabel()
+    );
 
     return modal;
   }

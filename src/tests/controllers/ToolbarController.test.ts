@@ -441,7 +441,8 @@ describe("ToolbarController", () => {
     function mockModalInteraction(
       customId: string,
       inputValue: string,
-      permitted = true
+      permitted = true,
+      format: string | null = null
     ) {
       return {
         customId,
@@ -460,6 +461,13 @@ describe("ToolbarController", () => {
         followUp: mock().mockResolvedValue(undefined),
         fields: {
           getTextInputValue: mock().mockReturnValue(inputValue),
+          // Mirrors discord.js: an absent field throws rather than returning null
+          getStringSelectValues: mock(() => {
+            if (format === null) {
+              throw new Error("ModalSubmitInteractionFieldNotFound");
+            }
+            return [format];
+          }),
         },
       } as any;
     }
@@ -493,6 +501,69 @@ describe("ToolbarController", () => {
       // Silent ack -- no ephemeral reply created or torn down.
       expect(interaction.deleteReply).not.toHaveBeenCalled();
       expect(interaction.followUp).not.toHaveBeenCalled();
+    });
+
+    it("relays a reply as plain text when Plain is picked in the Format select", async () => {
+      const interaction = mockModalInteraction(
+        toolbarCustomID.modalAnonReply,
+        "plain text",
+        true,
+        "plain"
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
+        "channel-1",
+        "user-1",
+        interaction.guild,
+        expect.objectContaining({ content: "plain text" }),
+        expect.objectContaining({ anonymous: true, plainText: true })
+      );
+    });
+
+    it("relays a reply as rich when Rich is picked or the Format field is missing", async () => {
+      for (const format of ["rich", null]) {
+        messageService.relayStaffMessageToUser.mockClear();
+        const interaction = mockModalInteraction(
+          toolbarCustomID.modalReply,
+          "hi",
+          true,
+          format
+        );
+        threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+
+        await controller.handleModalSubmit(interaction);
+
+        expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
+          "channel-1",
+          "user-1",
+          interaction.guild,
+          expect.anything(),
+          expect.objectContaining({ plainText: false })
+        );
+      }
+    });
+
+    it("relays a snippet modal as plain text when Plain is picked", async () => {
+      const interaction = mockModalInteraction(
+        toolbarCustomID.modalSnippet("nonce-1", "faq"),
+        "content",
+        true,
+        "plain"
+      );
+      threadService.getThreadByChannelId.mockResolvedValue(mockThread());
+
+      await controller.handleModalSubmit(interaction);
+
+      expect(messageService.relayStaffMessageToUser).toHaveBeenCalledWith(
+        "channel-1",
+        "user-1",
+        interaction.guild,
+        expect.anything(),
+        expect.objectContaining({ plainText: true, snippet: true })
+      );
     });
 
     it("tells the staff member if relaying a reply modal fails", async () => {

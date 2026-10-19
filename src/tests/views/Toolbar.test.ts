@@ -80,6 +80,38 @@ describe("ToolbarView.buildMessage", () => {
   });
 });
 
+describe("ToolbarView reply/snippet modals", () => {
+  function labels(modal: ReturnType<typeof ToolbarView.replyModal>) {
+    return (modal.toJSON() as any).components;
+  }
+
+  it("wraps the reply input in a Label and adds a Format select defaulting to Rich", () => {
+    const [message, format] = labels(ToolbarView.replyModal(false));
+
+    expect(message.type).toBe(18); // Label
+    expect(message.label).toBe("Message");
+    expect(message.component.custom_id).toBe(toolbarCustomID.modalReplyInput);
+    // Label carries the text -- the input's own label is deprecated here
+    expect(message.component.label).toBeUndefined();
+
+    expect(format.type).toBe(18);
+    expect(format.label).toBe("Format");
+    expect(format.component.custom_id).toBe(toolbarCustomID.modalFormatSelect);
+    const options = format.component.options;
+    expect(options.map((o: any) => o.value)).toEqual(["rich", "plain"]);
+    expect(options.find((o: any) => o.value === "rich").default).toBe(true);
+  });
+
+  it("adds the same Format select to the snippet modal", () => {
+    const modal = ToolbarView.snippetModal(mockSnippet("faq"), "nonce-1");
+    const [message, format] = labels(modal);
+
+    expect(message.label).toBe("Message (editable)");
+    expect(message.component.value).toBe("content for faq");
+    expect(format.component.custom_id).toBe(toolbarCustomID.modalFormatSelect);
+  });
+});
+
 describe("ToolbarView.pinsEditorMessage", () => {
   it("shows a placeholder message when no snippets exist yet", () => {
     const message = ToolbarView.pinsEditorMessage([]);

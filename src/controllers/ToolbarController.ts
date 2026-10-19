@@ -25,6 +25,24 @@ import { hasStaffPermission } from "utils/permissions";
 
 const NO_PERMISSION_MESSAGE = "You don't have permission to use this.";
 
+/**
+ * Reads the reply/snippet modal's Format select. Falls back to rich when the
+ * field is absent (e.g. a modal opened before the select existed) -- the
+ * fields lookup throws for an unknown custom ID rather than returning null.
+ */
+function isPlainTextFormat(fields: {
+  getStringSelectValues(customId: string): readonly string[];
+}): boolean {
+  try {
+    return (
+      fields.getStringSelectValues(toolbarCustomID.modalFormatSelect)[0] ===
+      "plain"
+    );
+  } catch {
+    return false;
+  }
+}
+
 interface Thread {
   userId: string;
   channelId: string;
@@ -487,7 +505,7 @@ export class ToolbarController {
           },
           {
             anonymous: customId === toolbarCustomID.modalAnonReply,
-            plainText: false,
+            plainText: isPlainTextFormat(interaction.fields),
             snippet: false,
           }
         );
@@ -546,7 +564,7 @@ export class ToolbarController {
         },
         {
           anonymous: config.anonymousSnippets,
-          plainText: false,
+          plainText: isPlainTextFormat(interaction.fields),
           snippet: true,
           snippetName,
         }
