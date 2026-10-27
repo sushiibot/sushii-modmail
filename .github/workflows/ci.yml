@@ -9,6 +9,8 @@ on:
     branches:
       - main
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -16,6 +18,8 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -36,19 +40,17 @@ jobs:
       contents: read
       packages: write
 
-  deploy-staging:
+  release:
     needs: docker-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # apps deploys on its own (sushii-ansible roles/pull_deploy): this bumps the tag and waits for its
-    # status, which is mirrored onto this commit with a Grafana log link.
+    # Project tests gate the build. The preset waits for staging, then production approval.
     permissions:
+      contents: read
+      actions: read
       statuses: write
-    uses: sushiibot/sushii-workflows/.github/workflows/pull-deploy.yml@9c7c7076f75ec0356eee1ce8cd62b1496b161e7e # pull-deploy
+    uses: sushiibot/sushii-workflows/.github/workflows/release-staged.yml@4f4cea3a5068759087b2dab62770b42b73b71e7e # release presets
     with:
-      service: modmail/sushii-modmail-staging
-      host: apps
       image_version: ${{ needs.docker-build.outputs.image_version }}
-      environment: staging
     secrets:
       SUSHII_CI_PRIVATE_KEY: ${{ secrets.SUSHII_CI_PRIVATE_KEY }}
 

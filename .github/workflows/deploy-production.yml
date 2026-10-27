@@ -1,50 +1,23 @@
-name: Deploy Production
+name: Promote Production
 
 on:
   workflow_dispatch:
     inputs:
-      image_version:
-        description: "Existing image tag to deploy (leave empty to use the selected commit)"
-        required: false
+      staging_run_id:
+        description: "Successful completed staging CI run ID (from its GitHub URL)"
+        required: true
         type: string
 
 permissions: {}
 
-concurrency:
-  group: deploy-production
-  # Queue new runs so an active deployment can finish.
-  cancel-in-progress: false
-
 jobs:
-  image-version:
-    runs-on: ubuntu-latest
-    outputs:
-      image_version: ${{ steps.version.outputs.image_version }}
-    steps:
-      - name: Select image version
-        id: version
-        env:
-          IMAGE_VERSION: ${{ inputs.image_version }}
-        run: |
-          version="${IMAGE_VERSION:-${GITHUB_SHA::7}}"
-          if [[ ! "$version" =~ ^[0-9a-f]{7,40}$ ]]; then
-            echo "Expected a commit SHA image tag" >&2
-            exit 1
-          fi
-          echo "image_version=$version" >> "$GITHUB_OUTPUT"
-          echo "Deploying ghcr.io/sushiibot/modmail:$version" >> "$GITHUB_STEP_SUMMARY"
-
-  deploy:
-    needs: image-version
-    # apps deploys on its own (sushii-ansible roles/pull_deploy): this bumps the tag and waits for its
-    # status, which is mirrored onto this commit with a Grafana log link.
+  promote:
     permissions:
+      contents: read
+      actions: read
       statuses: write
-    uses: sushiibot/sushii-workflows/.github/workflows/pull-deploy.yml@9c7c7076f75ec0356eee1ce8cd62b1496b161e7e # pull-deploy
+    uses: sushiibot/sushii-workflows/.github/workflows/release-promote.yml@4f4cea3a5068759087b2dab62770b42b73b71e7e # release presets
     with:
-      service: modmail/sushii-modmail-prod
-      host: apps
-      image_version: ${{ needs.image-version.outputs.image_version }}
-      environment: production
+      staging_run_id: ${{ inputs.staging_run_id }}
     secrets:
       SUSHII_CI_PRIVATE_KEY: ${{ secrets.SUSHII_CI_PRIVATE_KEY }}

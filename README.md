@@ -74,6 +74,21 @@ Snippets
 
 ## Deployment
 
+CI runs the project tests, builds one image, and deploys staging through the shared release preset.
+After staging succeeds, the same CI run waits for approval of the `production` environment.
+Open the CI run and select **Review deployments** to approve that exact version.
+The run summary includes a link for approval and deployment status.
+
+The **Promote Production** workflow accepts a successful, completed staging CI run ID for later promotion.
+It checks the saved staging receipt and host result, then uses the production approval gate.
+It does not accept arbitrary image versions. For a CI run already waiting on production, approve that run directly.
+
+Repository setup requires `STAGING_SERVICE`, `PRODUCTION_SERVICE`, and optional `STAGING_HOST` and `PRODUCTION_HOST` variables.
+The existing `SUSHII_CI_CLIENT_ID` variable and `SUSHII_CI_PRIVATE_KEY` secret authenticate deployment requests.
+The production environment must have required reviewers. The shared preset stops if that rule is missing.
+
+
+
 The recommended way to run sushii-modmail is via Docker. It uses an embedded
 SQLite database, so no separate database service is required.
 
