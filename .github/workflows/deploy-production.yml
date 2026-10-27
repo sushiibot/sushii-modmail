@@ -16,7 +16,7 @@ jobs:
       contents: read
       actions: read
       statuses: write
-    uses: sushiibot/sushii-workflows/.github/workflows/release-promote.yml@4f4cea3a5068759087b2dab62770b42b73b71e7e # release presets
+    uses: sushiibot/sushii-workflows/.github/workflows/release-promote.yml@8458e0588e5f938593046713faef1939fedd5f05 # release presets
     with:
       staging_run_id: ${{ inputs.staging_run_id }}
     secrets:
