@@ -1,10 +1,10 @@
 FROM golang:1.23-bookworm AS litestream
 
-# Static build of litestream
+# Match the deployed v0.3 format; do not upgrade backup formats during rebuilds.
 RUN go install \
     -ldflags "-s -w -extldflags "-static"" \
     -tags osusergo,netgo,sqlite_omit_load_extension \
-     github.com/benbjohnson/litestream/cmd/litestream@latest
+     github.com/benbjohnson/litestream/cmd/litestream@v0.3.13
 
 FROM oven/bun:1.2.17-debian
 
