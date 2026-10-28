@@ -1,6 +1,5 @@
 import {
   DiscordAPIError,
-  MessageFlags,
   RESTJSONErrorCodes,
   type Message,
 } from "discord.js";
@@ -121,24 +120,6 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         },
         this.replyOptions
       );
-
-      // TODO: Clear error for if bot missing MANAGE_MESSAGES permission
-      try {
-        await msg.delete();
-      } catch (err) {
-        if (
-          err instanceof DiscordAPIError &&
-          err.code === RESTJSONErrorCodes.MissingPermissions
-        ) {
-          await msg.channel.send(
-            "If you want the original reply commands to be automatically deleted, please ensure I have the `Manage Messages` permission in this channel."
-          );
-        }
-
-        this.logger.error(
-          `Error deleting command message: ${err} -- ${msg.content}`
-        );
-      }
     } catch (error) {
       this.logger.error(`Error sending reply: ${error}`);
 
@@ -152,6 +133,42 @@ export abstract class BaseReplyCommand extends TextCommandHandler {
         await this.messageService.bumpToolbarToBottom(msg.channelId);
       } catch (bumpErr) {
         this.logger.error(`Error moving toolbar to bottom: ${bumpErr}`);
+      }
+      return;
+    }
+
+    // Delivery already succeeded. Cleanup must not report a failed reply.
+    try {
+      await msg.delete();
+    } catch (error) {
+      this.logger.warn(
+        {
+          messageId: msg.id,
+          channelId: msg.channelId,
+          discordCode: error instanceof DiscordAPIError ? error.code : undefined,
+        },
+        "Reply delivered, but could not delete the command message"
+      );
+
+      if (
+        error instanceof DiscordAPIError &&
+        error.code === RESTJSONErrorCodes.MissingPermissions
+      ) {
+        try {
+          await msg.channel.send(
+            "If you want the original reply commands to be automatically deleted, please ensure I have the `Manage Messages` permission in this channel."
+          );
+        } catch (warningError) {
+          this.logger.warn(
+            {
+              messageId: msg.id,
+              channelId: msg.channelId,
+              discordCode:
+                warningError instanceof DiscordAPIError ? warningError.code : undefined,
+            },
+            "Reply delivered, but could not send the command cleanup warning"
+          );
+        }
       }
     }
   }
