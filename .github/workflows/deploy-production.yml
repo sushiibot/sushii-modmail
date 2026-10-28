@@ -1,23 +1,46 @@
-name: Promote Production
+name: Review Production Release
 
 on:
   workflow_dispatch:
     inputs:
       staging_run_id:
-        description: "Successful completed staging CI run ID (from its GitHub URL)"
+        description: "CI run ID whose tested release you want to review"
         required: true
         type: string
 
 permissions: {}
 
 jobs:
-  promote:
+  review:
+    name: Open the original production approval
+    runs-on: ubuntu-latest
     permissions:
-      contents: read
       actions: read
-      statuses: write
-    uses: sushiibot/sushii-workflows/.github/workflows/release-promote.yml@8458e0588e5f938593046713faef1939fedd5f05 # release presets
-    with:
-      staging_run_id: ${{ inputs.staging_run_id }}
-    secrets:
-      SUSHII_CI_PRIVATE_KEY: ${{ secrets.SUSHII_CI_PRIVATE_KEY }}
+      contents: read
+    steps:
+      - name: Link the tested release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ inputs.staging_run_id }}
+        shell: python
+        run: |
+          import json, os, re, subprocess
+          from pathlib import Path
+          repo, run_id = os.environ['REPOSITORY'], os.environ['RUN_ID']
+          if not re.fullmatch(r'[1-9][0-9]*', run_id):
+              raise SystemExit('Enter a numeric CI run ID.')
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
+          info = api(f'repos/{repo}')
+          run = api(f'repos/{repo}/actions/runs/{run_id}')
+          if (run['repository']['id'] != info['id'] or run['head_repository']['id'] != info['id']
+                  or run['path'] != '.github/workflows/ci.yml' or run['event'] != 'push'
+                  or run['head_branch'] != info['default_branch']):
+              raise SystemExit('Select a default-branch CI push run from this repository.')
+          url = f'https://github.com/{repo}/actions/runs/{run_id}'
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as summary:
+              summary.write(f'[Open production approval and release status]({url})\n\n'
+                            'Review production in the original CI run after staging succeeds. '
+                            'This entry point does not approve or create a deployment. '
+                            'If the run failed, was cancelled, or was superseded, start a fresh CI push run.\n')
