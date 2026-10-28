@@ -12,7 +12,8 @@ on:
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Approval waits must not block newer main builds or cancel a release in progress.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'branch' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
