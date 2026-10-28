@@ -33,7 +33,7 @@ jobs:
   docker-build:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: sushiibot/sushii-workflows/.github/workflows/build-verified.yml@5584ab068ab9adf7918fac6263df307cdafbf106
+    uses: sushiibot/sushii-workflows/.github/workflows/build-verified.yml@d30a493a984ee392c6450271c4af6fcf9c3b69fc
     with:
       image_name: ghcr.io/sushiibot/modmail
     permissions:
