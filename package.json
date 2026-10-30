@@ -29,7 +29,6 @@
     "@opentelemetry/sdk-metrics": "^2.6.1",
     "@opentelemetry/sdk-trace-base": "^2.6.1",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@sentry/bun": "^10.42.0",
     "discord-api-types": "^0.37.119",
     "discord.js": "^14.27.0",
     "dotenv": "^16.4.7",

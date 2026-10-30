@@ -107,7 +107,7 @@ export class EnvBotRegistry implements BotRegistry {
     // an "duplicate application id" check but doesn't need the network
     // round trip that resolving each token's id would require. The token
     // itself is a secret, so redact it from the thrown message -- unlike
-    // mailGuildId/name, it must never end up in a log line or Sentry event.
+    // mailGuildId/name, it must never end up in a log line.
     this.assertUnique(roster, (e) => e.discordToken, "discordToken", {
       redactValue: true,
     });

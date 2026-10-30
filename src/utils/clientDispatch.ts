@@ -1,11 +1,10 @@
 import type { Client } from "discord.js";
-import * as Sentry from "@sentry/bun";
 import { runWithBot } from "./botContext";
 
 /**
  * Monkey-patches client.on/client.once so every event handler registered
- * after this call runs inside runWithBot(botName, ...) and a forked
- * Sentry scope tagged with the bot name. This lets registerEventHandlers'
+ * after this call runs inside runWithBot(botName, ...), so its log lines
+ * carry the bot name. This lets registerEventHandlers'
  * existing ~10 client.on/client.once call sites stay untouched -- the
  * wrapping happens once, here, instead of at each registration.
  */
@@ -31,10 +30,5 @@ function wrapListener(
   listener: (...args: unknown[]) => unknown
 ) {
   return (...args: unknown[]) =>
-    runWithBot(botName, () =>
-      Sentry.withScope((scope) => {
-        scope.setTag("bot", botName);
-        return listener(...args);
-      })
-    );
+    runWithBot(botName, () => listener(...args));
 }
